@@ -7,6 +7,7 @@ Sign-in, cloud sync and AI without personal API keys. It runs on Supabase, and u
 - `supabase/migrations/`: the database, its security rules and the usage limits.
 - `supabase/functions/ai/`: holds the Claude key, chooses the model and enforces limits.
 - `supabase/functions/delete-account/`: deletes an account and all its cloud data.
+- `supabase/functions/revenuecat/`: receives subscription events and sets the person's plan.
 - `eval/`: measures how well the AI understands real messages, and what each costs.
 - `tests/`: automated tests, plus `dev-backend.mjs`, a local stand-in for Supabase.
 
@@ -68,7 +69,29 @@ Edit the `tiers` table in the Supabase dashboard. No code change is needed.
 | free | 10 | no | no |
 | plus | 100 | yes | yes |
 
-The `app_limits` table holds a daily cap across all users, 2,000 requests to start with. To give someone the paid plan, set `tier` to `plus` on their row in `profiles`. Phase 4 will do this automatically from subscriptions.
+The `app_limits` table holds a daily cap across all users, 2,000 requests to start with. To give someone the paid plan by hand, set `tier` to `plus` on their row in `profiles` and leave `tier_expires_at` empty.
+
+## Subscriptions (RevenueCat)
+
+The `revenuecat` function receives RevenueCat's webhook and sets the person's plan. It is written and tested locally, but no real payment has gone through it yet. The app doesn't sell anything yet either: its plan screen shows a placeholder price.
+
+1. In RevenueCat, create an entitlement called `plus` and attach the subscription products to it.
+2. In the app, when payments are added, log in to RevenueCat with the Supabase user ID, so each purchase names the account.
+3. Pick a long random secret and store it:
+
+```bash
+npx supabase secrets set REVENUECAT_WEBHOOK_SECRET=YOUR_RANDOM_SECRET
+```
+
+4. Put the function online. RevenueCat has no Supabase sign-in, so the secret is the check:
+
+```bash
+npx supabase functions deploy revenuecat --no-verify-jwt
+```
+
+5. In RevenueCat, under **Integrations → Webhooks**, set the URL to `https://YOUR_PROJECT_REF.supabase.co/functions/v1/revenuecat` and the Authorization header to `Bearer YOUR_RANDOM_SECRET`. Send a test event: the function answers `test`.
+
+What each event does: a purchase, renewal or plan change gives `plus` until the period's end date; a cancellation or billing problem keeps `plus` until that date; an expiry returns the person to `free`; a transfer removes the plan from the old account. Each event counts once, older events that arrive late are ignored, and a plan past its end date counts as free even if a webhook was missed. Sandbox purchases count too, which is what TestFlight uses; to ignore them in production, also set `REVENUECAT_IGNORE_SANDBOX=true`. If your entitlement has another name, set `REVENUECAT_ENTITLEMENT`.
 
 ## Testing
 

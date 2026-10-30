@@ -573,3 +573,16 @@ test('on an iPhone, onboarding ends with a permissions step that explains before
     assert.match(run(`permBody()`), /Done/);
   } finally { run(`clearTimeout(remindT); delete window.Capacitor; SH = null; setMeta({remindAsked: false})`); }
 });
+
+test('the plan screen shows both limits and says plainly that the price is a placeholder', () => {
+  run(`SH = {}`);
+  const h = run(`planBody()`);
+  assert.match(h, /AI requests a day/);
+  assert.match(h, />10</); assert.match(h, />100</);
+  assert.match(h, /placeholder, not a real price/);
+  assert.match(h, /nothing is charged/);
+  assert.match(h, /<button class="btn block" disabled>/, 'nothing to buy yet');
+  run(`setMeta({claudeUsage: {'2026-10': {n: 3, in: 1000, out: 200}}})`);
+  assert.match(run(`usageBody()`), /3 requests · 1,000 tokens in, 200 out/);
+  run(`SH = null; setMeta({claudeUsage: {}})`);
+});

@@ -254,26 +254,29 @@ function attach(db){
   COLLS.forEach(c => {
     unsubs.push(db.collection(c).onSnapshot(snap => {
       const seen = new Set();
-      snap.docs.forEach(d => { if (d.exists) { const p = c+'/'+d.id; seen.add(p); S.docs[p] = d.data(); } });
+      snap.docs.forEach(d => { if (d.exists) { const p = c+'/'+d.id; seen.add(p); if (!localOnly.has(p)) S.docs[p] = d.data(); } });
       Object.keys(S.docs).forEach(k => { if (k.startsWith(c+'/') && !seen.has(k) && !localOnly.has(k)) delete S.docs[k]; });
       if (pending.has(c)) { pending.delete(c); if (!pending.size) onFirstLoad(); }
       scheduleRender();
     }));
   });
 }
-const localOnly = new Set();
+// path → local writes still on their way to the database; a snapshot taken between two quick saves must not bring back the older one
+const localOnly = new Map();
+const inFlight = path => localOnly.set(path, (localOnly.get(path) || 0) + 1);
+const landed = path => { const n = (localOnly.get(path) || 1) - 1; if (n > 0) localOnly.set(path, n); else localOnly.delete(path); };
 const chains = {};
 function save(path, data){
-  S.docs[path] = data; localOnly.add(path); syncMark(path); remindSoon();
-  chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(()=>localOnly.delete(path)).catch(e => {
-    localOnly.delete(path);
+  S.docs[path] = data; inFlight(path); syncMark(path); remindSoon();
+  chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(() => landed(path)).catch(e => {
+    landed(path);
     toast(e && e.name === 'QuotaExceededError' ? tr('В телефоне закончилось место для данных') : tr('Не сохранилось, попробуй ещё раз'));
   });
   scheduleRender();
 }
 function remove(path){
-  delete S.docs[path]; syncMark(path); remindSoon();
-  chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).delete()).catch(()=>toast(tr('Не удалилось')));
+  delete S.docs[path]; inFlight(path); syncMark(path); remindSoon();
+  chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).delete()).then(() => landed(path)).catch(() => { landed(path); toast(tr('Не удалилось')); });
   scheduleRender();
 }
 
@@ -292,6 +295,7 @@ function onFirstLoad(){
   if (!meta().badges) initBadges();
   langSync(hadPlan);
   ensureMigrated();
+  if (!hadPlan){ const pl = clone(plan()); if (useProgram(pl, 'home3')) save('app/plan', pl); } // a new install starts with no equipment assumed
   if (!meta().welcomed) setTimeout(() => A.welcome(), 700);
   Object.entries(S.docs).forEach(([k,v]) => { if (k.startsWith('jobs/') && v.status === 'running') save(k, {...v, status:'queued', using:null}); });
   // prune finished answers older than 30 days
@@ -353,7 +357,7 @@ function buildDay(date){
   const pl = plan();
   const tasks = [];
   const w = workoutFor(date);
-  if (w && pl.workouts[w]) tasks.push({id:'gym', title:tr('Зал · ')+pl.workouts[w].name.split(' · ')[0], cat:'gym', done:false});
+  if (w && pl.workouts[w]) tasks.push({id:'gym', title:gymWord()+pl.workouts[w].name.split(' · ')[0], cat:'gym', done:false});
   const cls = (pl.classes||[]).filter(c=>Number(c.day)===dow(date));
   if (cls.length) tasks.push({id:'study', title:tr('Учёба · ')+cls.length+' '+plural(cls.length,tr('пара'),tr('пары'),tr('пар')), cat:'study', done:false});
   const ps = posts().filter(p=>p.date===date && p.status!=='Опубликовано');
@@ -1380,7 +1384,7 @@ function hTrain(){
       <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;min-width:0"><div class="t" style="font-weight:700">${esc(e.name)}</div><div class="hint">${setsFor(e, logDate)} × ${e.lo}–${e.hi}${e.unit?' '+e.unit:tr(' повт.')} ${tr("· отдых")} ${esc(e.rest)}</div>${hint}</div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><button class="link" data-act="toggleOpen" data-k="ex_${e.id}">${open?tr('Скрыть'):tr('Как делать')}</button><button class="link" data-act="restStart" data-r="${esc(e.rest)}" data-n="${esc(e.name)}">${tr("Отдых")}</button></div></div>
       ${open?`<div class="note" style="margin-top:8px">${esc(e.how)}</div>`:''}
-      <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
+      <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit||e.bw?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit||e.bw?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
     </section>`;
   }).join('');
   if (sel===todayW || !todayW) h += `<button class="btn block" data-act="finishW" data-v="${sel}">${ic('check')}${trf('Тренировка {w} выполнена', {w: tr(sel)})}</button>`;
@@ -1392,7 +1396,7 @@ function hTrain(){
   const sp = [...Array(14)].map((_,i)=>addDays(date,i-13)).map(k=>({x:fmtShort(k).split(' ')[0], y:+(S.docs['days/'+k]?.steps||0)}));
   h += `<div class="sec-h"><h2>${tr("Шаги")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="stepsIn2">${tr("Шаги сегодня")}</label><input class="in" id="stepsIn2" inputmode="numeric" data-ch="steps" value="${d.steps??''}" placeholder="${tr("из приложения Здоровье на iPhone")}"></div>${barChart(sp,{target:tg.steps, unit:tr('шагов'), c:'c3', label:tr('Шаги за 14 дней'), colorFn:p=>p.y>=tg.steps?'var(--c3)':'#3a4a44'})}</section>`;
   // progress
-  const allEx = Object.values(pl.workouts).flatMap(w=>w.ex).filter(e=>!e.unit);
+  const allEx = Object.values(pl.workouts).flatMap(w=>w.ex).filter(e=>!e.unit && !e.bw).filter((e, i, a) => a.findIndex(x => x.id === e.id) === i);
   const pe = S.sub.pe || allEx[0]?.id;
   const ex = allEx.find(e=>e.id===pe) || allEx[0];
   const pts = dayKeys().filter(k=>S.docs['days/'+k].sets?.[ex.id]?.some(s=>s&&s.w&&s.r)).map(k=>{ const best = Math.max(...S.docs['days/'+k].sets[ex.id].filter(s=>s&&s.w&&s.r).map(s=>(+s.w)*(1+(+s.r)/30))); return {x:fmtShort(k), y:Math.round(W(best)*10)/10}; });
@@ -2716,23 +2720,54 @@ const EASY_WORKOUTS = {
   ]},
 };
 const EASY_SCHEDULE = {1:'Верх', 2:'Низ', 4:'Верх', 5:'Низ'};
+/* switches a plan copy to a program and starts its two easier weeks today */
+function useProgram(pl, k){
+  const pr = pl.programs?.[k]; if (!pr) return false;
+  pl.program = k; pl.schedule = clone(pr.schedule); if (k !== 'abc') pr.start = todayISO();
+  return true;
+}
+const gymWord = () => plan().program === 'home3' ? tr('Тренировка · ') : tr('Зал · ');
+/* --- at home, no equipment: a floor, a chair and a wall; full body three times a week --- */
+const HOME_WORKOUTS = {
+  'Дом 1': { name:tr('Дома 1 · всё тело'), note:tr('Без инвентаря: нужны пол, стул и стена. Усилие 6 из 10: заканчивай подход, когда осталось 3–4 повтора. Отдых 60–90 сек.'), ex:[
+    {id:'hsquat', bw:true, name:tr('Приседания до стула'), sets:3, lo:8, hi:12, rest:tr('60–90 сек'), how:tr('Сядь на край стула и встань, не помогая руками. Стопы на ширине плеч, колени идут по линии носков. Когда станет легко, только касайся стула.')},
+    {id:'hpush', bw:true, name:tr('Отжимания от стола или стены'), sets:3, lo:6, hi:12, rest:tr('60–90 сек'), how:tr('Чем выше опора, тем легче. Тело прямое, локти под углом около 45°. Когда 12 повторов даются легко, опора ниже: стол, потом пол с колен, потом пол.')},
+    {id:'hbridge', bw:true, name:tr('Ягодичный мост на полу'), sets:3, lo:10, hi:15, rest:tr('60 сек'), how:tr('Лёжа на спине, стопы у таза. Поднимай таз, вверху пауза 1 секунду. Когда станет легко, делай на одной ноге.')},
+    {id:'hsuper', bw:true, name:tr('Супермен лёжа'), sets:2, lo:8, hi:12, rest:tr('60 сек'), how:tr('Лёжа на животе, руки буквой Y. Подними руки и грудь на пару сантиметров, лопатки вниз и назад, пауза 2 секунды. Для спины и осанки.')},
+    {id:'hplank', name:tr('Планка'), sets:2, lo:20, hi:30, rest:tr('45 сек'), unit:tr('сек'), how:tr('Можно с колен. Таз подкручен, тело прямое. Остановись, если провисает поясница.')},
+  ]},
+  'Дом 2': { name:tr('Дома 2 · всё тело'), note:tr('Без инвентаря: нужны пол, стул и стена. Усилие 6 из 10: заканчивай подход, когда осталось 3–4 повтора. Отдых 60–90 сек.'), ex:[
+    {id:'hlunge', bw:true, name:tr('Выпады назад с опорой'), sets:3, lo:6, hi:10, rest:tr('60–90 сек'), how:tr('Держись за стену или спинку стула. Шаг назад, корпус прямой, колено опускается к полу. Повторы на каждую ногу.')},
+    {id:'hpush', bw:true, name:tr('Отжимания от стола или стены'), sets:3, lo:6, hi:12, rest:tr('60–90 сек'), how:tr('Чем выше опора, тем легче. Тело прямое, локти под углом около 45°. Когда 12 повторов даются легко, опора ниже: стол, потом пол с колен, потом пол.')},
+    {id:'hcalf', bw:true, name:tr('Подъёмы на носки'), sets:3, lo:12, hi:20, rest:tr('45 сек'), how:tr('Держись за стену. Вверху пауза, вниз 2 секунды. Когда станет легко, на одной ноге.')},
+    {id:'hside', name:tr('Боковая планка с колен'), sets:2, lo:15, hi:25, rest:tr('45 сек'), unit:tr('сек'), how:tr('На каждую сторону. Колени согнуты, локоть под плечом, таз поднят. Тело от головы до колен в одну линию.')},
+    {id:'deadbug', name:tr('Dead bug (мёртвый жук)'), sets:2, lo:8, hi:10, rest:tr('45 сек'), how:tr('Поясница прижата к полу. Опускай противоположные руку и ногу медленно. Повторы на каждую сторону.')},
+  ]},
+};
+const HOME_SCHEDULE = {1:'Дом 1', 3:'Дом 2', 5:'Дом 1'};
 const PROGRAM_DEFS = {
   easy4: {name:tr('Лёгкий старт · 4 дня'), info:tr('Пн Вт Чт Пт. Две недели по 2 подхода, потом 3. Усилие 6 из 10, крепатуры почти нет.'), keys:['Верх','Низ'], schedule:EASY_SCHEDULE},
+  home3: {name:tr('Дома без инвентаря · 3 дня'), info:tr('Пн Ср Пт, всё тело с весом своего тела: нужны только пол, стул и стена. Две недели по 2 подхода, потом 3. Усилие 6 из 10.'), keys:['Дом 1','Дом 2'], schedule:HOME_SCHEDULE},
   abc: {name:tr('Силовая · 3 дня (A/B/C)'), info:tr('Пн Ср Пт, тяжёлые базовые, 1–2 повтора в запасе. Для тех, кто уже тренируется регулярно.'), keys:['A','B','C'], schedule:{1:'A',3:'B',5:'C'}},
 };
 function migratePlan(p){
-  if (p.programs && (p.version||1) >= 2) return null;
+  if (p.programs && (p.version||1) >= 3) return null;
   const n = clone(p);
-  n.workouts = {...(n.workouts||{})};
-  Object.entries(EASY_WORKOUTS).forEach(([k,w]) => { if (!n.workouts[k]) n.workouts[k] = clone(w); });
-  const old = n.schedule || {};
-  const abc = Object.keys(old).length && Object.values(old).every(v => ['A','B','C'].includes(v)) ? clone(old) : {1:'A',3:'B',5:'C'};
-  n.programs = {easy4: {...clone(PROGRAM_DEFS.easy4), start: todayISO()}, abc: {...clone(PROGRAM_DEFS.abc), schedule: abc}};
-  n.program = 'easy4';
-  n.schedule = clone(EASY_SCHEDULE);
-  n.routine = n.routine || clone(DEFAULT_ROUTINE);
-  n.dailyTasks = (n.dailyTasks || []).map(t => t.cat === 'sleep' && /23:30/.test(t.title) ? {...t, title:tr('Лечь до 23:00, 7+ часов сна')} : t);
-  n.version = 2;
+  if (!(p.programs && (p.version||1) >= 2)){
+    n.workouts = {...(n.workouts||{})};
+    Object.entries(EASY_WORKOUTS).forEach(([k,w]) => { if (!n.workouts[k]) n.workouts[k] = clone(w); });
+    const old = n.schedule || {};
+    const abc = Object.keys(old).length && Object.values(old).every(v => ['A','B','C'].includes(v)) ? clone(old) : {1:'A',3:'B',5:'C'};
+    n.programs = {easy4: {...clone(PROGRAM_DEFS.easy4), start: todayISO()}, abc: {...clone(PROGRAM_DEFS.abc), schedule: abc}};
+    n.program = 'easy4';
+    n.schedule = clone(EASY_SCHEDULE);
+    n.routine = n.routine || clone(DEFAULT_ROUTINE);
+    n.dailyTasks = (n.dailyTasks || []).map(t => t.cat === 'sleep' && /23:30/.test(t.title) ? {...t, title:tr('Лечь до 23:00, 7+ часов сна')} : t);
+  }
+  // v3: a no-equipment program sits next to the others; whatever the person uses now stays selected
+  Object.entries(HOME_WORKOUTS).forEach(([k, w]) => { if (!n.workouts[k]) n.workouts[k] = clone(w); });
+  n.programs = {home3: clone(PROGRAM_DEFS.home3), ...n.programs};
+  n.version = 3;
   return n;
 }
 function ensureMigrated(){
@@ -2758,7 +2793,9 @@ A.programSheet = () => openSheet(tr('Программа тренировок'), 
 });
 A.setProgram = el => {
   const pl = clone(plan()), pr = pl.programs?.[el.dataset.k]; if (!pr) return;
-  pl.program = el.dataset.k; pl.schedule = clone(pr.schedule); save('app/plan', pl);
+  pl.program = el.dataset.k; pl.schedule = clone(pr.schedule);
+  if (el.dataset.k === 'home3' && !pr.start) pr.start = todayISO(); // two easier weeks to start
+  save('app/plan', pl);
   S.sub.w = null; closeSheet(); toast(tr('Программа: ') + pr.name);
 };
 A.setPrev = el => {
@@ -2826,14 +2863,14 @@ function dayBlocks(date){
         return cls.length ? {...b, note: cls.map(c => c.time + ' ' + c.title).join(' · ')} : b;
       }
       if (b.id === 'gym'){
-        if (gymW) return {...b, title:tr('Зал · ') + gymW.name.split(' · ')[0], gym:true, note: gymW.ex.length + tr(' упражнений. Усилие 6 из 10.')};
+        if (gymW) return {...b, title:gymWord() + gymW.name.split(' · ')[0], gym:true, note: gymW.ex.length + tr(' упражнений. Усилие 6 из 10.')};
         return {...b, title:tr('Свободное время или общество'), kind:'free', note:tr('Без силовой.')};
       }
       if (b.id === 'project' && !gymW) return {...b, e: hm('21:00'), title:tr('Проект · 1 ч 15 мин')};
       return b;
     });
   } else if (gymW){
-    bl.push({id:'gym', s: hm(key === 'sat' ? '14:00' : '11:00'), e: hm(key === 'sat' ? '15:00' : '12:00'), title:tr('Зал · ') + gymW.name.split(' · ')[0], kind:'gym', gym:true, note: gymW.ex.length + tr(' упражнений.'), walk:0});
+    bl.push({id:'gym', s: hm(key === 'sat' ? '14:00' : '11:00'), e: hm(key === 'sat' ? '15:00' : '12:00'), title:gymWord() + gymW.name.split(' · ')[0], kind:'gym', gym:true, note: gymW.ex.length + tr(' упражнений.'), walk:0});
   }
   eventsFor(date).forEach(ev => {
     if (ev.wake){ const w = bl.find(b => b.id === 'wake'); if (w) w.s = hm(ev.wake); }
@@ -3404,7 +3441,7 @@ function nowCard(){
 }
 
 /* ---- adaptive training ---- */
-const EFFORT = {easy4: 6, abc: 8};
+const EFFORT = {easy4: 6, home3: 6, abc: 8};
 function daysSinceGym(date){
   const ks = dayKeys().filter(k => k < date && S.docs['days/' + k].tasks?.some(t => t.id === 'gym' && t.done));
   return ks.length ? dayDiff(ks[ks.length - 1], date) : null;
@@ -3764,6 +3801,7 @@ function obBody(){
     <button class="btn block" data-act="obNext">${tr("Дальше")}</button>`;
   if (o.step === 1) return `${dots}<div class="t" style="font-weight:700;font-size:17px">${tr("Что хочешь отслеживать?")}</div><div class="hint">${tr("Выбери всё нужное. Изменить можно в любой момент.")}</div>
     <div class="ob-goals">${OB_GOALS.map(([k, l, i]) => `<button class="pill ${o.goals.includes(k) ? 'on' : ''}" data-act="obGoal" data-v="${k}" aria-pressed="${o.goals.includes(k)}">${ic(i)}${l}</button>`).join('')}</div>
+    ${o.goals.includes('gym') ? `<div class="field"><label id="obWhereL">${tr('Где будешь тренироваться?')}</label><div class="seg" role="group" aria-labelledby="obWhereL">${[['home', tr('Дома, без инвентаря')], ['gym', tr('В зале')]].map(([v, l]) => `<button class="${o.where === v ? 'on' : ''}" aria-pressed="${o.where === v}" data-act="obWhere" data-v="${v}">${l}</button>`).join('')}</div></div>` : ''}
     <div class="btnrow"><button class="btn ghost" data-act="obBack">${tr("Назад")}</button><button class="btn" data-act="obNext">${tr("Дальше")}</button></div>`;
   return `${dots}<div class="t" style="font-weight:700;font-size:17px">${tr("Твой обычный день")}</div>
     <div class="fgrid"><div class="field"><label for="obW">${tr("Встаю в")}</label><input class="in" type="time" id="obW" value="${esc(o.wake)}"></div><div class="field"><label for="obS">${tr("Ложусь в")}</label><input class="in" type="time" id="obS" value="${esc(o.sleep)}"></div></div>
@@ -3773,7 +3811,8 @@ function obBody(){
     <div class="btnrow"><button class="btn ghost" data-act="obBack">${tr("Назад")}</button><button class="btn" data-act="obDone">${tr("Готово")}</button></div>`;
 }
 const obRead = () => { const o = SH.ob; [['obN', 'name'], ['obW', 'wake'], ['obS', 'sleep'], ['obC', 'cur'], ['obA', 'about']].forEach(([id, k]) => { if ($('#' + id)) o[k] = val(id); }); };
-A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: '', about: ''}; return obBody(); });
+A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: '', about: '', where: 'home'}; return obBody(); });
+A.obWhere = el => { SH.ob.where = el.dataset.v; drawSheet(); };
 A.obRole = el => { obRead(); SH.ob.role = el.dataset.v; drawSheet(); };
 A.obGoal = el => { const o = SH.ob, v = el.dataset.v; o.goals = o.goals.includes(v) ? o.goals.filter(x => x !== v) : [...o.goals, v]; drawSheet(); };
 A.obNext = () => { obRead(); SH.ob.step++; drawSheet(); };
@@ -3784,6 +3823,7 @@ A.obDone = () => {
   pl.routine = routineFor(o);
   pl.dailyTasks = [g.includes('walk') && {id:'steps', title:tr('8 000+ шагов'), cat:'steps'}, g.includes('food') && {id:'food', title:tr('Питание по норме КБЖУ'), cat:'food'}, g.includes('sleep') && {id:'sleep', title:tr('Лечь вовремя, 7+ часов сна'), cat:'sleep'}].filter(Boolean);
   if (!g.includes('gym')){ pl.schedule = {}; pl.program = null; }
+  else useProgram(pl, o.where === 'gym' ? 'easy4' : 'home3');
   save('app/plan', pl);
   save('app/profile', {...clone(profile()), name: o.name, role: o.role, about: [{study:tr('Студент.'), work:tr('Работает.'), other:''}[o.role], o.about].filter(Boolean).join(' '), currency: o.cur});
   setMeta({welcomed: true, startedOn: todayISO(), startedAt: nowMin(), modules: {money: g.includes('money'), content: g.includes('content'), screentime: g.includes('screen')}});

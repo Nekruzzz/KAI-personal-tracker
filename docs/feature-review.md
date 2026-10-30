@@ -16,12 +16,11 @@ KAI does a lot. For a stranger opening it for the first time, every extra screen
 
 ## Worth merging
 
-7. **Progress appears in seven places:** the progress card, level bar, week strip, the stats card with its 30-day heat map, streak, awards and the weekly recap. One "Progress" area with tabs would be simpler.
-8. **Reminders exist twice on the web:** iPhone Calendar files (.ics) and in-app reminders. In the iPhone app only in-app reminders are shown, which is right. On the web, consider offering just one.
+7. **Progress appeared in seven places.** It's now one folded "Progress and awards" section on the Day tab, plus the streak chip and the weekly recap. Merging the recap into that section is the remaining step.
 
 ## Safety question, not just simplicity
 
-9. **Supplements** are now switched off entirely (see below). Before that, sports supplements were also hidden for under-18s.
+8. **Supplements** are now switched off entirely (see below). Before that, sports supplements were also hidden for under-18s.
 
 ## Removed or folded away at the owner's request
 

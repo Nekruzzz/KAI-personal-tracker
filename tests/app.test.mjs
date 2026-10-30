@@ -720,3 +720,23 @@ test('under 18, sports supplements are not suggested, and a doctor is', () => {
   setProfile({age: 30, height: 175, weight: 80, goal: 'keep'});
   assert.match(run(`suppPresetsHTML()`), /Caffeine/);
 });
+
+test('first sync on a device: the cloud copy wins, a backup of what it replaces is kept, and what exists only here is uploaded', async () => {
+  const y = run(`addDays(todayISO(), -1)`), z = run(`addDays(todayISO(), -2)`);
+  run(`mutDay('${y}', d => { d.steps = 111; }); mutDay('${z}', d => { d.steps = 222; })`);
+  const cloudDay = JSON.parse(run(`JSON.stringify({...getDay('${y}'), steps: 999})`));
+  run(`globalThis.toasts = []; globalThis.toast0 = toast; toast = m => toasts.push(m); globalThis.backups = [];
+    globalThis.af0 = apiFetch; apiFetch = async path => ({ok: true, status: 200, json: async () => path.includes('rev=gt.0') ? [{path: 'days/${y}', data: ${JSON.stringify(cloudDay)}, deleted: false, rev: 7, client_ts: 1}] : []})`);
+  try {
+    run(`syncSave({owner: 'u', first: true, dirty: {}})`);
+    await run(`syncFirst()`);
+    assert.equal(run(`getDay('${y}').steps`), 999, 'the cloud copy is used');
+    assert.equal(run(`getDay('${z}').steps`), 222, 'a day only on this phone stays');
+    const st = JSON.parse(run(`JSON.stringify(syncState())`));
+    assert.ok(st.dirty[`days/${z}`], 'and is queued for upload');
+    assert.ok(!st.dirty[`days/${y}`], 'the day that came from the cloud is not sent back');
+    assert.equal(st.cursor, 7);
+    assert.equal(st.first, false);
+    assert.ok(run(`toasts.some(t => /a copy from this phone was saved/i.test(t))`), run(`toasts.join(' | ')`));
+  } finally { run(`apiFetch = af0; toast = toast0; clearTimeout(syncTimer); syncSave(null)`); }
+});

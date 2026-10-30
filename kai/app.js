@@ -716,6 +716,7 @@ function queueNow(id, outId){ if (!id || !SH) return; SH.jobId = id; SH.outId = 
 
 /* provider picker used in every AI sheet */
 function provPicker(needImg){
+  if (PROV_LIST().filter(provConfigured).length < 2 && !(SH?.prov && SH.prov !== 'auto')) return ''; // a choice only matters with two or more set up
   const cur = SH?.prov || 'auto';
   const opts = [['auto',tr('Авто')], ...PROV_LIST().map(p=>[p, PROV[p].short])];
   return `<div class="field"><label>${tr("Какой ИИ")}</label><div class="seg">${opts.map(([v,l])=>{ const ok = v==='auto' || provReady(v, needImg); const off = v==='phone' && needImg; return `<button class="${cur===v?'on':''}" data-act="pickProv" data-v="${v}" ${off?tr('disabled title="ИИ в телефоне не видит картинки"'):''}>${l}${v!=='auto'?`<span class="pdot" style="background:${off?'#444':ok?'var(--good)':'#555'}"></span>`:''}</button>`; }).join('')}</div>

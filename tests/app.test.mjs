@@ -699,3 +699,11 @@ test('cached minutes per day follow changes to the day and to the plan', () => {
   run(`globalThis.__x = timeOn('${d}'); save('app/plan', clone(plan()))`);
   assert.equal(run(`timeOn('${d}') !== globalThis.__x`), true, 'a changed plan is counted again');
 });
+
+test('the "which AI" choice only appears once two AIs are set up', () => {
+  run(`SH = {}; save('app/ai', {...(S.docs['app/ai'] || {}), claude: {key: ''}, openai: {key: ''}})`);
+  assert.equal(run(`provPicker(false)`), '');
+  run(`save('app/ai', {...S.docs['app/ai'], claude: {key: 'k1'}, openai: {key: 'k2'}})`);
+  assert.match(run(`provPicker(false)`), /Which AI/);
+  run(`save('app/ai', {...S.docs['app/ai'], claude: {key: ''}, openai: {key: ''}}); SH = null`);
+});

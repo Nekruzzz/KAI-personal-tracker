@@ -696,10 +696,6 @@ test('cached minutes per day follow changes to the day and to the plan', () => {
   assert.equal(run(`timeOn('${d}') === timeOn('${d}')`), true, 'second call is cached');
   run(`mutDay('${d}', x => { x.timeExtra = {study: 45}; })`);
   assert.equal(run(`timeOn('${d}').study`), 45, 'a changed day is counted again');
-  const before = run(`timeOn('${d}')`);
-  run(`save('app/plan', clone(plan()))`);
-  assert.equal(run(`timeOn('${d}') === ${JSON.stringify(null)} || timeOn('${d}') !== globalThis.__x`), true);
-  run(`globalThis.__x = timeOn('${d}')`); run(`save('app/plan', clone(plan()))`);
+  run(`globalThis.__x = timeOn('${d}'); save('app/plan', clone(plan()))`);
   assert.equal(run(`timeOn('${d}') !== globalThis.__x`), true, 'a changed plan is counted again');
-  assert.ok(before);
 });

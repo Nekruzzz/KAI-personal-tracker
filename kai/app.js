@@ -1689,9 +1689,9 @@ const PRODUCTS = [
 
 /* ---- supplements with solid evidence, usable without AI ---- */
 const SUPP_PRESETS = [
-  {name:tr('Креатин моногидрат'), what:tr('Самая изученная спортивная добавка: при силовых тренировках даёт больше силы и мышечной массы.'), dose:tr('3–5 г в день'), timing:tr('Каждый день в любое время, без курсов и «загрузки»'), withFood:tr('Не важно, удобно с едой'), evidence:'сильная', cautions:tr('В первые недели вес может вырасти на 0,5–1,5 кг за счёт воды в мышцах — это не жир.')},
-  {name:tr('Кофеин'), what:tr('Повышает силу и выносливость на тренировке.'), dose:tr('3–6 мг на кг веса (начни с 3 мг/кг)'), timing:tr('За 30–60 минут до тренировки'), withFood:tr('Не важно'), evidence:'сильная', cautions:tr('Не позже чем за 8 часов до сна, иначе ухудшит сон. Не больше 400 мг в день из всех источников.')},
-  {name:tr('Сывороточный протеин'), what:tr('Удобно добрать дневную норму белка. Сам по себе не лучше белка из еды.'), dose:tr('20–40 г порошка, когда не хватает белка'), timing:tr('В любое время дня'), withFood:tr('Как перекус или вместе с едой'), evidence:'сильная', cautions:tr('Если важен халяль или кошер, проверь сертификат на банке.')},
+  {adult:true, name:tr('Креатин моногидрат'), what:tr('Самая изученная спортивная добавка: при силовых тренировках даёт больше силы и мышечной массы.'), dose:tr('3–5 г в день'), timing:tr('Каждый день в любое время, без курсов и «загрузки»'), withFood:tr('Не важно, удобно с едой'), evidence:'сильная', cautions:tr('В первые недели вес может вырасти на 0,5–1,5 кг за счёт воды в мышцах — это не жир.')},
+  {adult:true, name:tr('Кофеин'), what:tr('Повышает силу и выносливость на тренировке.'), dose:tr('3–6 мг на кг веса (начни с 3 мг/кг)'), timing:tr('За 30–60 минут до тренировки'), withFood:tr('Не важно'), evidence:'сильная', cautions:tr('Не позже чем за 8 часов до сна, иначе ухудшит сон. Не больше 400 мг в день из всех источников.')},
+  {adult:true, name:tr('Сывороточный протеин'), what:tr('Удобно добрать дневную норму белка. Сам по себе не лучше белка из еды.'), dose:tr('20–40 г порошка, когда не хватает белка'), timing:tr('В любое время дня'), withFood:tr('Как перекус или вместе с едой'), evidence:'сильная', cautions:tr('Если важен халяль или кошер, проверь сертификат на банке.')},
   {name:tr('Витамин D3'), what:tr('Полезен при дефиците, без дефицита на мышцы и жир не влияет.'), dose:tr('Обычно 1000–2000 МЕ в день, лучше по анализу 25(OH)D'), timing:tr('Утром'), withFood:tr('С едой, в которой есть жир'), evidence:'умеренная', cautions:tr('Большие дозы без анализа не принимай.')},
   {name:tr('Омега-3'), what:tr('Польза для сердца и сосудов; на сжигание жира и рост мышц влияние слабое.'), dose:tr('1–2 г EPA+DHA в день'), timing:tr('С едой'), withFood:tr('С едой'), evidence:tr('слабая'), cautions:tr('Капсулы часто из желатина: если это важно, проверь состав.')},
 ];
@@ -1979,11 +1979,12 @@ function photoCompare(){
 }
 
 /* ============ supplements: evidence-based presets ============ */
+const isMinor = () => { const a = toNum(profile().age); return !!a && a < 18; };
 function suppPresetsHTML(){
-  const have = new Set((plan().supps||[]).map(s=>s.name));
-  const rest = SUPP_PRESETS.filter(s=>!have.has(s.name));
+  const have = new Set((plan().supps||[]).map(s=>s.name)), minor = isMinor();
+  const rest = SUPP_PRESETS.filter(s=>!have.has(s.name) && !(minor && s.adult)); // sports supplements are for adults
   if (!rest.length) return '';
-  return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("С доказанной пользой")}</b><div class="hint">${tr("Справка уже внутри, интернет не нужен. Нажми, чтобы добавить в список.")}</div>
+  return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("С доказанной пользой")}</b><div class="hint">${tr("Справка уже внутри, интернет не нужен. Нажми, чтобы добавить в список.")}</div>${minor ? `<div class="note">${tr('До 18 лет спортивные добавки вроде креатина и кофеина не советуют. Любые добавки лучше обсудить с врачом.')}</div>` : ''}
     ${rest.map(s=>`<button class="row" data-act="suppPreset" data-n="${esc(s.name)}" style="padding:8px 0"><div class="mid"><div class="t">${esc(s.name)}</div><div class="s">${esc(s.dose)} · ${esc(s.what)}</div></div><span class="tag ${s.evidence==='сильная'?'good':s.evidence==='умеренная'?'warn':''}">${esc(tr(s.evidence))}</span></button>`).join('')}</section>`;
 }
 A.suppPreset = el => { const s = SUPP_PRESETS.find(x=>x.name===el.dataset.n); if (!s) return; const p = clone(plan()); p.supps = p.supps||[]; p.supps.push({...s}); if (!p.dailyTasks.some(t=>t.cat==='supps')) p.dailyTasks.push({id:'supps', title:tr('Принять БАДы'), cat:'supps'}); save('app/plan', p); toast(s.name+tr(' добавлен')); };
@@ -4526,7 +4527,7 @@ function usageBody(){
     }
   }
   const own = Object.entries(meta().claudeUsage || {}).sort().reverse().slice(0, 6);
-  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Свой ключ Claude')}</b>${own.length ? `<div class="list">${own.map(([m, u]) => `<div class="row" style="padding:8px 0"><div class="mid"><div class="t">${esc(new Date(m + '-15').toLocaleDateString(LOCALE, {month: 'long', year: 'numeric'}))}</div><div class="s">${trf('{n} запросов · {i} входящих и {o} исходящих токенов', {n: u.n, i: num(u.in), o: num(u.out)})}</div></div></div>`).join('')}</div><div class="hint">${tr('Оплата идёт напрямую в Anthropic по твоему ключу. Точную сумму смотри в их консоли.')}</div>` : `<div class="hint">${tr('Запросов по своему ключу пока не было.')}</div>`}</section>`;
+  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Свой ключ Claude')}</b>${own.length ? `<div class="list">${own.map(([m, u]) => `<div class="row" style="padding:8px 0"><div class="mid"><div class="t">${esc(new Date(m + '-15').toLocaleDateString(LOCALE, {month: 'long', year: 'numeric'}))}</div><div class="s">${trf('{n} {r} · {i} входящих и {o} исходящих токенов', {n: u.n, r: plural(u.n, tr('запрос'), tr('запроса'), tr('запросов')), i: num(u.in), o: num(u.out)})}</div></div></div>`).join('')}</div><div class="hint">${tr('Оплата идёт напрямую в Anthropic по твоему ключу. Точную сумму смотри в их консоли.')}</div>` : `<div class="hint">${tr('Запросов по своему ключу пока не было.')}</div>`}</section>`;
   const jobs = Object.keys(S.docs).filter(k => k.startsWith('jobs/')).map(k => S.docs[k]), wait = jobs.filter(j => j.status === 'queued' || j.status === 'running').length, bad = jobs.filter(j => j.status === 'error').length;
   if (wait || bad) h += `<section class="card navrow" style="cursor:pointer" data-act="aiSheet"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Очередь ИИ')}</div><div class="s">${trf('ждут: {w} · с ошибкой: {b}', {w: wait, b: bad})}</div></div>${ic('chevR')}</section>`;
   return h;

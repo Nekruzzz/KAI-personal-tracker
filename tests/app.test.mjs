@@ -584,6 +584,8 @@ test('the plan screen shows both limits and says plainly that the price is a pla
   assert.match(h, /<button class="btn block" disabled>/, 'nothing to buy yet');
   run(`setMeta({claudeUsage: {'2026-10': {n: 3, in: 1000, out: 200}}})`);
   assert.match(run(`usageBody()`), /3 requests · 1,000 tokens in, 200 out/);
+  run(`setMeta({claudeUsage: {'2026-10': {n: 1, in: 10, out: 2}}})`);
+  assert.match(run(`usageBody()`), /1 request · 10 tokens in, 2 out/);
   run(`SH = null; setMeta({claudeUsage: {}})`);
 });
 
@@ -706,4 +708,15 @@ test('the "which AI" choice only appears once two AIs are set up', () => {
   run(`save('app/ai', {...S.docs['app/ai'], claude: {key: 'k1'}, openai: {key: 'k2'}})`);
   assert.match(run(`provPicker(false)`), /Which AI/);
   run(`save('app/ai', {...S.docs['app/ai'], claude: {key: ''}, openai: {key: ''}}); SH = null`);
+});
+
+test('under 18, sports supplements are not suggested, and a doctor is', () => {
+  run(`save('app/plan', {...clone(plan()), supps: []})`);
+  setProfile({age: 16, height: 170, weight: 60, goal: 'keep'});
+  const kid = run(`suppPresetsHTML()`);
+  assert.doesNotMatch(kid, /Caffeine|Creatine|Whey/);
+  assert.match(kid, /Vitamin D3/);
+  assert.match(kid, /Talk to a doctor/);
+  setProfile({age: 30, height: 175, weight: 80, goal: 'keep'});
+  assert.match(run(`suppPresetsHTML()`), /Caffeine/);
 });

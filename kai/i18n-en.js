@@ -1867,7 +1867,7 @@ window.I18N_EN = {
 "За 30 дней: {n}":"Last 30 days: {n}",
 "Загружаю…":"Loading…",
 "Свой ключ Claude":"Your own Claude key",
-"{n} запросов · {i} входящих и {o} исходящих токенов":"{n} requests · {i} tokens in, {o} out",
+"{n} {r} · {i} входящих и {o} исходящих токенов":"{n} {r} · {i} tokens in, {o} out",
 "Оплата идёт напрямую в Anthropic по твоему ключу. Точную сумму смотри в их консоли.":"You pay Anthropic directly for your key. See their console for the exact amount.",
 "Запросов по своему ключу пока не было.":"No requests with your own key yet.",
 "Очередь ИИ":"AI queue",
@@ -1880,4 +1880,5 @@ window.I18N_EN = {
 "Нет интернета. Запрос сохранён в очереди и отправится сам, когда связь вернётся. Можешь закрыть окно: ответ придёт в раздел «ИИ».":"You're offline. The request is saved in the queue and will be sent when you're back online. You can close this: the answer will appear in the AI section.",
 "Сервер не принял записей: {n}, обычно из-за размера. Они сохранены на телефоне и попадут в облако после следующего изменения.":"The server didn't accept {n} entries, usually because of their size. They're saved on this phone and will go to the cloud after their next change.",
 "Облачная копия отстаёт: изменений ждут отправки {n}. Всё сохранено на телефоне, отправлю, когда сервер ответит.":"The cloud copy is behind: {n} changes are waiting to upload. Everything is saved on this phone, and I'll send it when the server responds.",
+"До 18 лет спортивные добавки вроде креатина и кофеина не советуют. Любые добавки лучше обсудить с врачом.":"Under 18, sports supplements like creatine and caffeine aren't recommended. Talk to a doctor before taking any supplement.",
 };

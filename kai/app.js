@@ -1202,6 +1202,7 @@ function viewDay(){
       <button data-act="rate">${ic('star')}${d.rating?'<span class="stars">'+'★'.repeat(d.rating)+'<i>'+'★'.repeat(5-d.rating)+'</i></span>':tr('Оценить день')}</button>
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
+  h += firstTellCard();
   h += yesterdayBanner();
   h += recapBanner();
   h += warnCard();
@@ -1223,7 +1224,7 @@ function viewDay(){
     let bg = '#2b2c2f', txt = '';
     if (dd?.status==='sick') { bg='var(--sick)'; txt=tr('Б'); }
     else if (s!=null && (past || ds===date)) { bg = s>=.7?'var(--good)':s>0?'var(--warn)':'var(--bad)'; txt = s>=.7 ? ic('check') : Math.round(s*100); }
-    else if (past) { bg='#3a1717'; txt='–'; }
+    else if (past && ds >= trackedFrom()) { bg='#3a1717'; txt='–'; } // days before KAI was installed aren't missed
     const w = workoutFor(ds);
     return `<div class="wd ${ds===date?'today':''}"><span>${DOW[i+1]}</span><span class="dot" style="background:${bg}">${txt}</span><span>${w?tr(w):'·'}</span></div>`;
   }).join('')}</div><div class="legend" style="margin-top:12px"><span><i style="background:var(--good)"></i>70%+</span><span><i style="background:var(--warn)"></i>${tr("частично")}</span><span><i style="background:var(--bad)"></i>${tr("пропуск")}</span><span><i style="background:var(--sick)"></i>${tr("болел")}</span><span>${tr("буква — тренировка")}</span></div></section>`;
@@ -1236,7 +1237,7 @@ function viewDay(){
   h += `<div class="sec-h"><h2>${tr("Статистика")}</h2><button class="link" data-act="season">${tr("Сезон")}</button></div>
   <section class="card" style="display:flex;flex-direction:column;gap:14px">
     <div class="stat3"><div><span class="st-ic">${flame(flameLevel(st), st?'lit':'', 16)}</span><b>${st}</b><span>${tr("серия · рекорд")} ${Math.max(st, bestStreak())}</span></div><div><span class="st-ic" style="color:var(--good)">${ic('checkc')}</span><b>${Math.round(avg7*100)}%</b><span>${tr("выполнено за 7 дн")}</span></div><div><span class="st-ic" style="color:var(--c1)">${ic('gym')}</span><b>${gymDone}</b><span>${tr("тренировок в сезоне")}</span></div></div>
-    <div><div class="hint" style="margin-bottom:8px">${tr("Последние 30 дней")}</div><div class="heat">${[...Array(30)].map((_,i)=>{ const k = addDays(date, i-29), dd = S.docs['days/'+k], sc2 = dd?dayScore(dd):null; let c = '#232326'; if (dd?.status==='sick') c='var(--sick)'; else if (sc2!=null) c = sc2>=.7?'var(--good)':k===date?'#3a3d41':sc2>=.4?'var(--warn)':'var(--bad)'; else if (k<date && k>=s.start) c='#3a1717'; return `<i style="background:${c}" title="${fmtShort(k)}${sc2!=null?': '+Math.round(sc2*100)+'%':''}"></i>`; }).join('')}</div></div>
+    <div><div class="hint" style="margin-bottom:8px">${tr("Последние 30 дней")}</div><div class="heat">${[...Array(30)].map((_,i)=>{ const k = addDays(date, i-29), dd = S.docs['days/'+k], sc2 = dd?dayScore(dd):null; let c = '#232326'; if (dd?.status==='sick') c='var(--sick)'; else if (sc2!=null) c = sc2>=.7?'var(--good)':k===date?'#3a3d41':sc2>=.4?'var(--warn)':'var(--bad)'; else if (k<date && k>=s.start && k>=trackedFrom()) c='#3a1717'; return `<i style="background:${c}" title="${fmtShort(k)}${sc2!=null?': '+Math.round(sc2*100)+'%':''}"></i>`; }).join('')}</div></div>
     <div><div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span>${esc(s.title)}</span><span class="muted">${tr("день")} ${di} ${tr("из")} ${s.length||90}</span></div><div class="bar"><i style="width:${Math.min(100,di/(s.length||90)*100)}%;background:var(--accent)"></i></div></div>
   </section>`;
   h += weekCard();
@@ -1333,7 +1334,8 @@ function hFood(){
   h += `<div class="sec-h"><h2>${tr("Съедено сегодня")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${(d.meals||[]).map((m,i)=>`<div class="row"><span class="ic">${ic('food')}</span><div class="mid"><div class="t">${esc(m.name)}</div><div class="s">${esc(m.time||'')} ${tr("· Б")} ${num(m.p)} ${tr("· Ж")} ${num(m.f)} ${tr("· У")} ${num(m.c)}${m.verdict?' · '+esc(m.verdict):''}</div></div><div class="r">${num(m.kcal)}<small>${tr("ккал")}</small></div><button class="iconbtn" data-act="delMeal" data-i="${i}" aria-label="${tr("Удалить")}" style="color:var(--text-3)">${ic('x')}</button></div>`).join('') || emptyState('food',tr('Пока ничего. Сфоткай первый приём пищи или выбери продукты.'))}</div></section>`;
   // 7 days
   const pts = [...Array(7)].map((_,i)=>addDays(todayISO(), i-6)).map(k=>({x:DOW[dow(k)], y: eaten(S.docs['days/'+k]||{meals:[]}).kcal, p: eaten(S.docs['days/'+k]||{meals:[]}).p}));
-  h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Калории по дням")}</div>${barChart(pts, {target:t.ok?t.kcal:null, unit:tr('ккал'), c:'c1', label:tr('Калории за 7 дней')})}
+  if (!pts.some(p => p.y)) h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card">${emptyState('activity', tr('Графики калорий и белка появятся, когда запишешь первую еду.'))}</section>`;
+  else h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Калории по дням")}</div>${barChart(pts, {target:t.ok?t.kcal:null, unit:tr('ккал'), c:'c1', label:tr('Калории за 7 дней')})}
     <div class="hint" style="margin:14px 0 6px">${tr("Белок по дням, г")}</div>${barChart(pts.map(p=>({x:p.x,y:p.p})), {target:t.ok?t.p:null, unit:tr('г'), c:'c1', label:tr('Белок за 7 дней')})}</section>`;
   h += adaptiveCard();
   // menu
@@ -1513,13 +1515,14 @@ function viewMoney(){
   <div class="grid2"><button class="mini ${sel==='out'?'on':''}" data-act="sub" data-k="money" data-v="out"><div style="flex:1;min-width:0"><div class="lbl">${tr("Расходы")}</div><div class="val">${money(so)}</div></div>${donut(segsFor(go,'out'),46,7)}</button>
   <button class="mini ${sel==='in'?'on':''}" data-act="sub" data-k="money" data-v="in"><div style="flex:1;min-width:0"><div class="lbl">${tr("Доходы")}</div><div class="val">${money(si)}</div></div>${donut(segsFor(gi,'in'),46,7)}</button></div>
   ${budgetCard(m, so)}
-  <section class="card"><div class="seg"><button class="${sel==='out'?'on':''}" data-act="sub" data-k="money" data-v="out">${tr("Расходы")}</button><button class="${sel==='in'?'on':''}" data-act="sub" data-k="money" data-v="in">${tr("Доходы")}</button></div>
+  ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="seg"><button class="${sel==='out'?'on':''}" data-act="sub" data-k="money" data-v="out">${tr("Расходы")}</button><button class="${sel==='in'?'on':''}" data-act="sub" data-k="money" data-v="in">${tr("Доходы")}</button></div>
     <div class="hero-num" style="margin-top:16px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>
     <div style="display:grid;place-items:center;margin:14px 0">${donut(segsFor(G, sel), 190, 26)}</div>
-    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${num(g.sum/(SUM||1)*100,2)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`;
+    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${num(g.sum/(SUM||1)*100,2)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
   const byDate = {}; monthTx(m).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
   const dates = Object.keys(byDate).sort().reverse();
+  if (!dates.length) return h;
   h += `<div class="sec-h"><h2>${tr("История")}</h2></div>`;
   h += dates.length ? dates.map(k=>`<section class="card" style="padding:4px 18px"><div class="hint" style="padding:10px 0 2px">${fmtDay(k)}</div><div class="list">${byDate[k].map(t=>{ const inf = catInfo(t.type,t.cat); return `<button class="row" data-act="txEdit" data-id="${t.id}"><span class="ic" style="background:var(--${inf[1]});color:#fff">${ic(inf[2])}</span><div class="mid"><div class="t">${esc(t.note||tr(t.cat))}</div><div class="s" style="${t.status==='fail'?'color:var(--bad)':''}">${t.status==='fail'?tr('Неуспешно'):esc(tr(t.cat))}${t.count>1?' · '+t.count+tr(' операций'):''}</div></div><div class="r" style="color:${t.status==='fail'?'var(--bad)':t.type==='in'?'var(--good)':'var(--text)'}">${t.type==='in'?'+':'−'}${money(t.amount)}</div></button>`; }).join('')}</div></section>`).join('') : `<section class="card"><div class="empty">${tr("За этот месяц нет операций")}</div></section>`;
   return h;
@@ -3153,7 +3156,7 @@ function taskCard(){
       <div class="btnrow"><button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
   };
   const doneToday = smartTasks().filter(t => t.done && t.doneAt === today).length;
-  return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) : tr('всё сделано')}${doneToday ? tr(' · готово ') + doneToday : ''}</span></div>
+  return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) + (doneToday ? tr(' · готово ') + doneToday : '') : doneToday ? tr('всё сделано') : ''}</span></div>
   <section class="card" style="padding:12px 16px 6px">
     <div class="qadd"><input class="in" id="qa" placeholder="${tr("Что нужно сделать?")}" enterkeyhint="done" aria-label="${tr("Новая задача")}" autocomplete="off"><button class="btn" data-act="qaAdd" aria-label="${tr("Добавить задачу")}">${ic('plus')}</button></div>
     <div class="list">${now.map(row).join('') || `<div class="hint" style="padding:12px 0">${tr("Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30»: срок и время я пойму сам.")}</div>`}</div>
@@ -3621,6 +3624,7 @@ function progressCard(){
   const delta = prev.total ? Math.round((cur.total - prev.total) / prev.total * 100) : null;
   const pts = len > 1 ? span(t, len).map(k => { const x = timeSum([k]); return {x: fmtShort(k).split(' ')[0], y: Math.round(x.total / 6) / 10}; }) : [];
   const seasonTotal = dayKeys().filter(k => k >= season().start && k <= t).reduce((a, k) => a + timeSum([k]).total, 0);
+  if (!seasonTotal && firstWeek()) return '';
   return `<div class="sec-h"><h2>${tr("Мой прогресс")}</h2><button class="link" data-act="recap">${tr("Итоги недели")}</button></div><section class="card" style="display:flex;flex-direction:column;gap:14px">${levelRow()}
     <div class="seg">${[['day', tr('Сегодня')], ['week', tr('7 дней')], ['month', tr('30 дней')]].map(([v, l]) => `<button class="${per === v ? 'on' : ''}" data-act="sub" data-k="prog" data-v="${v}">${l}</button>`).join('')}</div>
     <div class="ptiles">${tile('steps', 'c3', fmtMin(cur.walk), tr('ходьба'))}${tile('gym', 'c1', fmtMin(cur.gym), tr('зал'))}${tile('cap', 'c4', fmtMin(cur.study), tr('учёба'))}${tile('flame', 'warn', len > 1 ? cur.active + tr(' из ') + len : (cur.active ? tr('да') : tr('пока нет')), tr('активных дней'))}</div>
@@ -4327,6 +4331,28 @@ document.addEventListener('visibilitychange', () => {
   remindSoon();
   if (Date.now() - (S.healthAt || 0) > 30 * 60000){ S.healthAt = Date.now(); healthImport().catch(() => {}); }
 });
+
+/* ============ first week: one obvious first step, and less on screen until there is something to show ============ */
+const trackedFrom = () => meta().startedOn || dayKeys()[0] || todayISO();
+const firstWeek = () => { const st = meta().startedOn; return !!st && dayDiff(st, todayISO()) < 7; };
+// someone who already sent a message, or has one waiting, has found KAI; old installs count by what they logged
+const hasTold = () => !!meta().toldOnce || Object.keys(S.docs).some(k => (k.startsWith('jobs/') || k.startsWith('inbox/')) && S.docs[k]?.kind === 'tell') || dayKeys().some(k => S.docs['days/' + k]?.log?.length);
+const TELL_EXAMPLES = () => [tr('Съел овсянку с бананом и выпил кофе'), tr('Гулял 40 минут, спал 7 часов'), tr('Потратил 12 на обед'), tr('В пятницу в 10:00 экзамен')];
+function firstTellCard(){
+  if (hasTold() || meta().firstTellOff) return '';
+  return `<section class="card firstc" aria-labelledby="firstH"><h2 id="firstH">${tr('Расскажи KAI, как прошёл день')}</h2>
+    <div class="hint">${tr('Одним сообщением, своими словами. KAI сам разложит еду, движение, деньги и планы и покажет, прежде чем что-то менять. Нажми на пример или напиши своё:')}</div>
+    <div class="ob-goals">${TELL_EXAMPLES().map(x => `<button class="pill" data-act="tellEx" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+    <button class="btn block" data-act="tell">${ic('mic')}${tr('Написать KAI')}</button>
+    <button class="link" data-act="firstTellOff">${tr('Не сейчас')}</button></section>`;
+}
+A.tellEx = el => {
+  A.tell(); SH.tellText = el.dataset.v; drawSheet();
+  const t = $('#tellT'); if (t){ t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+};
+A.firstTellOff = () => setMeta({firstTellOff: true});
+const tellGo0 = A.tellGo;
+A.tellGo = async (...a) => { if (val('tellT') && !meta().toldOnce) setMeta({toldOnce: true}); return tellGo0(...a); };
 
 /* ============ init ============ */
 async function init(){

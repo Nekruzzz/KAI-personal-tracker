@@ -1806,4 +1806,13 @@ window.I18N_EN = {
 "Средний вес за неделю на 2,2 фунта ниже старта":"Average weekly weight 2.2 lb below your start",
 "Минус шесть фунтов":"Minus six pounds",
 "На 6,6 фунта ниже старта":"6.6 lb below your start",
+"Расскажи KAI, как прошёл день":"Tell KAI how your day went",
+"Одним сообщением, своими словами. KAI сам разложит еду, движение, деньги и планы и покажет, прежде чем что-то менять. Нажми на пример или напиши своё:":"One message, in your own words. KAI sorts out food, exercise, money and plans, and shows you before changing anything. Tap an example or write your own:",
+"Съел овсянку с бананом и выпил кофе":"Had oatmeal with a banana and a coffee",
+"Гулял 40 минут, спал 7 часов":"Walked for 40 minutes, slept 7 hours",
+"Потратил 12 на обед":"Spent 12 on lunch",
+"В пятницу в 10:00 экзамен":"Exam on Friday at 10:00",
+"Написать KAI":"Write to KAI",
+"Графики калорий и белка появятся, когда запишешь первую еду.":"Calorie and protein charts appear once you log your first meal.",
+"В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».":"Nothing logged this month yet. Add a transaction yourself, or just tell KAI something like “lunch 12”.",
 };

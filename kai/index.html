@@ -579,6 +579,13 @@ details.manual .field{margin-bottom:10px}
 .pl-h b{font-size:13px;padding:6px 0;border-radius:10px}
 .pl-h b.on{background:var(--accent-soft);color:var(--accent)}
 .btn[disabled]{opacity:.5;cursor:default}
+/* the sheet takes focus for screen readers; a ring around the whole sheet only distracts */
+.sheet:focus{outline:none}
+/* the title bar is the sheet's own colour, frosted, so it reads as one surface */
+.sh-h{background:color-mix(in srgb,var(--sheet) 82%,transparent)}
+/* the logo is white artwork: dark on a light page */
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .wlogo img{filter:invert(1)}}
+:root[data-theme=light] .wlogo img{filter:invert(1)}
 </style>
 </head>
 <body>

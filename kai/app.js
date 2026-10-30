@@ -3827,7 +3827,8 @@ A.obDone = () => {
   save('app/plan', pl);
   save('app/profile', {...clone(profile()), name: o.name, role: o.role, about: [{study:tr('Студент.'), work:tr('Работает.'), other:''}[o.role], o.about].filter(Boolean).join(' '), currency: o.cur});
   setMeta({welcomed: true, startedOn: todayISO(), startedAt: nowMin(), modules: {money: g.includes('money'), content: g.includes('content'), screentime: g.includes('screen')}});
-  closeSheet(); haptic('success'); toast(o.name ? o.name + tr(', всё готово') : tr('Всё готово'), {icon:'checkc', tone:'good'});
+  haptic('success'); toast(o.name ? o.name + tr(', всё готово') : tr('Всё готово'), {icon:'checkc', tone:'good'});
+  if (isNative() && plug('LocalNotifications')) A.permSheet(); else closeSheet();
 };
 
 /* ---- language: default texts saved in the plan follow the app language, the person's own text does not ---- */
@@ -3914,7 +3915,7 @@ async function authFromUrl(){
 function accountBody(){
   const step = SH.authStep || 'start';
   if (step === 'code') return `<div class="hint">${tr('Мы отправили код на')} ${esc(SH.authEmail)}.</div><div class="field"><label for="auC">${tr('Код из письма')}</label><input class="in" id="auC" inputmode="numeric" autocomplete="one-time-code"></div><button class="btn block" data-act="authVerify">${tr('Войти')}</button><button class="link" data-act="authBack">${tr('Назад')}</button>`;
-  const prov = isNative() ? (plug('SignInWithApple') ? `<button class="btn ghost block" data-act="authApple">${tr('Продолжить через')} Apple</button>` : '') : (CFG.providers || []).map(p => `<button class="btn ghost block" data-act="authOAuth" data-v="${esc(p)}">${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
+  const prov = isNative() ? (plug('SignInWithApple') ? `<button class="btn block sso apple" data-act="authApple">${tr('Продолжить через')} Apple</button>` : '') : (CFG.providers || []).map(p => `<button class="btn block sso ${p === 'apple' || p === 'google' ? p : ''}" data-act="authOAuth" data-v="${esc(p)}">${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
   return `<div class="hint">${tr('Аккаунт включает ИИ без ключей и хранит копию данных в облаке, чтобы они не потерялись при смене телефона.')}</div>${prov}
     <div class="field"><label for="auE">${tr('Эл. почта')}</label><input class="in" id="auE" type="email" autocomplete="email" autocapitalize="off" value="${esc(SH.authEmail || '')}"></div>
     <button class="btn block" data-act="authEmail">${tr('Получить код')}</button>`;
@@ -4421,6 +4422,18 @@ A.tellEx = el => {
 A.firstTellOff = () => setMeta({firstTellOff: true});
 const tellGo0 = A.tellGo;
 A.tellGo = async (...a) => { if (val('tellT') && !meta().toldOnce) setMeta({toldOnce: true}); return tellGo0(...a); };
+
+/* ============ permissions on the iPhone: say why first, then let iOS ask ============ */
+function permBody(){
+  const m = meta(), H = plug('Health');
+  const row = (icon, title, why, done, act, denied) => `<section class="card permc"><div style="display:flex;gap:12px;align-items:center"><span class="ic">${ic(icon)}</span><b style="flex:1">${title}</b>${done ? `<span class="tag good">${tr('Включено')}</span>` : ''}</div><div class="hint">${why}</div>${denied ? `<div class="note">${denied}</div>` : done ? '' : `<button class="btn" data-act="${act}">${tr('Разрешить')}</button>`}</section>`;
+  return `<div class="hint">${tr('KAI спросит разрешение только на то, что нужно. Это можно изменить позже в настройках iPhone.')}</div>
+    ${row('bell', tr('Напоминания'), tr('Об экзаменах, тренировках и конфликтах в планах. Работают без интернета, даже когда приложение закрыто.'), !!m.remindAsked, 'notifOn', SH.notifDenied ? tr('Уведомления выключены в настройках iPhone. Открой Настройки → KAI → Уведомления и включи их.') : '')}
+    ${H ? row('heart', tr('Здоровье iPhone'), tr('KAI только читает шаги, сон и тренировки. Записи, которые ты сделал сам, не меняются.'), !!m.healthOn, 'permHealth', '') : ''}
+    <button class="btn ghost block" data-act="closeSheet">${m.remindAsked || m.healthOn ? tr('Готово') : tr('Позже')}</button>`;
+}
+A.permSheet = () => openSheet(tr('Разрешения'), permBody);
+A.permHealth = async el => { await A.healthConnect(el); if (SH) drawSheet(); };
 
 /* ============ appearance: follows the phone by default; light or dark can be fixed per device ============ */
 const themePref = () => { try { const t = localStorage.getItem('kai_theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch { return 'system'; } };

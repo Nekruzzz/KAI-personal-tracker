@@ -109,6 +109,7 @@
 :root[data-theme=light] body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:#0b2226;z-index:40}
 
 *{box-sizing:border-box}
+[hidden]{display:none!important} /* a class's display must never undo hidden */
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}

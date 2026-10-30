@@ -3,6 +3,8 @@
 const LANG = (() => { try { const s = localStorage.getItem('kai_lang'); if (s === 'ru' || s === 'en') return s; } catch {} return /^ru/i.test(navigator.language || '') ? 'ru' : 'en'; })();
 const LOCALE = LANG === 'ru' ? 'ru-RU' : 'en-GB';
 const tr = s => { if (LANG === 'ru' || typeof s !== 'string') return s; const d = window.I18N_EN || {}; if (d[s] !== undefined) return d[s]; const k = s.trim(), v = d[k]; return v === undefined ? s : s.replace(k, () => v); };
+// a whole sentence with {named} gaps, so each language can put the numbers where they belong
+const trf = (s, v = {}) => tr(s).replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m);
 document.documentElement.lang = LANG;
 /* ============ core ============ */
 const A = {}, CH = {};
@@ -759,7 +761,7 @@ function aiQueue(){
   const st = {queued:tr('ждёт'), running:tr('выполняется'), error:tr('ошибка')};
   return js.length ? `<div class="hint">${tr("Запросы отправляются сами, когда приложение открыто и доступен выбранный ИИ.")}</div>` + js.map(j=>`<section class="card" style="display:flex;flex-direction:column;gap:8px">
     <div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(j.label||KIND_NAME[j.kind])}</b><span class="tag ${j.status==='error'?'bad':j.status==='running'?'good':'warn'}">${st[j.status]||j.status}</span></div>
-    <div class="hint">${new Date(j.created).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${j.nImg?tr(' · фото: ')+j.nImg:''}${j.lastError?' · '+esc(j.lastError):''}</div>
+    <div class="hint">${new Date(j.created).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${j.nImg?tr(' · фото: ')+j.nImg:''}${j.lastError?' · '+esc(j.lastError):''}</div>
     <div style="display:flex;gap:8px;align-items:center"><select class="in" aria-label="${tr("Какой ИИ")}" data-ch="jobProv" data-id="${j.id}" style="flex:1">${[['auto',tr('Авто')], ...PROV_LIST().map(p=>[p, PROV[p].short])].map(([v,l])=>`<option value="${v}" ${ (j.provider||'auto')===v?'selected':''} ${v==='phone'&&j.nImg?'disabled':''}>${l}</option>`).join('')}</select>
     <button class="btn ghost" data-act="jobRetry" data-id="${j.id}">${tr("Отправить")}</button><button class="iconbtn" data-act="jobCancel" data-id="${j.id}" aria-label="${tr("Отменить")}" style="color:var(--text-3)">${ic('trash')}</button></div></section>`).join('') : `<div class="empty">${tr("Очередь пуста")}</div>`;
 }
@@ -1381,7 +1383,7 @@ function hTrain(){
       <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
     </section>`;
   }).join('');
-  if (sel===todayW || !todayW) h += `<button class="btn block" data-act="finishW" data-v="${sel}">${ic('check')}${tr("Тренировка")} ${tr(sel)} ${tr("выполнена")}</button>`;
+  if (sel===todayW || !todayW) h += `<button class="btn block" data-act="finishW" data-v="${sel}">${ic('check')}${trf('Тренировка {w} выполнена', {w: tr(sel)})}</button>`;
   h += `<div class="hint" style="margin-top:-8px">${tr("Таймер отдыха запускается сам, когда вписываешь повторы подхода.")}</div>`;
   h += muscleCard();
   h += `<div class="sec-h"><h2>${tr("Осанка, 5 минут каждый день")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${(pl.posture||[]).map(x=>`<div class="row"><span class="ic">${ic('posture')}</span><div class="mid"><div class="t">${esc(x.name)}</div><div class="s">${esc(x.dose)}</div></div></div>`).join('')}</div></section>`;
@@ -1474,7 +1476,7 @@ function cOverview(){
   const published = thisWeek.filter(p=>p.status==='Опубликовано').length;
   let h = `<section class="card hero"><div class="hero-row"><div class="grow"><div class="hero-num">${num(total)}</div><div class="hero-sub">${tr("подписчиков всего")}${dsum?` · ${dsum>0?'+':''}${num(dsum)} ${tr("за 30 дней")}`:''}</div></div>${donut(rows.map(r=>({v:r.last, c:r.c, label:r.name, fmt:num(r.last)})), 96, 12)}</div>
     <div class="actions"><button data-act="statsUpload">${ic('image')}${tr("Статистика")}</button><button data-act="newScript">${ic('spark')}${tr("Сценарий")}</button><button data-act="sub" data-k="content" data-v="plan">${ic('day')}${tr("План")}</button></div></section>`;
-  h += `<section class="card"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px"><span>${tr("Ролики на этой неделе")}</span><span class="muted">${published} ${tr("опубл. ·")} ${thisWeek.length} ${tr("в плане · цель")} ${c.weeklyTarget||4}</span></div><div class="bar"><i style="width:${Math.min(100,published/(c.weeklyTarget||4)*100)}%;background:var(--accent)"></i></div></section>`;
+  h += `<section class="card"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px"><span>${tr("Ролики на этой неделе")}</span><span class="muted">${trf('{a} опубл. · {b} в плане · цель {c}', {a: published, b: thisWeek.length, c: c.weeklyTarget||4})}</span></div><div class="bar"><i style="width:${Math.min(100,published/(c.weeklyTarget||4)*100)}%;background:var(--accent)"></i></div></section>`;
   h += `<div class="sec-h"><h2>${tr("Площадки")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${rows.map(r=>`<button class="row" data-act="platform" data-id="${r.id}"><span class="pbadge" style="background:var(--${r.c})">${r.short}</span><div class="mid"><div class="t">${r.name}${total?` (${num(r.last/total*100,1)}%)`:''}</div><div class="s">${r.nick?'@'+esc(r.nick.replace(/^@/,'')):tr('ник не указан')}</div></div><div class="r">${num(r.last)}<small>${r.delta!=null?(r.delta>=0?'+':'')+num(r.delta)+tr(' за 30 дн'):tr('нет данных')}</small></div></button>`).join('')}</div></section>`;
   const an = analyses().slice(0,4);
   h += `<div class="sec-h"><h2>${tr("Последние разборы")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${an.map(a=>anRow(a)).join('') || `<div class="empty">${tr("Загрузи скриншоты статистики за 30 дней, и здесь появится разбор: что работает, где уходит зритель и что менять.")}</div>`}</div></section>`;
@@ -1521,7 +1523,7 @@ function viewMoney(){
     <div class="hero-num" style="margin-top:16px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>
     <div style="display:grid;place-items:center;margin:14px 0">${donut(segsFor(G, sel), 190, 26)}</div>
-    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${num(g.sum/(SUM||1)*100,2)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
+    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${(x => num(x, x < 10 && x % 1 ? 1 : 0))(g.sum/(SUM||1)*100)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
   const byDate = {}; monthTx(m).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
   const dates = Object.keys(byDate).sort().reverse();
   if (!dates.length) return h;
@@ -3080,7 +3082,7 @@ function viewMore(){
     ${t.ok ? `<div class="note">${tr("Норма:")} <b>${t.kcal} ${tr("ккал")}</b> ${tr("· белок")} ${t.p} ${tr("г · жиры")} ${t.f} ${tr("г · углеводы")} ${t.c} ${tr("г.")}</div>${careNote(t)}` : `<div class="hint">${tr("Сохраняется само, когда выходишь из поля.")}</div>`}<div class="hint">${NOT_MED()}</div>`);
   h += acc('train', 'gym', tr('Тренировки'), esc((pr?.name || tr('Своя программа')) + (days ? ' · ' + days : '')), `${pl.programs ? `<div class="hint">${esc(pr?.info || '')}</div><button class="btn ghost" data-act="programSheet">${ic('swap')}${tr("Сменить программу")}</button>` : ''}
     <div class="hint">${tr("Дни недели")}</div><div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(88px,1fr))">${[1, 2, 3, 4, 5, 6, 7].map(n => `<div class="field"><label for="sch${n}">${DOW[n]}</label><select class="in" id="sch${n}" data-ch="sch" data-n="${n}"><option value="">${tr("отдых")}</option>${programKeys().map(k => `<option value="${k}" ${pl.schedule?.[n] === k ? 'selected' : ''}>${tr(k)}</option>`).join('')}</select></div>`).join('')}</div>`);
-  h += acc('day', 'day', tr('Расписание дня'), `${tr("Прогулки")} ${pl.routine?.walkGoal || 120} ${tr("мин · событий")} ${(pl.routine?.events || []).filter(e => (e.toDate || e.date) >= todayISO()).length}`, `<div class="field"><label for="walkGoal">${tr("Цель по прогулкам, минут в день")}</label><input class="in" id="walkGoal" inputmode="numeric" data-ch="walkGoal" value="${pl.routine?.walkGoal || 120}"></div>
+  h += acc('day', 'day', tr('Расписание дня'), trf('Прогулки {m} мин в день · событий впереди: {n}', {m: pl.routine?.walkGoal || 120, n: (pl.routine?.events || []).filter(e => (e.toDate || e.date) >= todayISO()).length}), `<div class="field"><label for="walkGoal">${tr("Цель по прогулкам, минут в день")}</label><input class="in" id="walkGoal" inputmode="numeric" data-ch="walkGoal" value="${pl.routine?.walkGoal || 120}"></div>
     <button class="btn ghost" data-act="evSheet">${ic('star')}${tr("События: фест, экзамены, поездки")}</button>`);
   const cls = (pl.classes || []).map((c, i) => ({...c, i})).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
   h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
@@ -3439,7 +3441,7 @@ function readyCard(date){
   const eff = (EFFORT[plan().program] ?? 7) + info.rpe;
   return dlBanner + `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div><b>${tr("Как самочувствие?")}</b><div class="hint">${tr("Две секунды, и тренировка подстроится под тебя.")}</div></div>
     ${grp('sleep', tr('Сон'), [['low', tr('меньше 6 ч')], ['ok', tr('6–7 ч')], ['good', tr('7+ ч')]])}${grp('sore', tr('Крепатура'), [['none', tr('нет')], ['mild', tr('лёгкая')], ['high', tr('сильная')]])}${grp('energy', tr('Силы'), [['low', tr('мало')], ['ok', tr('норма')], ['high', tr('много')]])}
-    ${info.reasons.length ? `<div class="note">${info.reasons.map(esc).join('<br>')}</div>` : ''}<div class="hint">${tr("Усилие сегодня:")} <b>${eff} ${tr("из 10")}</b>${tr(". Оставляй")} ${Math.max(1, 10 - eff)}–${Math.max(2, 11 - eff)} ${tr("повтора в запасе.")}</div></section>`;
+    ${info.reasons.length ? `<div class="note">${info.reasons.map(esc).join('<br>')}</div>` : ''}<div class="hint">${tr("Усилие сегодня:")} <b>${eff} ${tr("из 10")}</b>${tr(". Оставляй")} ${Math.max(1, 9 - eff)}–${Math.max(2, 10 - eff)} ${tr("повтора в запасе.")}</div></section>`;
 }
 A.rdy = el => { haptic('selection'); mutDay(todayISO(), d => { d.ready = {...(d.ready || {}), [el.dataset.k]: el.dataset.v}; }); };
 
@@ -3568,7 +3570,7 @@ function warningsFor(date){
   const wake = dayBlocks(next).find(b => b.kind === 'wake');
   if (wake && !allEvents().some(x => x.kind === 'exam' && x.date === next)) eventsFor(date).filter(e => e.from).forEach(e => {
     const h = (wake.s + 1440 - evEnd(e)) / 60;
-    if (h < 7) out.push({id:['sleep', date, e.id].join('_'), date, level:'warn', text:`${tr("После «")}${e.title}${tr("» на сон останется")} ${num(Math.max(0, h), 1)} ${tr("ч: подъём в")} ${hmStr(wake.s)}.`});
+    if (h < 7) out.push({id:['sleep', date, e.id].join('_'), date, level:'warn', text: trf('После «{e}» на сон останется всего {h} ч: подъём в {w}.', {e: e.title, h: num(Math.max(0, h), h % 1 ? 1 : 0), w: hmStr(wake.s)})});
   });
   return out;
 }

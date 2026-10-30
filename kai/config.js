@@ -4,4 +4,5 @@ window.KAI_CONFIG = {
   supabaseUrl: '',
   supabaseKey: '', // the publishable key
   providers: [], // add 'apple' and 'google' once they are set up in Supabase
+  plans: false, // show the plans screen; leave off until payments are real, since App Review rejects placeholder prices
 };

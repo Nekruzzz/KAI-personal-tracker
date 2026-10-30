@@ -783,3 +783,12 @@ test('the workout adapts as soon as readiness is answered, even though the answe
   assert.equal(after.delta, before.delta - 1, 'one set fewer straight away');
   run(`mutDay(todayISO(), d => { d.ready = {}; })`);
 });
+
+test('the plans screen stays out of sight until payments are real, so a review build has no placeholder price', () => {
+  run(`globalThis.cfg0 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; CFG.plans = false`);
+  try {
+    assert.doesNotMatch(run(`accountCard()`), /data-act="planSheet"/);
+    run(`CFG.plans = true`);
+    assert.match(run(`accountCard()`), /data-act="planSheet"/);
+  } finally { run(`Object.assign(CFG, cfg0)`); }
+});

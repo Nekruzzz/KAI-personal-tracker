@@ -39,9 +39,11 @@ More fixes from the screen-by-screen review:
 
 Lighter app, from the owner's later messages: supplements and the face log are switched off, the workout breakdown is folded away, the header and Day tab are shorter, and repeated cards are gone. Details are in `docs/feature-review.md`. Sheets now float as frosted glass panels, and section tabs stay pinned while scrolling.
 
+**App Review preparation:** the plans screen is hidden behind `plans` in `kai/config.js` (off by default), because App Review rejects placeholder prices. `node tools/check-release.js` lists what still blocks a submission. Right now it finds six owner tasks: connect the server, remove the draft notices and fill in the contact details, dates and operator in the privacy policy and terms, and add the demo account and paid-plan text to the listing.
+
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 63 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 64 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 36 tests, all pass (28 at the start), including new database and webhook tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

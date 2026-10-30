@@ -1372,7 +1372,7 @@ window.I18N_EN = {
 "ник не указан":"no handle set",
 "новая запись":"new entry",
 "новая идея":"new idea",
-"норма":"normal",
+"норма":"target",
 "ноябрь":"November",
 "ноября":"November",
 "о чём ты там снимаешь":"what you film there",

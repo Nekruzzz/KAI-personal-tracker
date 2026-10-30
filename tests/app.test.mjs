@@ -740,3 +740,14 @@ test('first sync on a device: the cloud copy wins, a backup of what it replaces 
     assert.ok(run(`toasts.some(t => /a copy from this phone was saved/i.test(t))`), run(`toasts.join(' | ')`));
   } finally { run(`apiFetch = af0; toast = toast0; clearTimeout(syncTimer); syncSave(null)`); }
 });
+
+test('supplements are switched off: no tab, no task, no reminder, and a saved list is kept', () => {
+  run(`save('app/plan', {...clone(plan()), supps: [{name: 'Vitamin D3', dose: '1000 IU'}], dailyTasks: [...plan().dailyTasks.filter(t => t.cat !== 'supps'), {id: 'supps', title: 'Take supplements', cat: 'supps'}]})`);
+  run(`S.sub.health = 'supps'`);
+  const h = run(`viewHealth()`);
+  assert.doesNotMatch(h, /data-v="supps"/);
+  assert.equal(run(`S.sub.health`), 'food', 'an old link to the tab falls back to food');
+  assert.equal(run(`buildDay(addDays(todayISO(), 1)).tasks.some(t => t.cat === 'supps')`), false);
+  assert.equal(run(`ICS_ITEMS.some(i => i[0] === 'supps')`), false);
+  assert.equal(run(`plan().supps.length`), 1, 'the saved list is still there');
+});

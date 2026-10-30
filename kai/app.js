@@ -179,6 +179,8 @@ const OUT_CATS = [
 ];
 const IN_CATS = [['Пополнение','c4','down'],['Переводы входящие','c1','swap'],['Доход','c3','cash'],['Бонусы','c6','gift'],['Другое','c0','list']];
 const catInfo = (type, name) => (type==='in'?IN_CATS:OUT_CATS).find(c=>c[0]===name) || [tr('Другое'),'c0','list'];
+// supplements are switched off for now: lighter app. A saved list stays in the plan, so turning this back on restores it
+const SUPPS_ON = false;
 const TASK_COLOR = {gym:'c1', food:'c2', prep:'c2', supps:'c7', sleep:'c7', posture:'c3', steps:'c3', study:'c4', content:'c5', custom:'c0', money:'c4'};
 const TASK_ICON = {gym:'gym', posture:'posture', steps:'steps', food:'food', supps:'pill', prep:'food', sleep:'moon', study:'cap', content:'video', custom:'list', money:'wallet'};
 const POST_STATUS = ['Идея','Сценарий','Снято','Опубликовано'];
@@ -370,7 +372,7 @@ function buildDay(date){
   if (cls.length) tasks.push({id:'study', title:tr('Учёба · ')+cls.length+' '+plural(cls.length,tr('пара'),tr('пары'),tr('пар')), cat:'study', done:false});
   const ps = posts().filter(p=>p.date===date && p.status!=='Опубликовано');
   if (ps.length && modOn('content')) tasks.push({id:'content', title:tr('Контент · ')+ps.length+' '+plural(ps.length,tr('ролик'),tr('ролика'),tr('роликов')), cat:'content', done:false});
-  (pl.dailyTasks||[]).forEach(t => { if (t.cat==='supps' && !(pl.supps||[]).length) return; tasks.push({...t, done:false}); });
+  (pl.dailyTasks||[]).forEach(t => { if (t.cat==='supps' && (!SUPPS_ON || !(pl.supps||[]).length)) return; tasks.push({...t, done:false}); });
   return {date, tasks, meals:[], sets:{}, supps:{}, status:'ok', rating:null, steps:null, sleep:null, weight:null, log:[]};
 }
 function getDay(date){
@@ -382,6 +384,7 @@ function getDay(date){
   const merged = {...saved, tasks: [...saved.tasks]};
   fresh.tasks.forEach(t => { if (!ids.has(t.id) && ['gym','study','content'].includes(t.id)) merged.tasks.unshift(t); });
   merged.tasks = merged.tasks.filter(t => !['gym','study','content'].includes(t.id) || t.done || fresh.tasks.some(f=>f.id===t.id) || t.moved);
+  if (!SUPPS_ON && date >= todayISO()) merged.tasks = merged.tasks.filter(t => t.cat !== 'supps' || t.done); // past days keep their score
   return merged;
 }
 function mutDay(date, fn){ const prev = getDay(date), d = clone(prev); const before = JSON.stringify(d.meals||[]); fn(d); if (JSON.stringify(d.meals||[]) !== before) syncFoodTask(d); save('days/'+date, d); dayMilestone(prev, d); }
@@ -1339,7 +1342,8 @@ function lastSets(exId, before){
 
 /* ============ HEALTH ============ */
 function viewHealth(){
-  const tabs = [['food',tr('Питание'),'food'],['train',tr('Тренировки'),'gym'],['body',tr('Тело'),'scale'],['sleep',tr('Сон'),'moon'],['supps',tr('БАДы'),'pill']];
+  const tabs = [['food',tr('Питание'),'food'],['train',tr('Тренировки'),'gym'],['body',tr('Тело'),'scale'],['sleep',tr('Сон'),'moon'],['supps',tr('БАДы'),'pill']].filter(([id]) => id !== 'supps' || SUPPS_ON);
+  if (!tabs.some(([id]) => id === S.sub.health)) S.sub.health = 'food';
   const cur = S.sub.health;
   return `<div class="pills" role="tablist">${tabs.map(([id,l,i])=>`<button class="pill ${cur===id?'on':''}" role="tab" aria-selected="${cur===id}" data-act="sub" data-k="health" data-v="${id}">${ic(i)}${l}</button>`).join('')}</div>` +
     ({food:hFood, train:hTrain, body:hBody, sleep:hSleep, supps:hSupps}[cur])();
@@ -2008,7 +2012,7 @@ A.budgetSave = () => { const v = toNum(val('bgV')); save('app/budget', {monthly:
 const ICS_ITEMS = [
   ['gym', tr('Тренировки (по дням плана)'), '18:00'],
   ['classes', tr('Пары (за 15 минут)'), ''],
-  ['supps', tr('Принять БАДы'), '09:00'],
+  ...(SUPPS_ON ? [['supps', tr('Принять БАДы'), '09:00']] : []),
   ['weigh', tr('Взвеситься натощак'), '07:30'],
   ['prep', tr('Приготовить еду на завтра'), '21:00'],
   ['bed', tr('Готовиться ко сну'), '23:00'],

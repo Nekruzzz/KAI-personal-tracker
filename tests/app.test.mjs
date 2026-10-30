@@ -774,3 +774,12 @@ test('people who are not students see no class timetable, and the body tab has n
   run(`S.sub.health = 'body'`);
   assert.doesNotMatch(run(`hBody()`), /Target adjustment/);
 });
+
+test('the workout adapts as soon as readiness is answered, even though the answer is cached', () => {
+  run(`mutDay(todayISO(), d => { d.ready = {}; d.sleep = 8; })`);
+  const before = JSON.parse(run(`JSON.stringify(adaptInfo(todayISO()))`));
+  run(`A.rdy({dataset: {k: 'energy', v: 'low'}})`);
+  const after = JSON.parse(run(`JSON.stringify(adaptInfo(todayISO()))`));
+  assert.equal(after.delta, before.delta - 1, 'one set fewer straight away');
+  run(`mutDay(todayISO(), d => { d.ready = {}; })`);
+});

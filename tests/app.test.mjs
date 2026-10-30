@@ -524,3 +524,28 @@ test('the readiness card gives the same reps in reserve as the program for the s
   if (eff === 6) assert.match(html, /Keep 3–4 reps in reserve/);
   else assert.match(html, new RegExp(`Keep ${Math.max(1, 9 - eff)}–${Math.max(2, 10 - eff)} reps`));
 });
+
+test('a home program with no equipment: added to existing plans without switching them, and asked about at the start', () => {
+  const v2 = run(`JSON.stringify((() => { const p = clone(plan()); delete p.programs.home3; delete p.workouts['Дом 1']; delete p.workouts['Дом 2']; p.version = 2; p.program = 'abc'; p.schedule = {1: 'A', 3: 'B', 5: 'C'}; return p; })())`);
+  const m = JSON.parse(run(`JSON.stringify(migratePlan(${v2}))`));
+  assert.equal(m.program, 'abc', 'the program in use stays');
+  assert.deepEqual(m.schedule, {1: 'A', 3: 'B', 5: 'C'});
+  assert.ok(m.programs.home3 && m.programs.easy4 && m.programs.abc);
+  assert.ok(m.workouts['Дом 1'] && m.workouts['Дом 2']);
+  assert.equal(run(`migratePlan(${JSON.stringify(m)})`), null, 'only once');
+  const v1 = JSON.parse(run(`JSON.stringify(migratePlan(clone(DEFAULT_PLAN)))`));
+  assert.equal(v1.version, 3); assert.equal(v1.program, 'easy4', 'old installs keep the program they were moved to before');
+  const all = Object.values(JSON.parse(run(`JSON.stringify(HOME_WORKOUTS)`))).flatMap(w => w.ex);
+  assert.ok(all.every(e => e.bw || e.unit || e.id === 'deadbug'), 'no weights to enter at home');
+  assert.ok(all.every(e => !/штанг|гантел|блок|тренажёр/i.test(e.name + e.how)), 'no equipment named');
+  // first run: the place decides the program
+  run(`SH = null; A.welcome(); SH.ob.goals = ['gym']; SH.ob.where = 'gym'; A.obDone()`);
+  assert.equal(run(`plan().program`), 'easy4');
+  run(`A.welcome(); SH.ob.goals = ['gym']; SH.ob.where = 'home'; A.obDone()`);
+  assert.equal(run(`plan().program`), 'home3');
+  assert.equal(run(`plan().programs.home3.start`), run(`todayISO()`), 'two easier weeks from today');
+  assert.match(run(`gymWord()`), /^Workout ·/);
+  run(`S.sub.health = 'train'; S.sub.w = 'Дом 1'`);
+  assert.match(run(`viewHealth()`), /Squats to a chair/);
+  run(`S.sub.w = null`);
+});

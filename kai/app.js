@@ -403,7 +403,9 @@ function donut(segs, size=120, sw=14, center=''){
   const r = (size - sw)/2, C = 2*Math.PI*r, total = segs.reduce((a,s)=>a+s.v,0);
   let off = 0; const gap = segs.filter(s=>s.v>0).length > 1 ? 3 : 0;
   const arcs = total ? segs.filter(s=>s.v>0).map(s => { const len = Math.max(0, s.v/total*C - gap); const el = `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${s.c.startsWith('#')?s.c:'var(--'+s.c+')'}" stroke-width="${sw}" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size/2} ${size/2})"><title>${esc(s.label||'')}: ${esc(s.fmt||s.v)}</title></circle>`; off += s.v/total*C; return el; }).join('') : '';
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#2b2c2f" stroke-width="${sw}"/>${arcs}${center}</svg>`;
+  // read out as the parts and their shares; an empty donut says nothing the text beside it doesn't
+  const said = segs.filter(s => s.v > 0 && s.label).map(s => `${s.label} ${Math.round(s.v / total * 100)}%`).join(', ');
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" ${said ? `role="img" aria-label="${esc(said)}"` : 'aria-hidden="true"'}><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#2b2c2f" stroke-width="${sw}"/>${arcs}${center}</svg>`;
 }
 function ring(frac, size=86, sw=10, color='', label='', key=''){
   const r=(size-sw)/2, C=2*Math.PI*r, f=Math.max(0,Math.min(1,frac||0));
@@ -1167,7 +1169,7 @@ function renderTop(){
     <button class="seasonchip" data-act="season">${tr("День")} ${di}/${s.length||90}</button>
     <button class="iconbtn" data-act="kb" aria-label="${tr("База знаний")}">${ic('book')}</button>
     <button class="iconbtn aibtn" data-act="aiSheet" aria-label="${tr("ИИ: ответы и очередь")}">${ic('spark')}<span class="badge" id="aiBadge" hidden></span></button>
-  </div>${S.tab==='content'?`<button class="backlink" data-act="tab" data-v="more">${tr("‹ Ещё")}</button>`:''}${titles[S.tab]?`<h1 class="ptitle">${titles[S.tab]}</h1>`:''}
+  </div>${S.tab==='content'?`<button class="backlink" data-act="tab" data-v="more">${tr("‹ Ещё")}</button>`:''}${titles[S.tab]?`<h1 class="ptitle">${titles[S.tab]}</h1>`:`<h1 class="vh">${tr('День')}</h1>`}
   ${!S.online ? `<div class="note" style="margin-top:12px">${tr("Нет интернета. Всё работает и сохраняется в телефоне; запросы к Claude подождут в очереди.")}</div>`:''}
   ${!S.live && S.ready ? `<div class="note" style="margin-top:12px">${tr("Хранилище телефона недоступно: данные не сохранятся после закрытия. Проверь, что это не приватная вкладка Safari.")}</div>`:''}`;
   setTimeout(renderBadge);
@@ -1361,7 +1363,7 @@ function hTrain(){
   const nx = nextWorkout(addDays(date,1));
   let h = `<section class="card hero"><div class="hero-num" style="font-size:28px">${todayW?tr('Сегодня: тренировка ')+tr(todayW):tr('Сегодня отдых')}</div>
     <div class="hero-sub">${todayW?esc(pl.workouts[todayW].name):tr('Шаги и осанка по плану')} ${tr("· дальше")} ${nx.w?DOW[dow(nx.date)]+' — '+tr(nx.w):'—'}</div>
-    <div class="seg" style="margin-top:14px" role="tablist">${programKeys().map(k=>`<button class="${sel===k?'on':''}" data-act="pickW" data-v="${k}">${tr(k)}${k===todayW?tr(' · сегодня'):''}</button>`).join('')}</div>${pl.programs?`<div class="progrow"><span class="hint">${esc(activeProgram()?.name||tr('Своя программа'))}</span><button class="link" data-act="programSheet">${tr("Сменить")}</button></div>`:''}</section>`;
+    <div class="seg" style="margin-top:14px" role="tablist">${programKeys().map(k=>`<button class="${sel===k?'on':''}" role="tab" aria-selected="${sel===k}" data-act="pickW" data-v="${k}">${tr(k)}${k===todayW?tr(' · сегодня'):''}</button>`).join('')}</div>${pl.programs?`<div class="progrow"><span class="hint">${esc(activeProgram()?.name||tr('Своя программа'))}</span><button class="link" data-act="programSheet">${tr("Сменить")}</button></div>`:''}</section>`;
   h += deloadNote();
   h += readyCard(todayW ? date : null);
   const logDate = sel===todayW ? date : date;
@@ -2023,20 +2025,23 @@ A.icsGo = async () => {
 
 /* ============ sheets ============ */
 let SH = null;
-function openSheet(title, body, after){ const wasOpen = !!$('#sheetRoot .scrim'); SH = {title, body, after, enter: !wasOpen}; drawSheet(); }
+function openSheet(title, body, after){ const wasOpen = !!$('#sheetRoot .scrim'); SH = {title, body, after, enter: !wasOpen, opener: wasOpen ? SH?.opener : focusKey(document.activeElement)}; drawSheet(); }
 function drawSheet(){
   const root = $('#sheetRoot');
   if (!SH){ root.innerHTML = ''; document.body.style.overflow=''; return; }
   document.body.style.overflow='hidden';
   const prevScroll = $('.sheet')?.scrollTop || 0;
-  const enter = SH.enter && !reduceMotion(); SH.enter = false;
-  root.innerHTML = `<div class="scrim${enter?' enter':''}" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(SH.title)}"><div class="grab"></div><div class="sh-h"><h3>${esc(SH.title)}</h3><button class="iconbtn" data-act="closeSheet" aria-label="${tr("Закрыть")}">${ic('x')}</button></div><div class="sh-b" style="display:flex;flex-direction:column;gap:16px">${typeof SH.body==='function'?SH.body():SH.body}</div></div></div>`;
+  const fresh = SH.enter, enter = fresh && !reduceMotion(); SH.enter = false;
+  root.innerHTML = `<div class="scrim${enter?' enter':''}" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shT" tabindex="-1"><div class="grab"></div><div class="sh-h"><h2 id="shT">${esc(SH.title)}</h2><button class="iconbtn" data-act="closeSheet" aria-label="${tr("Закрыть")}">${ic('x')}</button></div><div class="sh-b" style="display:flex;flex-direction:column;gap:16px">${typeof SH.body==='function'?SH.body():SH.body}</div></div></div>`;
   $('.sheet').scrollTop = prevScroll;
+  if (fresh) $('.sheet').focus({preventScroll: true}); // screen readers start at the sheet, not behind it
   SH.after && SH.after($('.sh-b'));
   animateUI($('.sheet'));
 }
 function closeSheet(){
+  const back = SH?.opener;
   SH = null;
+  if (back) setTimeout(() => refocus(back), reduceMotion() ? 30 : 230);
   const sc = $('#sheetRoot .scrim');
   if (sc && !reduceMotion()){ sc.classList.add('leave'); document.body.style.overflow=''; setTimeout(()=>{ if (!SH) drawSheet(); }, 200); }
   else drawSheet();
@@ -2057,6 +2062,27 @@ document.addEventListener('change', e => {
   if (HAP_AT < t0 && (el.tagName === 'SELECT' || ['checkbox', 'radio', 'range'].includes(el.type))) haptic('selection');
 });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && SH) closeSheet(); });
+/* a sheet keeps Tab inside it; closing it returns focus to what opened it, even after the screen redraws */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || !SH) return;
+  const sh = $('.sheet'); if (!sh) return;
+  const f = $$('button:not([disabled]),a[href],input:not([type=hidden]):not([disabled]),select,textarea,[tabindex="0"]', sh).filter(x => x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1], a = document.activeElement;
+  if (!sh.contains(a) || a === sh){ e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  else if (e.shiftKey && a === first){ e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && a === last){ e.preventDefault(); first.focus(); }
+});
+function focusKey(el){
+  if (!el || el === document.body || !el.closest) return null;
+  const d = el.dataset || {};
+  return {el, sel: d.act ? `[data-act="${d.act}"]` + ['v', 'id', 'k'].filter(k => d[k] != null).map(k => `[data-${k}="${CSS.escape(d[k])}"]`).join('') : el.id ? '#' + CSS.escape(el.id) : null};
+}
+function refocus(k){
+  if (SH) return;
+  const el = k.el?.isConnected ? k.el : k.sel && $(k.sel);
+  try { el?.focus?.({preventScroll: true}); } catch {}
+}
 
 A.tab = el => { if (S.tab !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.tab = el.dataset.v; window.scrollTo(0,0); render(); };
 A.sub = el => { if (S.sub[el.dataset.k] !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.sub[el.dataset.k] = el.dataset.v; if (el.dataset.k==='health' || el.dataset.k==='content') window.scrollTo(0,0); S.tab = el.dataset.k; render(); };
@@ -2946,7 +2972,7 @@ function aiConnectBody(){
   const svc = SH.svc || 'claude', s = SVC[svc];
   if (SH.done) return `<div class="wlogo" style="padding:18px 0 6px"><span class="okbig">${ic('check')}</span><b style="font-size:20px">${SVC[SH.done].name} ${tr("подключён")}</b><div class="hint">${tr("Он стал основным ИИ. Теперь можно пользоваться кнопкой «Рассказать» и фото еды.")}</div></div><button class="btn block" data-act="closeSheet">${tr("Готово")}</button>`;
   return `<div class="hint">${tr("ИИ разбирает сообщения, фото еды и скриншоты. Выбери сервис, получи ключ и вставь его сюда.")}</div>
-  <div class="seg" role="tablist">${Object.entries(SVC).map(([k, v]) => `<button class="${svc === k ? 'on' : ''}" data-act="svcPick" data-v="${k}">${v.name}</button>`).join('')}</div>
+  <div class="seg" role="tablist">${Object.entries(SVC).map(([k, v]) => `<button class="${svc === k ? 'on' : ''}" role="tab" aria-selected="${svc === k}" data-act="svcPick" data-v="${k}">${v.name}</button>`).join('')}</div>
   <ol class="steps">
     <li><span>1</span><div>${tr("Открой страницу ключей. Войди в аккаунт")} ${s.name} ${tr("и нажми «Create key».")}<div style="margin-top:8px"><a class="btn ghost" href="${s.url}" target="_blank" rel="noopener">${ic('send')}${tr("Открыть")} ${s.host}</a></div></div></li>
     <li><span>2</span><div>${tr("Скопируй ключ. Он начинается с")} <b style="white-space:nowrap">${s.hint}</b> ${tr("и показывается один раз.")}</div></li>

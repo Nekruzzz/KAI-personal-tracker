@@ -1,0 +1,8 @@
+{
+  "appId": "app.kaitracker.ios",
+  "appName": "KAI",
+  "webDir": "../kai",
+  "backgroundColor": "#0b0b0d",
+  "ios": { "contentInset": "never", "limitsNavigationsToAppBoundDomains": false },
+  "plugins": { "LocalNotifications": { "presentationOptions": ["alert", "sound"] } }
+}

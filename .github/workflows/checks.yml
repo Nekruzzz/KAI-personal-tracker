@@ -1,0 +1,46 @@
+# Runs on every push. The iPhone job compiles the app on one of GitHub's Macs, so a broken
+# iPhone build shows up without needing a Mac of your own. It doesn't sign or publish anything.
+name: Checks
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: App tests
+        run: node --test tests/app.test.mjs
+      - name: Server tests
+        working-directory: server
+        run: |
+          npm ci
+          npm test
+
+  iphone-build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Prepare the iPhone project
+        working-directory: native
+        run: |
+          npm ci
+          npx cap sync ios
+      - name: Compile for the iPhone simulator
+        working-directory: native/ios/App
+        run: >
+          xcodebuild build
+          -project App.xcodeproj
+          -scheme App
+          -configuration Debug
+          -sdk iphonesimulator
+          -destination "generic/platform=iOS Simulator"
+          CODE_SIGNING_ALLOWED=NO

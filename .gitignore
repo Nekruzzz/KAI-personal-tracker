@@ -1,0 +1,14 @@
+# release packages
+*.zip
+
+# local files
+.claude/
+node_modules/
+my-private-details.txt
+
+# AI test results
+server/eval/results/
+
+# secrets
+.env
+.env.*

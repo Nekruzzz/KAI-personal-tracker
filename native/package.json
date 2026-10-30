@@ -1,0 +1,22 @@
+{
+  "name": "kai-iphone",
+  "private": true,
+  "description": "Wraps the kai/ folder as an iPhone app with Capacitor.",
+  "scripts": {
+    "sync": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/local-notifications": "8.3.1",
+    "@capacitor/share": "8.0.3",
+    "@capacitor-community/apple-sign-in": "7.1.0",
+    "@capgo/capacitor-health": "8.11.13"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}

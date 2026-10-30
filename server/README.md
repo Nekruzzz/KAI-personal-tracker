@@ -1,0 +1,115 @@
+# KAI server
+
+Sign-in, cloud sync and AI without personal API keys. It runs on Supabase, and until it's set up the app works without an account.
+
+## What's here
+
+- `supabase/migrations/`: the database, its security rules and the usage limits.
+- `supabase/functions/ai/`: holds the Claude key, chooses the model and enforces limits.
+- `supabase/functions/delete-account/`: deletes an account and all its cloud data.
+- `eval/`: measures how well the AI understands real messages, and what each costs.
+- `tests/`: automated tests, plus `dev-backend.mjs`, a local stand-in for Supabase.
+
+## Setting it up
+
+You need about 30 minutes. Run the commands from this `server` folder.
+
+### 1. Create the accounts
+
+- **Supabase:** create a project at [supabase.com](https://supabase.com). Note its project ref, which is the part of its URL before `.supabase.co`.
+- **Anthropic:** create an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys), and **set a monthly spending limit** there.
+
+### 2. Put the database and functions online
+
+```bash
+npx supabase login
+```
+
+```bash
+npx supabase link --project-ref YOUR_PROJECT_REF
+```
+
+```bash
+npx supabase db push
+```
+
+```bash
+npx supabase secrets set ANTHROPIC_API_KEY=YOUR_KEY
+```
+
+```bash
+npx supabase functions deploy ai
+```
+
+```bash
+npx supabase functions deploy delete-account
+```
+
+### 3. Turn on email codes
+
+In the Supabase dashboard, go to **Authentication → Email templates → Magic Link** and make sure the template contains `{{ .Token }}`. The app asks for a 6-digit code, so this is what sends one.
+
+Supabase's built-in email service has a very low sending limit. It's fine for testing, but connect your own email provider before real users arrive.
+
+### 4. Connect the app
+
+Copy your project URL and **publishable** key into `kai/config.js`. Never put the secret key or the Claude key there. The publishable key is designed to be public, because the security rules protect the data.
+
+### 5. Try it
+
+Open the app, sign in with your email, tell KAI what you ate, and check it answers and the food is logged. Then open **More → Account** to see your usage.
+
+## Changing limits
+
+Edit the `tiers` table in the Supabase dashboard. No code change is needed.
+
+| Plan | AI requests a day | Photos | Better model for heavy tasks |
+|---|---|---|---|
+| free | 10 | no | no |
+| plus | 100 | yes | yes |
+
+The `app_limits` table holds a daily cap across all users, 2,000 requests to start with. To give someone the paid plan, set `tier` to `plus` on their row in `profiles`. Phase 4 will do this automatically from subscriptions.
+
+## Testing
+
+```bash
+npm install
+```
+
+```bash
+npm test
+```
+
+To try the whole app locally without any accounts, run the command below from the project's main folder, open http://localhost:8124 and sign in with any email and the code `123456`. Claude's replies are simulated.
+
+```bash
+node server/tests/dev-backend.mjs
+```
+
+## Privacy
+
+- The text of AI requests isn't stored or logged, only request counts and token totals.
+- Synced data is stored unencrypted in Supabase, protected by per-person access rules, so the project's owner could read it. Say so in the privacy policy.
+- API keys people paste in never sync, and the database rejects them.
+- Photos aren't synced yet.
+- Every synced document keeps its last 5 versions, for recovery. Deleting an account removes them too.
+
+## Measuring the AI
+
+Once you have an Anthropic key, this sends 59 realistic messages through the app's real prompt and the server's real AI code, then reports the pass rate and the measured cost per message.
+
+Check for free first that it's ready. This prints the prompt and calls nothing:
+
+```bash
+node eval/run.mjs --dry
+```
+
+Then run it, with `ANTHROPIC_API_KEY` set in your terminal. Never put the key in a file here or in a chat:
+
+```bash
+node eval/run.mjs
+```
+
+The cost isn't measured yet. If each message uses about 3,000 tokens in and 500 out, a full run costs a few cents on the default Haiku model and about 60 cents with `--model claude-sonnet-5-5`. Results go to `eval/results/`, which stays out of Git.
+
+Read `eval/cases.json` before trusting the score. It holds the messages and what counts as correct, and they were written without real user data, so they may not match what people actually type. Add messages from your own use and from testers. The calorie ranges are a judgement call, and the safety checks only look for words like "doctor", so read those replies yourself.

@@ -20,6 +20,7 @@ Then open http://localhost:8123.
 - `docs/`: the App Store listing draft.
 - `tests/`: tests of the app's rules, such as conflict warnings and study plans. Run them with `node --test tests/app.test.mjs`. GitHub also runs them on every push and compiles the iPhone app.
 - `tools/check-i18n.js`: reports any interface text missing an English translation.
+- `tools/check-release.js`: lists what would block an App Store submission, such as draft legal pages or blanks still to fill in.
 
 ## Adding interface text
 

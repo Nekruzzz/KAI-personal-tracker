@@ -4009,7 +4009,7 @@ A.authDelete = async el => {
 function accountCard(){
   const consent = meta().aiConsent;
   const privacy = `<div class="hint">${consent ? tr('Ты разрешил отправлять данные ИИ.') : tr('Отправка данных ИИ не разрешена.')} ${consent ? `<button class="link" data-act="consentOff">${tr('Отозвать')}</button>` : ''}</div>`;
-  const usageBtn = `<div class="btnrow"><button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>${cloudOn() ? `<button class="btn ghost" data-act="planSheet">${ic('star')}${tr('Тарифы')}</button>` : ''}</div>`;
+  const usageBtn = `<div class="btnrow"><button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>${cloudOn() && CFG.plans ? `<button class="btn ghost" data-act="planSheet">${ic('star')}${tr('Тарифы')}</button>` : ''}</div>`;
   if (!cloudOn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Конфиденциальность')}</b>${privacy}${usageBtn}${legalLinks()}</section>`;
   if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ без ключей и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${privacy}${legalLinks()}${usageBtn}</section>`;
   const st = syncState(), left = Object.keys(st.dirty || {}).length;
@@ -4545,7 +4545,7 @@ function usageBody(){
       const today = (SH.use || []).find(u => u.day === todayISO())?.requests ?? KAI_USE?.used ?? 0, lim = PLANS[planNow()]?.daily ?? KAI_USE?.limit ?? PLANS.free.daily;
       const pts = [...Array(14)].map((_, i) => addDays(todayISO(), i - 13)).map(k => ({x: fmtShort(k).split(' ')[0], y: (SH.use || []).find(u => u.day === k)?.requests || 0}));
       const month = (SH.use || []).reduce((a, u) => a + u.requests, 0);
-      h += `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${tr('ИИ от KAI')}</b><button class="link" data-act="planSheet">${planNow() === 'plus' ? 'Plus' : tr('Бесплатно')}</button></div>
+      h += `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${tr('ИИ от KAI')}</b>${CFG.plans ? `<button class="link" data-act="planSheet">${planNow() === 'plus' ? 'Plus' : tr('Бесплатно')}</button>` : `<span class="muted">${planNow() === 'plus' ? 'Plus' : tr('Бесплатно')}</span>`}</div>
         <div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>${tr('Сегодня')}</span><span class="muted">${trf('{n} из {m}', {n: today, m: lim})}</span></div><div class="bar"><i style="width:${Math.min(100, today / (lim || 1) * 100)}%;background:${today >= lim ? 'var(--bad)' : 'var(--accent)'}"></i></div><div class="hint" style="margin-top:6px">${tr('Лимит обновляется каждый день. Неудачные запросы не считаются.')}</div></div>
         ${SH.usageErr ? `<div class="note">${tr('Не получилось загрузить расход. Проверь интернет и открой ещё раз.')}</div>` : SH.use ? `${pts.some(p => p.y) ? barChart(pts, {unit: tr('запр.'), c: 'c1', label: tr('Запросы к ИИ за 14 дней')}) : ''}<div class="hint">${trf('За 30 дней: {n}', {n: month})}</div>` : `<div class="hint">${tr('Загружаю…')}</div>`}</section>`;
     }

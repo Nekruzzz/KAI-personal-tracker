@@ -753,7 +753,7 @@ test('supplements are switched off: no tab, no task, no reminder, and a saved li
 });
 
 test('lighter screens: the workout comes first, details are folded, and the header holds only what is used daily', () => {
-  run(`S.sub.health = 'train'; S.open.ready = false; delete S.open.acc_trainMore`);
+  run(`S.sub.health = 'train'; S.sub.w = null; S.open.ready = false; delete S.open.acc_trainMore; mutDay(todayISO(), d => { d.workout = 'A'; })`);
   const h = run(`hTrain()`);
   assert.match(h, /How do you feel\?/);
   assert.doesNotMatch(h, /data-act="rdy"/, 'the readiness questions open on a tap');
@@ -762,4 +762,5 @@ test('lighter screens: the workout comes first, details are folded, and the head
   assert.doesNotMatch(run(`(renderTop(), document.querySelector('#top').innerHTML)`) || '', /data-act="kb"/);
   assert.match(run(`viewMore()`), /data-act="kb"/, 'the knowledge base is still one tap away in More');
   assert.equal(run(`FACE_ON`), false);
+  run(`mutDay(todayISO(), d => { delete d.workout; })`);
 });

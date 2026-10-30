@@ -312,6 +312,7 @@ test('on an iPhone, reminders are replaced only when something changed, with rea
     await run(`syncReminders()`);
     assert.deepEqual(JSON.parse(run(`JSON.stringify(lnCalls.map(c => c[0]))`)), ['cancel', 'schedule']);
     assert.equal(run(`lnCalls[1][1].notifications[0].schedule.at instanceof Date`), true);
+    assert.equal(run(`lnCalls[1][1].notifications.every(n => ['day', 'train', 'recap'].includes(n.extra.go))`), true, 'a tap knows where to go');
     await run(`syncReminders()`);
     assert.equal(run(`lnCalls.length`), 2, 'no change, no work');
   } finally {
@@ -431,4 +432,50 @@ test('the day screen still renders with all of it in place', () => {
   assert.match(run(`viewDay()`), /Level/);
   assert.match(run(`viewMore()`), /Language/);
   assert.ok(mon);
+});
+
+test('bedtime reminders are off until turned on, then follow the routine, even past midnight', () => {
+  setPlan();
+  run(`setMeta({remind: {}})`);
+  assert.equal(reminders().some(x => x.key.startsWith('b')), false, 'off by default');
+  run(`setMeta({remind: {bed: true}})`);
+  const bed = reminders().filter(x => x.key.startsWith('b'));
+  assert.ok(bed.length >= 6 && bed.length <= 7, 'one a night for a week');
+  const d = run(`addDays(todayISO(), 3)`), r = bed.find(x => x.key === 'b' + d);
+  const want = run(`(() => { const s = dayBlocks('${d}').find(b => b.kind === 'sleep').s - 30; return atMin('${d}', s); })()`);
+  assert.equal(r.at, want);
+  assert.equal(r.title, 'Bedtime soon');
+  run(`(() => { const p = clone(plan()); p.routine.events = [{id: 'late', date: '${d}', title: 'Late', bed: '00:30'}]; save('app/plan', p); })()`);
+  const late = reminders().find(x => x.key === 'b' + d);
+  assert.equal(new Date(late.at).getHours(), 0);
+  assert.equal(late.at, run(`atMin('${d}', 1440)`), 'sleep at 00:30 means the night after, not that morning');
+  run(`setMeta({remind: {}})`);
+});
+
+test('a reminder knows which screen to open, and tapping one opens it', () => {
+  run(`setMeta({remind: {}})`);
+  setPlan([], [{day: 1, time: '10:00', title: 'Math', end: '11:00'}], {1: 'A', 2: 'B', 3: 'A', 4: 'B', 5: 'A', 6: 'B', 7: 'A'});
+  const r = reminders();
+  assert.ok(r.filter(x => x.key.startsWith('g')).every(x => x.go === 'train'));
+  assert.ok(r.filter(x => x.key.startsWith('c')).every(x => x.go === 'day'));
+  assert.ok(r.filter(x => x.key.startsWith('r')).every(x => x.go === 'recap'));
+  run(`S.tab = 'more'; openFromReminder('train')`);
+  assert.deepEqual([run('S.tab'), run('S.sub.health')], ['health', 'train']);
+  run(`openFromReminder('day')`);
+  assert.equal(run('S.tab'), 'day');
+  run(`openFromReminder(undefined)`);
+  assert.equal(run('S.tab'), 'day', 'an old reminder without a screen opens the day');
+});
+
+test('weight badges speak pounds when the app does, without changing the rule', () => {
+  const name = () => run(`BADGES.find(b => b.id === 'kg1').t`);
+  setProfile({age: 30, height: 175, weight: 80, goal: 'lose', units: 'metric'});
+  assert.equal(name(), 'Minus one kilo');
+  assert.equal(run(`badgeOf(BADGES.find(b => b.id === 'kg1'), 0.5)`), '0.5 / 1');
+  setProfile({age: 30, height: 175, weight: 80, goal: 'lose', units: 'us'});
+  assert.equal(name(), 'Minus two pounds');
+  assert.match(run(`BADGES.find(b => b.id === 'kg3').d`), /6\.6 lb/);
+  assert.equal(run(`badgeOf(BADGES.find(b => b.id === 'kg1'), 0.5)`), '1.1 / 2.2 lb');
+  assert.equal(run(`BADGES.find(b => b.id === 'kg1').n`), 1, 'still counted in kg');
+  setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'});
 });

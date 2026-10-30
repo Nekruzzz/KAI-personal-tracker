@@ -1797,5 +1797,13 @@ window.I18N_EN = {
 "Рост, футы и дюймы":"Height, feet and inches",
 "Единицы":"Units",
 "Килограммы и сантиметры":"Kilograms and centimeters",
-"Фунты и дюймы":"Pounds and inches"
+"Фунты и дюймы":"Pounds and inches",
+"Отбой":"Bedtime",
+"За 30 минут до сна по расписанию":"30 minutes before your usual bedtime",
+"Скоро отбой":"Bedtime soon",
+"Через 30 минут по расписанию сон. Пора откладывать телефон.":"Your routine says sleep in 30 minutes. Time to put the phone down.",
+"Минус два фунта":"Minus two pounds",
+"Средний вес за неделю на 2,2 фунта ниже старта":"Average weekly weight 2.2 lb below your start",
+"Минус шесть фунтов":"Minus six pounds",
+"На 6,6 фунта ниже старта":"6.6 lb below your start",
 };

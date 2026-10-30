@@ -1048,8 +1048,9 @@ const BADGES = [
   {id:'protein7', icon:'food', c:'#d95926', t:tr('Белковый режим'), d:tr('Белок в норме 7 дней подряд'), k:'proteinRun', n:7},
   {id:'steps7', icon:'steps', c:'#199e70', t:tr('Ходок'), d:tr('7 дней подряд норма шагов'), k:'stepsRun', n:7},
   {id:'sleep7', icon:'moon', c:'#9085e9', t:tr('Режим сна'), d:tr('7 ночей подряд по 7+ часов'), k:'sleepRun', n:7},
-  {id:'kg1', icon:'scale', c:'#2ebd6b', t:tr('Минус килограмм'), d:tr('Средний вес за неделю на 1 кг ниже старта'), k:'lost', n:1},
-  {id:'kg3', icon:'scale', c:'#2ebd6b', t:tr('Минус три'), d:tr('На 3 кг ниже старта'), k:'lost', n:3},
+  // the rule stays in kg (1 kg = 2.2 lb, 3 kg = 6.6 lb); only the words follow the pounds setting
+  {id:'kg1', icon:'scale', c:'#2ebd6b', get t(){ return isUS() ? tr('Минус два фунта') : tr('Минус килограмм'); }, get d(){ return isUS() ? tr('Средний вес за неделю на 2,2 фунта ниже старта') : tr('Средний вес за неделю на 1 кг ниже старта'); }, k:'lost', n:1},
+  {id:'kg3', icon:'scale', c:'#2ebd6b', get t(){ return isUS() ? tr('Минус шесть фунтов') : tr('Минус три'); }, get d(){ return isUS() ? tr('На 6,6 фунта ниже старта') : tr('На 3 кг ниже старта'); }, k:'lost', n:3},
   {id:'post1', icon:'video', c:'#d55181', t:tr('В эфире'), d:tr('Опубликовать первый ролик'), k:'posts', n:1},
   {id:'post12', icon:'video', c:'#d55181', t:tr('Автор'), d:tr('12 опубликованных роликов'), k:'posts', n:12},
   {id:'safe', icon:'shield', c:'#2ebd6b', t:tr('Данные в безопасности'), d:tr('Сделать резервную копию'), k:'backup', n:1},
@@ -1101,7 +1102,8 @@ function showBadge(id, fresh){
     ${!got ? badgeProgress(b) : ''}<button class="btn block" data-act="closeSheet">${fresh ? tr('Круто') : tr('Закрыть')}</button>`);
   if (fresh){ haptic('success'); sound('badge'); setTimeout(() => confetti({n: 120, y: innerHeight * .45}), 250); }
 }
-function badgeProgress(b){ const v = Math.min(b.n, badgeStats()[b.k] || 0); return `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><span>${tr("Прогресс")}</span><span class="muted">${num(v, v % 1 ? 1 : 0)} / ${b.n}</span></div><div class="bar"><i style="width:${v / b.n * 100}%;background:${b.c}"></i></div></section>`; }
+const badgeOf = (b, v) => { const n1 = x => num(x, x % 1 ? 1 : 0); return b.k === 'lost' && isUS() ? `${n1(W(v))} / ${n1(W(b.n))} ${kgU()}` : `${n1(v)} / ${b.n}`; };
+function badgeProgress(b){ const v = Math.min(b.n, badgeStats()[b.k] || 0); return `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><span>${tr("Прогресс")}</span><span class="muted">${badgeOf(b, v)}</span></div><div class="bar"><i style="width:${v / b.n * 100}%;background:${b.c}"></i></div></section>`; }
 function badgesShelf(){
   const have = meta().badges || {};
   const list = [...BADGES].sort((a, b) => (have[b.id] ? 1 : 0) - (have[a.id] ? 1 : 0));
@@ -1110,7 +1112,7 @@ function badgesShelf(){
     <div class="shelf">${list.slice(0, 10).map(b => `<button class="shelf-b" data-act="badge" data-id="${b.id}" aria-label="${esc(b.t)}">${badgeIcon(b, !!have[b.id], 54)}<span>${esc(b.t)}</span></button>`).join('')}</div>`;
 }
 A.badge = el => { haptic('selection'); showBadge(el.dataset.id, false); };
-A.badgesAll = () => { const have = meta().badges || {}, st = badgeStats(); openSheet(tr('Награды'), `<div class="badge-grid">${BADGES.map(b => { const v = Math.min(b.n, st[b.k] || 0); return `<button class="shelf-b" data-act="badge" data-id="${b.id}">${badgeIcon(b, !!have[b.id], 60)}<span>${esc(b.t)}</span><small>${have[b.id] ? fmtShort(have[b.id]) : num(v, v % 1 ? 1 : 0) + ' / ' + b.n}</small></button>`; }).join('')}</div>`); };
+A.badgesAll = () => { const have = meta().badges || {}, st = badgeStats(); openSheet(tr('Награды'), `<div class="badge-grid">${BADGES.map(b => { const v = Math.min(b.n, st[b.k] || 0); return `<button class="shelf-b" data-act="badge" data-id="${b.id}">${badgeIcon(b, !!have[b.id], 60)}<span>${esc(b.t)}</span><small>${have[b.id] ? fmtShort(have[b.id]) : badgeOf(b, v)}</small></button>`; }).join('')}</div>`); };
 
 /* ============ personal records in the gym ============ */
 const e1rm = s => s && +s.w > 0 && +s.r > 0 ? (+s.w) * (1 + (+s.r) / 30) : 0;
@@ -4159,15 +4161,16 @@ function recapBanner(){
 A.recapOpen = () => { setMeta({recapSeen: recapRange()[0]}); A.recap(); };
 
 /* ============ v8: the iPhone app. The native wrapper adds its plugins to window.Capacitor; in a browser none of this runs ============ */
-const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')]];
-const remindOn = k => (meta().remind || {})[k] !== false;
+const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')]];
+const REMIND_OFF = new Set(['bed']); // off until the person turns them on
+const remindOn = k => { const v = (meta().remind || {})[k]; return v === undefined ? !REMIND_OFF.has(k) : v !== false; };
 const REMIND_MAX = 60; // iOS keeps only 64 pending notifications per app
 const REMIND_MUST = 30; // exams come first, so a full timetable can't push them out
 const remindId = key => { let h = 2166136261; for (const ch of key){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 1) || 1; };
 const atMin = (date, min) => { const [y, m, d] = date.split('-').map(Number); return new Date(y, m - 1, d, 0, min).getTime(); };
 function buildReminders(now = Date.now()){
   const out = [], today = todayISO();
-  const add = (key, at, title, body, must) => { if (at > now + 30000) out.push({id: remindId(key), key, at, title, body, must: !!must}); };
+  const add = (key, at, title, body, must, go = 'day') => { if (at > now + 30000) out.push({id: remindId(key), key, at, title, body, must: !!must, go}); };
   if (remindOn('exams')) allEvents().filter(e => (e.kind === 'exam' || e.kind === 'deadline') && e.date >= today).forEach(e => {
     const start = atMin(e.date, hm(e.from || '09:00')), open = planTasks(e.id).filter(t => !t.done).length;
     const steps = e.kind === 'exam' ? [[14, tr('через 2 недели')], [7, tr('через неделю')], [3, tr('через 3 дня')], [1, tr('завтра')]] : [[3, tr('через 3 дня')], [1, tr('завтра')]];
@@ -4182,10 +4185,12 @@ function buildReminders(now = Date.now()){
       if (x.k === 'ev' && remindOn('events') && !['exam', 'deadline'].includes(allEvents().find(e => e.id === x.id)?.kind)) add(`e${date}_${x.id}`, atMin(date, x.s - 60), x.title, tr('Через час'));
     });
     const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym);
-    if (gym && remindOn('gym') && !getDay(date).tasks.some(t => t.id === 'gym' && t.done)) add(`g${date}`, atMin(date, gym.s - 30), tr('Скоро тренировка'), tr('Через 30 минут'));
+    if (gym && remindOn('gym') && !getDay(date).tasks.some(t => t.id === 'gym' && t.done)) add(`g${date}`, atMin(date, gym.s - 30), tr('Скоро тренировка'), tr('Через 30 минут'), false, 'train');
+    const bed = i < 7 && remindOn('bed') && bedMin(date);
+    if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
   }
   if (remindOn('warnings')) upcomingWarnings(7).forEach(w => add(`w${w.id}`, atMin(addDays(w.date, -1), 20 * 60), tr('Завтра в планах конфликт'), w.text));
-  if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), tr('Посмотри, как прошла твоя неделя')); }
+  if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), tr('Посмотри, как прошла твоя неделя'), false, 'recap'); }
   const byTime = (a, b) => a.at - b.at, must = out.filter(r => r.must).sort(byTime).slice(0, REMIND_MUST);
   return [...must, ...out.filter(r => !r.must).sort(byTime).slice(0, REMIND_MAX - must.length)].sort(byTime);
 }
@@ -4195,14 +4200,34 @@ async function syncReminders(){
   const LN = plug('LocalNotifications'); if (!LN || !S.ready || !meta().remindAsked) return;
   try {
     if ((await LN.checkPermissions()).display !== 'granted') return;
-    const want = buildReminders(), sig = JSON.stringify(want.map(r => [r.id, r.at, r.title, r.body]));
+    const want = buildReminders(), sig = JSON.stringify(want.map(r => [r.id, r.at, r.title, r.body, r.go]));
     if (sig === remindSig) return;
     const {notifications: pend = []} = await LN.getPending();
     if (pend.length) await LN.cancel({notifications: pend.map(p => ({id: p.id}))});
     // a real Date: the iOS plugin reads this field as a native date, not as text
-    if (want.length) await LN.schedule({notifications: want.map(r => ({id: r.id, title: r.title, body: r.body, schedule: {at: new Date(r.at), allowWhileIdle: true}}))});
+    if (want.length) await LN.schedule({notifications: want.map(r => ({id: r.id, title: r.title, body: r.body, extra: {go: r.go}, schedule: {at: new Date(r.at), allowWhileIdle: true}}))});
     remindSig = sig;
   } catch {}
+}
+/* bedtime from the day's routine; a sleep time past midnight belongs to the same evening */
+function bedMin(date){
+  const bl = dayBlocks(date), sl = bl.find(b => b.kind === 'sleep'), wk = bl.find(b => b.id === 'wake');
+  if (!sl) return null;
+  return wk && sl.s < wk.s ? sl.s + 1440 : sl.s;
+}
+/* tapping a reminder opens the screen it is about; a tap that launched the app waits for the data */
+function openFromReminder(go){
+  if (!S.ready) return setTimeout(() => openFromReminder(go), 200);
+  closeSheetQuiet(); window.scrollTo(0, 0);
+  if (go === 'train') return A.goTrain();
+  S.tab = 'day'; render();
+  if (go === 'recap') A.recap();
+}
+let remindTapOn = false;
+function listenReminderTaps(){
+  const LN = plug('LocalNotifications'); if (!LN || remindTapOn) return;
+  remindTapOn = true;
+  try { LN.addListener('localNotificationActionPerformed', e => openFromReminder(e?.notification?.extra?.go)); } catch {}
 }
 function notifBody(){
   const m = meta();
@@ -4296,6 +4321,7 @@ A.legal = async el => {
 };
 const legalLinks = () => `<div class="btnrow"><button class="link" data-act="legal" data-v="privacy">${tr('Политика конфиденциальности')}</button><button class="link" data-act="legal" data-v="terms">${tr('Условия использования')}</button></div>`;
 
+if (isNative()) listenReminderTaps();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !isNative()) return;
   remindSoon();

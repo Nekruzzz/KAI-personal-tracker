@@ -32,9 +32,11 @@ Also, from the owner's later messages:
 - **Feature review:** `docs/feature-review.md` lists features a new person may not need (the content tools, the on-computer and on-phone AI, the face log) and places where progress is shown several times. Nothing was removed.
 - **Bug fix:** when the same document was saved twice quickly, the database's copy of the first save could briefly replace the newer one in memory, and code running in that moment could act on old data. Found because a new install's program reverted; fixed by not letting snapshots overwrite documents with writes still in flight.
 
+Lighter app, from the owner's later messages: supplements and the face log are switched off, the workout breakdown is folded away, the header and Day tab are shorter, and repeated cards are gone. Details are in `docs/feature-review.md`. Sheets now float as frosted glass panels, and section tabs stay pinned while scrolling.
+
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 57 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 62 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 36 tests, all pass (28 at the start), including new database and webhook tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -56,5 +58,5 @@ Also, from the owner's later messages:
 5. **Plus price and limits:** 10 and 100 requests a day come from the `tiers` table. The price is a placeholder until you decide it.
 6. **Google sign-in inside the iPhone app** needs a URL scheme and Supabase redirect settings, and has to be tried on a device. On the web it already works once added to `providers` in `kai/config.js`.
 7. **Screen Time blocking** needs the Family Controls entitlement from Apple first. See `docs/screen-time-blocking.md`.
-8. **Features to cut or hide:** see `docs/feature-review.md`. The one with a safety angle: supplement presets include caffeine dosing and are shown to under-18s too.
+8. **Features to cut or hide:** see `docs/feature-review.md`. Supplements and the face log are switched off as asked. The content tools and the on-computer and on-phone AI are still there, waiting for your call.
 9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.

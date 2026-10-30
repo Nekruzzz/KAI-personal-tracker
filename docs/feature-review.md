@@ -21,7 +21,21 @@ KAI does a lot. For a stranger opening it for the first time, every extra screen
 
 ## Safety question, not just simplicity
 
-9. **Supplement presets include caffeine dosing** (3–6 mg per kg of body weight) and are shown regardless of age. The rules already stop calorie deficits for under-18s. Hiding caffeine, or the whole supplement section, for under-18s would follow the same idea. This wasn't changed, because it's a health-content decision.
+9. **Supplements** are now switched off entirely (see below). Before that, sports supplements were also hidden for under-18s.
+
+## Removed or folded away at the owner's request
+
+These are switched off or folded, not deleted: saved data stays, and each can come back with a small change.
+
+- **Supplements:** the tab, the daily task and the calendar reminder are off (`SUPPS_ON` in `kai/app.js`). A saved supplement list stays in the plan.
+- **Face puffiness log:** off (`FACE_ON`). Logged entries stay.
+- **Workout breakdown:** the Workouts screen now shows only the day's exercises and sets. "How do you feel?" is one line that opens on a tap. Sets per muscle, strength progress, posture, steps and the research notes sit in one folded "Progress and details" section. The long effort note above each workout is gone, because the effort line says the same thing.
+- **Header:** only the name and the AI button. The "Day 1/90" season chip is gone (Season is in More), and the knowledge base moved to a row in More.
+- **Day tab:** progress, the week strip and stats are in one folded "Progress and awards" section, whose summary shows the level. The schedule shows the next three blocks, with the rest on a tap. Screen time is one row until the first screenshot. The check-in's "Later" is a small link.
+- **Body tab:** no repeated calorie-adjustment card (it's on Food), and no waist chart until there are two entries.
+- **Money:** one Expenses/Income switch instead of two, and a smaller chart.
+- **More:** the class timetable shows only for students, or when classes are already saved.
+- **Tell KAI:** a one-sentence intro instead of a paragraph. The meal-plan card is one row until a menu exists.
 
 ## Already done in this round
 

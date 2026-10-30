@@ -260,7 +260,7 @@ function attach(db){
       snap.docs.forEach(d => { if (d.exists) { const p = c+'/'+d.id; seen.add(p); if (!localOnly.has(p)) S.docs[p] = d.data(); } });
       Object.keys(S.docs).forEach(k => { if (k.startsWith(c+'/') && !seen.has(k) && !localOnly.has(k)) delete S.docs[k]; });
       if (pending.has(c)) { pending.delete(c); if (!pending.size) onFirstLoad(); }
-      scheduleRender();
+      dataChanged(); scheduleRender();
     }));
   });
 }
@@ -269,8 +269,9 @@ const localOnly = new Map();
 const inFlight = path => localOnly.set(path, (localOnly.get(path) || 0) + 1);
 const landed = path => { const n = (localOnly.get(path) || 1) - 1; if (n > 0) localOnly.set(path, n); else localOnly.delete(path); };
 const chains = {};
+function dataChanged(){ ADAPT.clear(); } // cached answers that depend on data
 function save(path, data){
-  S.docs[path] = data; inFlight(path); syncMark(path); remindSoon();
+  S.docs[path] = data; inFlight(path); syncMark(path); remindSoon(); dataChanged();
   chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(() => { landed(path); delete retries[path]; }).catch(e => {
     // still counted as in flight, so a snapshot can't swap the change for the older stored copy before the retry
     const full = e && e.name === 'QuotaExceededError';
@@ -286,7 +287,7 @@ function saveRetry(path, data, ms){
   setTimeout(() => { landed(path); if (S.docs[path] === data) save(path, data); }, ms * retries[path]);
 }
 function remove(path){
-  delete S.docs[path]; inFlight(path); syncMark(path); remindSoon();
+  delete S.docs[path]; inFlight(path); syncMark(path); remindSoon(); dataChanged();
   chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).delete()).then(() => landed(path)).catch(() => { landed(path); toast(tr('Не удалилось')); });
   scheduleRender();
 }
@@ -1261,6 +1262,7 @@ function viewDay(){
   const last7 = [...Array(7)].map((_,i)=>addDays(date,-i)).map(k=>S.docs['days/'+k]).filter(x=>x && x.status!=='sick');
   const avg7 = last7.length ? last7.reduce((a,x)=>a+(dayScore(x)||0),0)/last7.length : 0;
   const s = season(), di = Math.max(1, dayDiff(s.start, date)+1);
+  if (!accOpen('stats')){ h = hKeep; return h + acc('stats', 'activity', tr('Прогресс и награды'), statsSummary(st, avg7), '', true); } // folded: the summary is enough
   const gymDone = dayKeys().filter(k=>k>=s.start && S.docs['days/'+k].tasks?.some(t=>t.id==='gym'&&t.done)).length;
   h += `<div class="sec-h"><h2>${tr("Статистика")}</h2><button class="link" data-act="season">${tr("Сезон")}</button></div>
   <section class="card" style="display:flex;flex-direction:column;gap:14px">
@@ -1271,9 +1273,10 @@ function viewDay(){
   h += weekCard();
   h += badgesShelf();
   const statsHTML = progressCard() + h; h = hKeep;
-  h += acc('stats', 'activity', tr('Прогресс и награды'), `${tr('Уровень')} ${levelOf(totalXP()).level} · ${tr("серия")} ${st} ${tr("· выполнено")} ${Math.round(avg7*100)}${tr("% за 7 дней")}`, statsHTML, true);
+  h += acc('stats', 'activity', tr('Прогресс и награды'), statsSummary(st, avg7), statsHTML, true);
   return h;
 }
+const statsSummary = (st, avg7) => `${tr('Уровень')} ${levelOf(totalXP()).level} · ${tr("серия")} ${st} ${tr("· выполнено")} ${Math.round(avg7*100)}${tr("% за 7 дней")}`;
 function taskSub(t, d){
   const pl = plan(), tg = targets();
   if (t.cat==='gym'){ const w = pl.workouts[workoutFor(d.date)]; return w ? w.ex.length+tr(' упражнений · ')+w.ex.slice(0,2).map(e=>e.name.split(' ')[0]).join(', ')+'…' : ''; }
@@ -1412,6 +1415,8 @@ function hTrain(){
   if (sel===todayW || !todayW) h += `<button class="btn block" data-act="finishW" data-v="${sel}">${ic('check')}${trf('Тренировка {w} выполнена', {w: tr(sel)})}</button>`;
   h += `<div class="hint" style="margin-top:-8px">${tr("Таймер отдыха запускается сам, когда вписываешь повторы подхода.")}</div>`;
   const main = h; h = '';
+  const moreHead = [tr('Прогресс и подробности'), tr('Подходы по мышцам, рост силы, осанка, шаги')];
+  if (!accOpen('trainMore')) return main + acc('trainMore', 'activity', ...moreHead, '', true); // folded: nothing to work out
   h += muscleCard();
   h += `<div class="sec-h"><h2>${tr("Осанка, 5 минут каждый день")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${(pl.posture||[]).map(x=>`<div class="row"><span class="ic">${ic('posture')}</span><div class="mid"><div class="t">${esc(x.name)}</div><div class="s">${esc(x.dose)}</div></div></div>`).join('')}</div></section>`;
   // steps
@@ -1427,7 +1432,7 @@ function hTrain(){
     <div class="field"><label for="peSel">${tr("Упражнение")}</label><select class="in" id="peSel" data-ch="pe">${allEx.map(e=>`<option value="${e.id}" ${e.id===ex.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select></div>
     <div class="hint">${tr("Расчётный максимум на 1 повтор (формула Эпли)")}, ${kgU()}</div>${lineChart(pts, {c:'c1', unit:kgU(), dec:1, id:'pe', label:tr('Прогресс силы'), empty:tr('Запиши подходы хотя бы на двух тренировках, и здесь появится график.')})}</section>`;
   h += whyCard('train');
-  return main + acc('trainMore', 'activity', tr('Прогресс и подробности'), tr('Подходы по мышцам, рост силы, осанка, шаги'), `<div style="display:flex;flex-direction:column;gap:18px">${h}</div>`, true);
+  return main + acc('trainMore', 'activity', ...moreHead, `<div style="display:flex;flex-direction:column;gap:18px">${h}</div>`, true);
 }
 function nextWorkout(from){ for (let i=0;i<8;i++){ const k = addDays(from,i), w = workoutFor(k); if (w) return {date:k, w}; } return {}; }
 function hBody(){
@@ -3474,7 +3479,14 @@ function daysSinceGym(date){
   return ks.length ? dayDiff(ks[ks.length - 1], date) : null;
 }
 const sleepBand = d => { const r = d.ready?.sleep; if (r) return r; const h = toNum(d.sleep); return h == null ? null : h < 6 ? 'low' : h < 7 ? 'ok' : 'good'; };
+/* asked several times per exercise on every redraw; the answer only changes when data does */
+const ADAPT = new Map();
 function adaptInfo(date){
+  const key = date + '|' + todayISO();
+  if (!ADAPT.has(key)) ADAPT.set(key, adaptInfoFresh(date));
+  return ADAPT.get(key);
+}
+function adaptInfoFresh(date){
   const reasons = []; let delta = 0, rpe = 0;
   if (date === todayISO()){
     const d = getDay(date), r = d.ready || {};

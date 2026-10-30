@@ -549,3 +549,13 @@ test('a home program with no equipment: added to existing plans without switchin
   assert.match(run(`viewHealth()`), /Squats to a chair/);
   run(`S.sub.w = null`);
 });
+
+test('appearance follows the system until fixed on this device, and is never synced', () => {
+  assert.equal(run(`themePref()`), 'system');
+  run(`A.setTheme({dataset: {v: 'light'}})`);
+  assert.equal(run(`themePref()`), 'light');
+  assert.equal(run(`isDark()`), false);
+  run(`A.setTheme({dataset: {v: 'system'}})`);
+  assert.equal(run(`themePref()`), 'system');
+  assert.match(run(`viewMore()`), /Appearance/);
+});

@@ -411,13 +411,13 @@ function donut(segs, size=120, sw=14, center=''){
   const arcs = total ? segs.filter(s=>s.v>0).map(s => { const len = Math.max(0, s.v/total*C - gap); const el = `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${s.c.startsWith('#')?s.c:'var(--'+s.c+')'}" stroke-width="${sw}" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size/2} ${size/2})"><title>${esc(s.label||'')}: ${esc(s.fmt||s.v)}</title></circle>`; off += s.v/total*C; return el; }).join('') : '';
   // read out as the parts and their shares; an empty donut says nothing the text beside it doesn't
   const said = segs.filter(s => s.v > 0 && s.label).map(s => `${s.label} ${Math.round(s.v / total * 100)}%`).join(', ');
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" ${said ? `role="img" aria-label="${esc(said)}"` : 'aria-hidden="true"'}><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#2b2c2f" stroke-width="${sw}"/>${arcs}${center}</svg>`;
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" ${said ? `role="img" aria-label="${esc(said)}"` : 'aria-hidden="true"'}><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--track)" stroke-width="${sw}"/>${arcs}${center}</svg>`;
 }
 function ring(frac, size=86, sw=10, color='', label='', key=''){
   const r=(size-sw)/2, C=2*Math.PI*r, f=Math.max(0,Math.min(1,frac||0));
   const from = key && RING_PREV[key] != null ? RING_PREV[key] : f; if (key) RING_PREV[key] = f;
   const stroke = color || (f >= 1 ? 'url(#ringGold)' : 'url(#ringG)');
-  return `<svg class="ring ${f>=1?'full':''}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(label)}: ${Math.round(f*100)}%"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#2b2c2f" stroke-width="${sw}"/><circle class="ringarc" data-to="${f*C}" data-c="${C}" cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${from*C} ${C}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="var(--text)" font-weight="800" font-size="${size*.22}" data-count-from="${Math.round(from*100)}" data-count-to="${Math.round(f*100)}" data-suf="%">${Math.round(from*100)}%</text></svg>`;
+  return `<svg class="ring ${f>=1?'full':''}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(label)}: ${Math.round(f*100)}%"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--track)" stroke-width="${sw}"/><circle class="ringarc" data-to="${f*C}" data-c="${C}" cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${from*C} ${C}" transform="rotate(-90 ${size/2} ${size/2})"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="var(--text)" font-weight="800" font-size="${size*.22}" data-count-from="${Math.round(from*100)}" data-count-to="${Math.round(f*100)}" data-suf="%">${Math.round(from*100)}%</text></svg>`;
 }
 /* line chart: pts [{x:'label', y:number}] ; opts {target, unit, avg} */
 function lineChart(pts, opts={}){
@@ -426,7 +426,7 @@ function lineChart(pts, opts={}){
   const ys = pts.map(p=>p.y).concat(opts.target!=null?[opts.target]:[]);
   let lo = Math.min(...ys), hi = Math.max(...ys); if (lo===hi){lo-=1;hi+=1;} const padv=(hi-lo)*.12; lo-=padv; hi+=padv;
   const X = i => L + i*(W-L-R)/(pts.length-1), Y = v => T + (hi-v)*(H-T-B)/(hi-lo);
-  const grid = [0,.5,1].map(f=>{ const v = lo+(hi-lo)*(1-f); const y=Y(v); return `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#2b2c2f"/><text x="${L-6}" y="${y}" fill="var(--text-3)" font-size="10" text-anchor="end" dominant-baseline="central">${num(v, opts.dec??0)}</text>`; }).join('');
+  const grid = [0,.5,1].map(f=>{ const v = lo+(hi-lo)*(1-f); const y=Y(v); return `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--track)"/><text x="${L-6}" y="${y}" fill="var(--text-3)" font-size="10" text-anchor="end" dominant-baseline="central">${num(v, opts.dec??0)}</text>`; }).join('');
   const line = pts.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join('');
   const area = line + `L${X(pts.length-1)},${H-B}L${X(0)},${H-B}Z`;
   const avg = opts.avg ? pts.map((p,i)=>{ const s = pts.slice(Math.max(0,i-6), i+1); return {y: s.reduce((a,b)=>a+b.y,0)/s.length}; }) : null;
@@ -451,7 +451,7 @@ function barChart(pts, opts={}){
   const Y = v => T + (hi-v)*(H-T-B)/hi;
   const bars = pts.map((p,i)=>{ const x = L+i*bw+bw*.18, w = bw*.64, y = Y(p.y), h = H-B-y; const c = opts.colorFn ? opts.colorFn(p) : `var(--${opts.c||'c1'})`; return h>0?`<path d="M${x},${H-B}V${y+Math.min(4,h)}Q${x},${y} ${x+Math.min(4,w/2)},${y}H${x+w-Math.min(4,w/2)}Q${x+w},${y} ${x+w},${y+Math.min(4,h)}V${H-B}Z" fill="${c}"/>`:''; }).join('');
   const tgt = opts.target!=null ? `<line x1="${L}" x2="${W-R}" y1="${Y(opts.target)}" y2="${Y(opts.target)}" stroke="var(--text-2)" stroke-dasharray="4 4"/><text x="${W-R}" y="${Y(opts.target)-5}" fill="var(--text-2)" font-size="10" text-anchor="end">${tr("цель")} ${num(opts.target, opts.dec??0)}</text>` : '';
-  const grid = [0,.5,1].map(f=>{ const v=hi*f; return `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#2b2c2f"/><text x="${L-5}" y="${Y(v)}" fill="var(--text-3)" font-size="10" text-anchor="end" dominant-baseline="central">${num(v, v<10?1:0)}</text>`; }).join('');
+  const grid = [0,.5,1].map(f=>{ const v=hi*f; return `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--track)"/><text x="${L-5}" y="${Y(v)}" fill="var(--text-3)" font-size="10" text-anchor="end" dominant-baseline="central">${num(v, v<10?1:0)}</text>`; }).join('');
   const step = Math.ceil(pts.length/7);
   const xl = pts.map((p,i)=> i%step===0 || i===pts.length-1 ? `<text x="${L+i*bw+bw/2}" y="${H-6}" fill="var(--text-3)" font-size="10" text-anchor="middle">${esc(p.x)}</text>`:'').join('');
   const data = esc(JSON.stringify({L,R,W,H,bar:true,pts:pts.map((p,i)=>({x:p.x,y:p.y,px:L+i*bw+bw/2,py:Y(p.y)})), unit:opts.unit||'', dec:opts.dec??0}));
@@ -1229,10 +1229,10 @@ function viewDay(){
   const mon = addDays(date, 1-dow(date));
   h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card"><div class="week">${[0,1,2,3,4,5,6].map(i=>{
     const ds = addDays(mon,i), dd = S.docs['days/'+ds], s = dd ? dayScore(dd) : null, past = ds < date;
-    let bg = '#2b2c2f', txt = '';
+    let bg = 'var(--track)', txt = '';
     if (dd?.status==='sick') { bg='var(--sick)'; txt=tr('Б'); }
     else if (s!=null && (past || ds===date)) { bg = s>=.7?'var(--good)':s>0?'var(--warn)':'var(--bad)'; txt = s>=.7 ? ic('check') : Math.round(s*100); }
-    else if (past && ds >= trackedFrom()) { bg='#3a1717'; txt='–'; } // days before KAI was installed aren't missed
+    else if (past && ds >= trackedFrom()) { bg='var(--bad-bg)'; txt='–'; } // days before KAI was installed aren't missed
     const w = workoutFor(ds);
     return `<div class="wd ${ds===date?'today':''}"><span>${DOW[i+1]}</span><span class="dot" style="background:${bg}">${txt}</span><span>${w?tr(w):'·'}</span></div>`;
   }).join('')}</div><div class="legend" style="margin-top:12px"><span><i style="background:var(--good)"></i>70%+</span><span><i style="background:var(--warn)"></i>${tr("частично")}</span><span><i style="background:var(--bad)"></i>${tr("пропуск")}</span><span><i style="background:var(--sick)"></i>${tr("болел")}</span><span>${tr("буква — тренировка")}</span></div></section>`;
@@ -1245,7 +1245,7 @@ function viewDay(){
   h += `<div class="sec-h"><h2>${tr("Статистика")}</h2><button class="link" data-act="season">${tr("Сезон")}</button></div>
   <section class="card" style="display:flex;flex-direction:column;gap:14px">
     <div class="stat3"><div><span class="st-ic">${flame(flameLevel(st), st?'lit':'', 16)}</span><b>${st}</b><span>${tr("серия · рекорд")} ${Math.max(st, bestStreak())}</span></div><div><span class="st-ic" style="color:var(--good)">${ic('checkc')}</span><b>${Math.round(avg7*100)}%</b><span>${tr("выполнено за 7 дн")}</span></div><div><span class="st-ic" style="color:var(--c1)">${ic('gym')}</span><b>${gymDone}</b><span>${tr("тренировок в сезоне")}</span></div></div>
-    <div><div class="hint" style="margin-bottom:8px">${tr("Последние 30 дней")}</div><div class="heat">${[...Array(30)].map((_,i)=>{ const k = addDays(date, i-29), dd = S.docs['days/'+k], sc2 = dd?dayScore(dd):null; let c = '#232326'; if (dd?.status==='sick') c='var(--sick)'; else if (sc2!=null) c = sc2>=.7?'var(--good)':k===date?'#3a3d41':sc2>=.4?'var(--warn)':'var(--bad)'; else if (k<date && k>=s.start && k>=trackedFrom()) c='#3a1717'; return `<i style="background:${c}" title="${fmtShort(k)}${sc2!=null?': '+Math.round(sc2*100)+'%':''}"></i>`; }).join('')}</div></div>
+    <div><div class="hint" style="margin-bottom:8px">${tr("Последние 30 дней")}</div><div class="heat">${[...Array(30)].map((_,i)=>{ const k = addDays(date, i-29), dd = S.docs['days/'+k], sc2 = dd?dayScore(dd):null; let c = 'var(--track-2)'; if (dd?.status==='sick') c='var(--sick)'; else if (sc2!=null) c = sc2>=.7?'var(--good)':k===date?'var(--edge)':sc2>=.4?'var(--warn)':'var(--bad)'; else if (k<date && k>=s.start && k>=trackedFrom()) c='var(--bad-bg)'; return `<i style="background:${c}" title="${fmtShort(k)}${sc2!=null?': '+Math.round(sc2*100)+'%':''}"></i>`; }).join('')}</div></div>
     <div><div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span>${esc(s.title)}</span><span class="muted">${tr("день")} ${di} ${tr("из")} ${s.length||90}</span></div><div class="bar"><i style="width:${Math.min(100,di/(s.length||90)*100)}%;background:var(--accent)"></i></div></div>
   </section>`;
   h += weekCard();
@@ -1331,7 +1331,7 @@ function hFood(){
   let h = '';
   if (!t.ok) h += `<div class="banner">${ic('alert')}<div>${tr("Норма КБЖУ считается из роста, веса и возраста. Заполни профиль, и я рассчитаю её под твою цель.")}<div class="btnrow"><button class="btn" data-act="profile">${tr("Заполнить профиль")}</button></div></div></div>`;
   const target = t.kcal || 2200;
-  const segs = [{v:e.p*4, c:'c1', label:tr('Белки')},{v:e.f*9, c:'c4', label:tr('Жиры')},{v:e.c*4, c:'c3', label:tr('Углеводы')},{v:Math.max(0,target-e.kcal), c:'#2b2c2f', label:tr('Осталось')}];
+  const segs = [{v:e.p*4, c:'c1', label:tr('Белки')},{v:e.f*9, c:'c4', label:tr('Жиры')},{v:e.c*4, c:'c3', label:tr('Углеводы')},{v:Math.max(0,target-e.kcal), c:'track', label:tr('Осталось')}];
   h += `<section class="card"><div class="hero-row"><div class="grow"><div class="hero-num">${num(e.kcal)}</div><div class="hero-sub">${tr("из")} ${t.ok?num(t.kcal):'—'} ${tr("ккал сегодня")}</div></div>
     ${donut(segs, 104, 13)}</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
@@ -1394,7 +1394,7 @@ function hTrain(){
   // steps
   const tg = targets();
   const sp = [...Array(14)].map((_,i)=>addDays(date,i-13)).map(k=>({x:fmtShort(k).split(' ')[0], y:+(S.docs['days/'+k]?.steps||0)}));
-  h += `<div class="sec-h"><h2>${tr("Шаги")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="stepsIn2">${tr("Шаги сегодня")}</label><input class="in" id="stepsIn2" inputmode="numeric" data-ch="steps" value="${d.steps??''}" placeholder="${tr("из приложения Здоровье на iPhone")}"></div>${barChart(sp,{target:tg.steps, unit:tr('шагов'), c:'c3', label:tr('Шаги за 14 дней'), colorFn:p=>p.y>=tg.steps?'var(--c3)':'#3a4a44'})}</section>`;
+  h += `<div class="sec-h"><h2>${tr("Шаги")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="stepsIn2">${tr("Шаги сегодня")}</label><input class="in" id="stepsIn2" inputmode="numeric" data-ch="steps" value="${d.steps??''}" placeholder="${tr("из приложения Здоровье на iPhone")}"></div>${barChart(sp,{target:tg.steps, unit:tr('шагов'), c:'c3', label:tr('Шаги за 14 дней'), colorFn:p=>p.y>=tg.steps?'var(--c3)':'var(--good-bg)'})}</section>`;
   // progress
   const allEx = Object.values(pl.workouts).flatMap(w=>w.ex).filter(e=>!e.unit && !e.bw).filter((e, i, a) => a.findIndex(x => x.id === e.id) === i);
   const pe = S.sub.pe || allEx[0]?.id;
@@ -1433,7 +1433,7 @@ function hSleep(){
   return `<section class="card hero"><div class="hero-num">${got.length?num(avg,1)+tr(' ч'):'—'}</div><div class="hero-sub">${tr("средний сон за 14 дней · цель 7–9 ч")}</div>
     <div class="fgrid" style="margin-top:14px"><div class="field"><label for="slIn">${tr("Спал прошлой ночью, ч")}</label><input class="in" id="slIn" inputmode="decimal" data-ch="sleep" value="${d.sleep??''}" placeholder="7.5"></div>
     <div class="field"><label>${tr("Качество сна")}</label><div class="seg">${[1,2,3,4,5].map(n=>`<button class="${d.sleepQ===n?'on':''}" data-act="sleepQ" data-v="${n}" aria-label="${tr("Качество")} ${n}">${n}</button>`).join('')}</div></div></div></section>
-    <section class="card">${barChart(pts,{target:7.5, unit:tr('ч'), dec:1, c:'c7', label:tr('Сон за 14 дней'), colorFn:p=>p.y>=7?'var(--c7)':'#3d3a5c'})}</section>
+    <section class="card">${barChart(pts,{target:7.5, unit:tr('ч'), dec:1, c:'c7', label:tr('Сон за 14 дней'), colorFn:p=>p.y>=7?'var(--c7)':'var(--sick-bg)'})}</section>
     <section class="card"><b>${tr("Почему сон в плане")}</b><div class="hint" style="margin-top:6px">${tr("При недосыпе на дефиците калорий больше теряется мышц и меньше жира, растёт аппетит и отёчность лица утром. Держи 7+ часов и одинаковое время подъёма.")}</div></section>`;
 }
 function hSupps(){
@@ -2225,7 +2225,7 @@ function tellLines(r, date){
 }
 function tellView(it){
   const r = it.result, lines = tellLines(r, it.meta.date), alerts = it.done ? [] : [...previewWarnings(r).map(w => w.text), ...(r.warnings||[]).filter(Boolean).map(String)];
-  return `<section class="card" style="background:#1c1c1e;display:flex;flex-direction:column;gap:10px"><div class="ai-out">${esc(r.reply||'')}</div>${alerts.length?`<div class="banner" role="status">${ic('alert')}<div>${alerts.map(esc).join('<br>')}</div></div>`:''}${lines.length?`<ul class="ai-list">${lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:`<div class="hint">${tr("Не нашёл, что отметить. Опиши подробнее.")}</div>`}</section>${lines.length && !it.done?`<button class="btn block" data-act="tellApply" data-id="${it.id}">${ic('check')}${tr("Применить всё")}</button>`:''}`;
+  return `<section class="card" style="background:var(--card);display:flex;flex-direction:column;gap:10px"><div class="ai-out">${esc(r.reply||'')}</div>${alerts.length?`<div class="banner" role="status">${ic('alert')}<div>${alerts.map(esc).join('<br>')}</div></div>`:''}${lines.length?`<ul class="ai-list">${lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:`<div class="hint">${tr("Не нашёл, что отметить. Опиши подробнее.")}</div>`}</section>${lines.length && !it.done?`<button class="btn block" data-act="tellApply" data-id="${it.id}">${ic('check')}${tr("Применить всё")}</button>`:''}`;
 }
 A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it) return;
@@ -3102,7 +3102,7 @@ function viewMore(){
   let h = `<section class="card profhead"><button class="ava big" data-act="season" aria-label="${tr("Сезон")}">${esc((p.name || 'K')[0])}</button><div class="mid"><div class="t" style="font-size:19px">${esc(p.name || tr('Профиль'))}</div><div class="s">${esc(s.title)} ${tr("· день")} ${di} ${tr("из")} ${s.length || 90}</div></div><button class="link" data-act="season">${tr("Сезон")}</button></section>`;
   if (!st.ok && !cloudOn()) h += `<section class="card nudge"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr("Подключи ИИ")}</div><div class="s">${tr("Claude или ChatGPT. Одна минута, один ключ.")}</div></div><button class="btn" data-act="aiConnect">${tr("Начать")}</button></section>`;
   if (modOn('content')) h += `<button class="card navrow" data-act="tab" data-v="content"><span class="ic">${ic('video')}</span><div class="mid"><div class="t">${tr("Контент")}</div><div class="s">${tr("Сценарии, план роликов, продвижение")}</div></div>${ic('chevR')}</button>`;
-  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Язык')}</b>${langSeg()}</section>` + accountCard();
+  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Язык')}</b>${langSeg()}<b id="themeL">${tr('Оформление')}</b>${themeSeg()}</section>` + accountCard();
   h += acc('ai', 'spark', tr('ИИ'), esc(st.text), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow"><button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button><button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
   h += acc('profile', 'user', tr('Профиль и норма питания'), t.ok ? `${W(p.weight)} ${kgU()} · ${heightShow(p.height)}${isUS() ? '' : ' ' + cmU()} · ${tr("норма")} ${t.kcal} ${tr("ккал")}` : tr('Укажи рост, вес и возраст: нужны для нормы КБЖУ'), `<div class="fgrid">
       <div class="field"><label for="pfN">${tr("Имя")}</label><input class="in" id="pfN" data-ch="pf" data-k="name" value="${esc(p.name || '')}"></div>
@@ -4421,6 +4421,19 @@ A.tellEx = el => {
 A.firstTellOff = () => setMeta({firstTellOff: true});
 const tellGo0 = A.tellGo;
 A.tellGo = async (...a) => { if (val('tellT') && !meta().toldOnce) setMeta({toldOnce: true}); return tellGo0(...a); };
+
+/* ============ appearance: follows the phone by default; light or dark can be fixed per device ============ */
+const themePref = () => { try { const t = localStorage.getItem('kai_theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch { return 'system'; } };
+const isDark = () => { const t = themePref(); if (t !== 'system') return t === 'dark'; try { return !matchMedia('(prefers-color-scheme: light)').matches; } catch { return true; } };
+function applyTheme(){
+  const t = themePref(), de = document.documentElement;
+  if (de?.setAttribute){ if (t === 'system') de.removeAttribute('data-theme'); else de.setAttribute('data-theme', t); }
+  $$('meta[name=theme-color]').forEach(m => m.setAttribute('content', isDark() ? '#000000' : '#f2f2f7'));
+}
+const themeSeg = () => `<div class="seg" role="group" aria-labelledby="themeL">${[['system', tr('Как в системе')], ['light', tr('Светлое')], ['dark', tr('Тёмное')]].map(([v, l]) => `<button class="${themePref() === v ? 'on' : ''}" aria-pressed="${themePref() === v}" data-act="setTheme" data-v="${v}">${l}</button>`).join('')}</div>`;
+A.setTheme = el => { try { if (el.dataset.v === 'system') localStorage.removeItem('kai_theme'); else localStorage.setItem('kai_theme', el.dataset.v); } catch {} applyTheme(); render(); };
+try { matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => { applyTheme(); render(); }); } catch {}
+applyTheme();
 
 /* ============ init ============ */
 async function init(){

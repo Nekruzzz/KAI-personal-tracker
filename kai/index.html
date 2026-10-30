@@ -586,6 +586,14 @@ details.manual .field{margin-bottom:10px}
 /* the logo is white artwork: dark on a light page */
 @media (prefers-color-scheme:light){:root:not([data-theme=dark]) .wlogo img{filter:invert(1)}}
 :root[data-theme=light] .wlogo img{filter:invert(1)}
+/* liquid glass, second pass: sheets float as frosted panels inset from the edges */
+.sheet{width:calc(100% - 16px);margin:0 8px calc(8px + env(safe-area-inset-bottom,0px));border-radius:34px;background:color-mix(in srgb,var(--sheet) 90%,transparent);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border:1px solid var(--glass-rim);box-shadow:inset 0 1px 0 var(--glass-hi),0 20px 60px rgba(0,0,0,.35);padding-bottom:24px;max-height:calc(100% - 8px - env(safe-area-inset-bottom,0px))}
+.sh-h{border-radius:28px 28px 0 0}
+/* section tabs stay reachable on a glass strip while the page scrolls */
+.view > .pills:first-child{position:sticky;top:env(safe-area-inset-top,0px);z-index:15;padding-top:8px;padding-bottom:8px;margin-top:-8px;background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%)}
+/* the KAI button: a lit glass bead */
+.nav .mic span.b{background:radial-gradient(120% 120% at 30% 20%,color-mix(in srgb,var(--accent) 70%,#fff 30%),var(--accent) 60%);border:1px solid rgba(255,255,255,.35)}
+@media (prefers-reduced-transparency:reduce){.sheet,.view > .pills:first-child{background:var(--sheet);-webkit-backdrop-filter:none;backdrop-filter:none}}
 </style>
 </head>
 <body>

@@ -1881,4 +1881,7 @@ window.I18N_EN = {
 "Сервер не принял записей: {n}, обычно из-за размера. Они сохранены на телефоне и попадут в облако после следующего изменения.":"The server didn't accept {n} entries, usually because of their size. They're saved on this phone and will go to the cloud after their next change.",
 "Облачная копия отстаёт: изменений ждут отправки {n}. Всё сохранено на телефоне, отправлю, когда сервер ответит.":"The cloud copy is behind: {n} changes are waiting to upload. Everything is saved on this phone, and I'll send it when the server responds.",
 "До 18 лет спортивные добавки вроде креатина и кофеина не советуют. Любые добавки лучше обсудить с врачом.":"Under 18, sports supplements like creatine and caffeine aren't recommended. Talk to a doctor before taking any supplement.",
+"Прогресс и подробности":"Progress and details",
+"Подходы по мышцам, рост силы, осанка, шаги":"Sets per muscle, strength progress, posture, steps",
+"Твои статьи и заметки, ответы ИИ по ним":"Your articles and notes, with AI answers from them",
 };

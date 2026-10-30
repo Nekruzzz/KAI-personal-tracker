@@ -181,6 +181,7 @@ const IN_CATS = [['Пополнение','c4','down'],['Переводы вхо�
 const catInfo = (type, name) => (type==='in'?IN_CATS:OUT_CATS).find(c=>c[0]===name) || [tr('Другое'),'c0','list'];
 // supplements are switched off for now: lighter app. A saved list stays in the plan, so turning this back on restores it
 const SUPPS_ON = false;
+const FACE_ON = false;
 const TASK_COLOR = {gym:'c1', food:'c2', prep:'c2', supps:'c7', sleep:'c7', posture:'c3', steps:'c3', study:'c4', content:'c5', custom:'c0', money:'c4'};
 const TASK_ICON = {gym:'gym', posture:'posture', steps:'steps', food:'food', supps:'pill', prep:'food', sleep:'moon', study:'cap', content:'video', custom:'list', money:'wallet'};
 const POST_STATUS = ['Идея','Сценарий','Снято','Опубликовано'];
@@ -1185,15 +1186,12 @@ function render(){
 const emptyState = (icon, text) => `<div class="empty"><span class="e-ic">${ic(icon)}</span><span>${text}</span></div>`;
 const greeting = () => { const h = new Date().getHours(); return h < 5 ? tr('Доброй ночи') : h < 12 ? tr('Доброе утро') : h < 18 ? tr('Добрый день') : tr('Добрый вечер'); };
 function renderTop(){
-  const s = season(), di = Math.max(1, dayDiff(s.start, todayISO())+1);
   const titles = {health:tr('Здоровье'), content:tr('Контент'), money:tr('Деньги'), more:tr('Ещё')};
   $('#top').className = 'top' + (S.tab==='day' ? '' : ' plain');
   $('#top').innerHTML = `<div class="hdr">
     <button class="ava" data-act="profile" aria-label="${tr("Профиль")}">${esc((profile().name||'K')[0])}</button>
     <button class="hname" data-act="profile" aria-label="${tr("Профиль")}">${esc(profile().name||tr('Профиль'))} ${ic('chevR')}</button>
     <span class="hsp"></span>
-    <button class="seasonchip" data-act="season">${tr("День")} ${di}/${s.length||90}</button>
-    <button class="iconbtn" data-act="kb" aria-label="${tr("База знаний")}">${ic('book')}</button>
     <button class="iconbtn aibtn" data-act="aiSheet" aria-label="${tr("ИИ: ответы и очередь")}">${ic('spark')}<span class="badge" id="aiBadge" hidden></span></button>
   </div>${S.tab==='content'?`<button class="backlink" data-act="tab" data-v="more">${tr("‹ Ещё")}</button>`:''}${titles[S.tab]?`<h1 class="ptitle">${titles[S.tab]}</h1>`:`<h1 class="vh">${tr('День')}</h1>`}
   ${S.online && syncBehind() ? `<div class="note" style="margin-top:12px">${trf('Облачная копия отстаёт: изменений ждут отправки {n}. Всё сохранено на телефоне, отправлю, когда сервер ответит.', {n: syncBehind()})}</div>` : ''}
@@ -1246,7 +1244,8 @@ function viewDay(){
   h += backupBanner();
   h += `<div class="sec-h"><h2>${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
   <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
-  // week
+  // week: kept with the other numbers in the folded stats, so the Day screen stays about today
+  const beforeWeek = h; h = '';
   const mon = addDays(date, 1-dow(date));
   h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card"><div class="week">${[0,1,2,3,4,5,6].map(i=>{
     const ds = addDays(mon,i), dd = S.docs['days/'+ds], s = dd ? dayScore(dd) : null, past = ds < date;
@@ -1257,8 +1256,9 @@ function viewDay(){
     const w = workoutFor(ds);
     return `<div class="wd ${ds===date?'today':''}"><span>${DOW[i+1]}</span><span class="dot" style="background:${bg}">${txt}</span><span>${w?tr(w):'·'}</span></div>`;
   }).join('')}</div><div class="legend" style="margin-top:12px"><span><i style="background:var(--good)"></i>70%+</span><span><i style="background:var(--warn)"></i>${tr("частично")}</span><span><i style="background:var(--bad)"></i>${tr("пропуск")}</span><span><i style="background:var(--sick)"></i>${tr("болел")}</span><span>${tr("буква — тренировка")}</span></div></section>`;
+  const weekHTML = h; h = beforeWeek;
   // stats
-  const hKeep = h; h = '';
+  const hKeep = h; h = weekHTML;
   const last7 = [...Array(7)].map((_,i)=>addDays(date,-i)).map(k=>S.docs['days/'+k]).filter(x=>x && x.status!=='sick');
   const avg7 = last7.length ? last7.reduce((a,x)=>a+(dayScore(x)||0),0)/last7.length : 0;
   const s = season(), di = Math.max(1, dayDiff(s.start, date)+1);
@@ -1396,7 +1396,7 @@ function hTrain(){
   h += readyCard(todayW ? date : null);
   const logDate = sel===todayW ? date : date;
   const d = getDay(logDate);
-  h += `<div class="sec-h"><h2>${esc(w.name)}</h2></div>${w.note?`<div class="note">${esc(w.note)}</div>`:''}`;
+  h += `<div class="sec-h"><h2>${esc(w.name)}</h2></div>`;
   h += w.ex.map(e => {
     const last = lastSets(e.id, logDate), cur = d.sets?.[e.id] || [], pb = bestBefore(e.id, logDate);
     let hint = '';
@@ -1404,13 +1404,14 @@ function hTrain(){
     const open = S.open['ex_'+e.id];
     return `<section class="card" style="padding:14px 16px">
       <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;min-width:0"><div class="t" style="font-weight:700">${esc(e.name)}</div><div class="hint">${setsFor(e, logDate)} × ${e.lo}–${e.hi}${e.unit?' '+e.unit:tr(' повт.')} ${tr("· отдых")} ${esc(e.rest)}</div>${hint}</div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><button class="link" data-act="toggleOpen" data-k="ex_${e.id}">${open?tr('Скрыть'):tr('Как делать')}</button><button class="link" data-act="restStart" data-r="${esc(e.rest)}" data-n="${esc(e.name)}">${tr("Отдых")}</button></div></div>
+      <div style="display:flex;gap:14px;align-items:center;flex:none"><button class="link" data-act="toggleOpen" data-k="ex_${e.id}">${open?tr('Скрыть'):tr('Как делать')}</button><button class="link" data-act="restStart" data-r="${esc(e.rest)}" data-n="${esc(e.name)}">${tr("Отдых")}</button></div></div>
       ${open?`<div class="note" style="margin-top:8px">${esc(e.how)}</div>`:''}
       <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit||e.bw?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit||e.bw?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
     </section>`;
   }).join('');
   if (sel===todayW || !todayW) h += `<button class="btn block" data-act="finishW" data-v="${sel}">${ic('check')}${trf('Тренировка {w} выполнена', {w: tr(sel)})}</button>`;
   h += `<div class="hint" style="margin-top:-8px">${tr("Таймер отдыха запускается сам, когда вписываешь повторы подхода.")}</div>`;
+  const main = h; h = '';
   h += muscleCard();
   h += `<div class="sec-h"><h2>${tr("Осанка, 5 минут каждый день")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${(pl.posture||[]).map(x=>`<div class="row"><span class="ic">${ic('posture')}</span><div class="mid"><div class="t">${esc(x.name)}</div><div class="s">${esc(x.dose)}</div></div></div>`).join('')}</div></section>`;
   // steps
@@ -1426,7 +1427,7 @@ function hTrain(){
     <div class="field"><label for="peSel">${tr("Упражнение")}</label><select class="in" id="peSel" data-ch="pe">${allEx.map(e=>`<option value="${e.id}" ${e.id===ex.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select></div>
     <div class="hint">${tr("Расчётный максимум на 1 повтор (формула Эпли)")}, ${kgU()}</div>${lineChart(pts, {c:'c1', unit:kgU(), dec:1, id:'pe', label:tr('Прогресс силы'), empty:tr('Запиши подходы хотя бы на двух тренировках, и здесь появится график.')})}</section>`;
   h += whyCard('train');
-  return h;
+  return main + acc('trainMore', 'activity', tr('Прогресс и подробности'), tr('Подходы по мышцам, рост силы, осанка, шаги'), `<div style="display:flex;flex-direction:column;gap:18px">${h}</div>`, true);
 }
 function nextWorkout(from){ for (let i=0;i<8;i++){ const k = addDays(from,i), w = workoutFor(k); if (w) return {date:k, w}; } return {}; }
 function hBody(){
@@ -1440,7 +1441,7 @@ function hBody(){
     <div class="fgrid" style="margin-top:14px"><div class="field"><label for="wIn">${tr("Вес сегодня")}, ${kgU()}</label><input class="in" id="wIn" inputmode="decimal" data-ch="weight" value="${W(d.weight)??''}" placeholder="${last?W(last.v):W(75)}"></div><div class="field"><label for="waIn">${tr("Талия")}, ${cmU()} ${tr("(раз в неделю)")}</label><input class="in" id="waIn" inputmode="decimal" data-ch="waist" value="${L(d.waist)??''}" placeholder="${waists.length?L(waists[waists.length-1].v):tr('на уровне пупка')}"></div></div></section>`;
   h += `<div class="sec-h"><h2>${tr("Вес")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Линия — среднее за 7 дней, точки — каждое взвешивание. Смотри на линию: вес скачет от воды и соли.")}</div>${lineChart(ws.slice(-60).map(x=>({x:fmtShort(x.k), y:W(x.v)})), {avg:true, c:'c1', unit:kgU(), dec:1, id:'w', label:tr('Вес')})}<div class="hint" style="margin-top:8px">${tr("Цель темпа: −0,5…0,7% веса в неделю")}${last?` (≈ ${num(W(last.v*0.005),1)}–${num(W(last.v*0.007),1)} ${kgU()})`:''}${tr(". Быстрее — растёт риск потерять мышцы.")}</div></section>`;
   h += adaptiveCard();
-  h += faceCard();
+  if (FACE_ON) h += faceCard(); // niche and about looks; switched off for now, entries already logged are kept
   h += `<div class="sec-h"><h2>${tr("Талия")}</h2></div><section class="card">${lineChart(waists.slice(-30).map(x=>({x:fmtShort(x.k), y:x.v})), {c:'c3', unit:tr('см'), dec:1, id:'wa', label:tr('Талия')})}</section>`;
   h += `<div class="sec-h"><h2>${tr("Фото формы")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px">
     ${photoCompare()}
@@ -3124,6 +3125,7 @@ function viewMore(){
   const fx = FX();
   let h = `<section class="card profhead"><button class="ava big" data-act="season" aria-label="${tr("Сезон")}">${esc((p.name || 'K')[0])}</button><div class="mid"><div class="t" style="font-size:19px">${esc(p.name || tr('Профиль'))}</div><div class="s">${esc(s.title)} ${tr("· день")} ${di} ${tr("из")} ${s.length || 90}</div></div><button class="link" data-act="season">${tr("Сезон")}</button></section>`;
   if (!st.ok && !cloudOn()) h += `<section class="card nudge"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr("Подключи ИИ")}</div><div class="s">${tr("Claude или ChatGPT. Одна минута, один ключ.")}</div></div><button class="btn" data-act="aiConnect">${tr("Начать")}</button></section>`;
+  h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
   if (modOn('content')) h += `<button class="card navrow" data-act="tab" data-v="content"><span class="ic">${ic('video')}</span><div class="mid"><div class="t">${tr("Контент")}</div><div class="s">${tr("Сценарии, план роликов, продвижение")}</div></div>${ic('chevR')}</button>`;
   h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Язык')}</b>${langSeg()}<b id="themeL">${tr('Оформление')}</b>${themeSeg()}</section>` + accountCard();
   h += acc('ai', 'spark', tr('ИИ'), esc(st.text), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow"><button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button><button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
@@ -3499,9 +3501,12 @@ function readyCard(date){
   const cur = {...r, sleep: sleepBand(d)};
   const grp = (k, label, opts) => `<div class="field"><label>${label}</label><div class="seg">${opts.map(([v, l]) => `<button class="${cur[k] === v ? 'on' : ''}" data-act="rdy" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div></div>`;
   const eff = (EFFORT[plan().program] ?? 7) + info.rpe;
-  return dlBanner + `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div><b>${tr("Как самочувствие?")}</b><div class="hint">${tr("Две секунды, и тренировка подстроится под тебя.")}</div></div>
+  const effort = `${tr("Усилие сегодня:")} <b>${eff} ${tr("из 10")}</b>${tr(". Оставляй")} ${Math.max(1, 9 - eff)}–${Math.max(2, 10 - eff)} ${tr("повтора в запасе.")}`;
+  // folded to one line: the workout comes first, adjusting it is a tap away
+  if (!S.open.ready) return dlBanner + `<button class="card navrow" data-act="toggleOpen" data-k="ready" aria-expanded="false"><span class="ic">${ic('heart')}</span><div class="mid"><div class="t">${tr("Как самочувствие?")}</div><div class="s">${effort}</div></div>${ic('chevR')}</button>`;
+  return dlBanner + `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;gap:10px"><div><b>${tr("Как самочувствие?")}</b><div class="hint">${tr("Две секунды, и тренировка подстроится под тебя.")}</div></div><button class="link" data-act="toggleOpen" data-k="ready" aria-expanded="true">${tr('Свернуть')}</button></div>
     ${grp('sleep', tr('Сон'), [['low', tr('меньше 6 ч')], ['ok', tr('6–7 ч')], ['good', tr('7+ ч')]])}${grp('sore', tr('Крепатура'), [['none', tr('нет')], ['mild', tr('лёгкая')], ['high', tr('сильная')]])}${grp('energy', tr('Силы'), [['low', tr('мало')], ['ok', tr('норма')], ['high', tr('много')]])}
-    ${info.reasons.length ? `<div class="note">${info.reasons.map(esc).join('<br>')}</div>` : ''}<div class="hint">${tr("Усилие сегодня:")} <b>${eff} ${tr("из 10")}</b>${tr(". Оставляй")} ${Math.max(1, 9 - eff)}–${Math.max(2, 10 - eff)} ${tr("повтора в запасе.")}</div></section>`;
+    ${info.reasons.length ? `<div class="note">${info.reasons.map(esc).join('<br>')}</div>` : ''}<div class="hint">${effort}</div></section>`;
 }
 A.rdy = el => { haptic('selection'); mutDay(todayISO(), d => { d.ready = {...(d.ready || {}), [el.dataset.k]: el.dataset.v}; }); };
 

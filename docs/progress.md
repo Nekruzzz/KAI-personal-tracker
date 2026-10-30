@@ -32,11 +32,16 @@ Also, from the owner's later messages:
 - **Feature review:** `docs/feature-review.md` lists features a new person may not need (the content tools, the on-computer and on-phone AI, the face log) and places where progress is shown several times. Nothing was removed.
 - **Bug fix:** when the same document was saved twice quickly, the database's copy of the first save could briefly replace the newer one in memory, and code running in that moment could act on old data. Found because a new install's program reverted; fixed by not letting snapshots overwrite documents with writes still in flight.
 
+More fixes from the screen-by-screen review:
+- The AI button always showed an empty orange dot: a CSS rule overrode `hidden` (now fixed for every element).
+- More said "normal 2100 kcal" instead of "target 2,100 kcal".
+- Folded sections are no longer built until opened, and workout adjustments are cached until data changes: the Workouts screen redraws in about 5 ms instead of 13 ms with two years of data.
+
 Lighter app, from the owner's later messages: supplements and the face log are switched off, the workout breakdown is folded away, the header and Day tab are shorter, and repeated cards are gone. Details are in `docs/feature-review.md`. Sheets now float as frosted glass panels, and section tabs stay pinned while scrolling.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 62 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 63 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 36 tests, all pass (28 at the start), including new database and webhook tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

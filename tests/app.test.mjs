@@ -586,3 +586,47 @@ test('the plan screen shows both limits and says plainly that the price is a pla
   assert.match(run(`usageBody()`), /3 requests · 1,000 tokens in, 200 out/);
   run(`SH = null; setMeta({claudeUsage: {}})`);
 });
+
+test('a full queue or a full phone refuses the request with a message, and keeps the text', async () => {
+  run(`globalThis.toasts = []; globalThis.toast0 = toast; toast = (m) => toasts.push(m)`);
+  try {
+    run(`for (let i = 0; i < 30; i++) save('jobs/full' + i, {id: 'full' + i, kind: 'tell', prompt: 'x', nImg: 0, json: true, meta: {}, provider: 'pc', label: '', status: 'queued', created: new Date().toISOString(), tries: 0})`);
+    assert.equal(await run(`submitJob('tell', {prompt: 'x', provider: 'pc'})`), null);
+    assert.match(run(`toasts.at(-1)`), /already 30 requests in the queue.*Your text is still here/);
+    run(`for (let i = 0; i < 30; i++) remove('jobs/full' + i)`);
+    run(`globalThis.itb0 = imageToBlob; imageToBlob = async () => { throw Object.assign(new Error('full'), {name: 'QuotaExceededError'}); }`);
+    assert.equal(await run(`submitJob('food', {prompt: 'x', images: [{}], provider: 'pc'})`), null);
+    assert.match(run(`toasts.at(-1)`), /out of space, so the photo wasn't saved/);
+    assert.equal(run(`Object.keys(S.docs).filter(k => k.startsWith('jobs/')).length`), 0, 'no half-made request left behind');
+  } finally { run(`toast = toast0; if (globalThis.itb0) imageToBlob = itb0`); }
+});
+
+test('sync: one document the server refuses is set aside, the rest still upload, and a later change retries it', async () => {
+  run(`globalThis.af0 = apiFetch; apiFetch = async (path, opts) => { const items = JSON.parse(opts.body).p_items; return {ok: !items.some(i => i.path === 'days/bad'), status: items.some(i => i.path === 'days/bad') ? 400 : 200, json: async () => []}; }`);
+  try {
+    run(`syncSave({owner: 'u', dirty: {'days/a': 1, 'days/bad': 2, 'days/b': 3}})`);
+    await run(`syncPush()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(syncState())`)), {owner: 'u', dirty: {}, stuck: {'days/bad': 2}});
+    run(`syncMark('days/bad')`);
+    const st = JSON.parse(run(`JSON.stringify(syncState())`));
+    assert.ok(st.dirty['days/bad'] && !st.stuck['days/bad'], 'changed again: worth another try');
+  } finally { run(`apiFetch = af0; clearTimeout(syncTimer); syncSave(null)`); }
+});
+
+test('a save the phone fails to write is tried again, and nothing newer is overwritten', async () => {
+  run(`globalThis.toasts = []; globalThis.toast0 = toast; toast = (m) => toasts.push(m); globalThis.db0 = DB; globalThis.fails = 1; globalThis.writes = [];
+    DB = {...db0, doc: p => p !== 'app/retrytest' ? db0.doc(p) : {set: async d => { if (fails-- > 0) throw new Error('io'); writes.push(d.v); }, delete: async () => {}}}`);
+  try {
+    run(`save('app/retrytest', {v: 1})`);
+    await wait(50);
+    assert.ok(run(`toasts.some(t => /Didn't save, trying again/.test(t))`), run(`toasts.join(' | ')`));
+    await wait(3200);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(writes)`)), [1]);
+    run(`fails = 1; writes = []; save('app/retrytest', {v: 2})`);
+    await wait(50);
+    run(`save('app/retrytest', {v: 3})`);
+    await wait(6500);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(writes)`)), [3], 'the failed older copy is not written over the newer one');
+    assert.equal(run(`localOnly.has('app/retrytest')`), false, 'nothing left pending');
+  } finally { run(`DB = db0; toast = toast0; delete S.docs['app/retrytest']`); }
+});

@@ -268,11 +268,19 @@ const landed = path => { const n = (localOnly.get(path) || 1) - 1; if (n > 0) lo
 const chains = {};
 function save(path, data){
   S.docs[path] = data; inFlight(path); syncMark(path); remindSoon();
-  chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(() => landed(path)).catch(e => {
-    landed(path);
-    toast(e && e.name === 'QuotaExceededError' ? tr('В телефоне закончилось место для данных') : tr('Не сохранилось, попробуй ещё раз'));
+  chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(() => { landed(path); delete retries[path]; }).catch(e => {
+    // still counted as in flight, so a snapshot can't swap the change for the older stored copy before the retry
+    const full = e && e.name === 'QuotaExceededError';
+    toast(full ? tr('В телефоне закончилось место: освободи память, иначе последние изменения пропадут при закрытии приложения') : tr('Не сохранилось, пробую ещё раз'), {ms: 5000});
+    saveRetry(path, data, full ? 30000 : 3000);
   });
   scheduleRender();
+}
+/* the change is still in memory: write it again later, unless something newer replaced it */
+const retries = {};
+function saveRetry(path, data, ms){
+  if ((retries[path] = (retries[path] || 0) + 1) > 5){ landed(path); return; }
+  setTimeout(() => { landed(path); if (S.docs[path] === data) save(path, data); }, ms * retries[path]);
 }
 function remove(path){
   delete S.docs[path]; inFlight(path); syncMark(path); remindSoon();
@@ -628,15 +636,22 @@ function parseJSON(t){
 /* submit a job: runs now if some AI is reachable, otherwise waits in the queue */
 async function submitJob(kind, {prompt, images=[], json=true, meta={}, provider='auto', label=''}){
   if (!['pc', 'phone'].includes(provider) && !(await askConsent())) return null;
+  if (queued().filter(j => j.status !== 'error').length >= JOB_MAX){ toast(trf('В очереди уже {n} запросов. Дождись ответов или удали лишние в разделе «ИИ». Твой текст остался на месте.', {n: JOB_MAX}), {ms: 6000}); return null; }
   const id = uid();
   const imgs = [];
-  for (let i=0; i<images.length; i++){ const b = await imageToBlob(images[i]); await blobPut('job_'+id+'_'+i, b); imgs.push(b); }
+  try { for (let i=0; i<images.length; i++){ const b = await imageToBlob(images[i]); await blobPut('job_'+id+'_'+i, b); imgs.push(b); } }
+  catch(e){
+    for (let i=0; i<images.length; i++) blobDel('job_'+id+'_'+i).catch(() => {});
+    toast(e?.name === 'QuotaExceededError' ? tr('В телефоне закончилось место, поэтому фото не сохранилось. Освободи память и попробуй ещё раз.') : tr('Не получилось сохранить фото. Попробуй ещё раз.'), {ms: 6000});
+    return null;
+  }
   save('jobs/'+id, {id, kind, prompt, nImg: images.length, json, meta, provider, label, status:'queued', created: new Date().toISOString(), tries:0});
   JOB_IMGS[id] = imgs;
   setTimeout(processQueue, 50);
   return id;
 }
 const JOB_IMGS = {};
+const JOB_MAX = 30; // waiting requests; beyond this something is wrong, and photos would fill the phone
 const queued = () => Object.entries(S.docs).filter(([k])=>k.startsWith('jobs/')).map(([,v])=>v).sort((a,b)=>a.created.localeCompare(b.created));
 
 async function processQueue(){
@@ -694,9 +709,10 @@ function jobStatus(id){
   const j = S.docs['jobs/'+id]; if (!j) return;
   if (j.status === 'running') el.innerHTML = `<div class="note"><span class="spin"></span> ${tr("Думает")} ${esc(PROV[j.using]?.name||tr('ИИ'))}…${j.using==='phone'&&AI.progress?`<div class="hint" id="phoneProg">${esc(AI.progress)}</div>`:''}</div>`;
   else if (j.status === 'error') el.innerHTML = `<div class="note">${esc(j.lastError||tr('Ошибка'))}</div><div class="btnrow"><button class="btn ghost" data-act="jobRetry" data-id="${id}">${tr("Повторить")}</button></div>`;
+  else if (!S.online) el.innerHTML = `<div class="note">${ic('repeat')} ${tr('Нет интернета. Запрос сохранён в очереди и отправится сам, когда связь вернётся. Можешь закрыть окно: ответ придёт в раздел «ИИ».')}</div>`;
   else el.innerHTML = `<div class="note">${ic('repeat')} ${tr("Сейчас ни один ИИ недоступен")}${j.lastError?' ('+esc(j.lastError)+')':''}${tr(". Запрос сохранён в очереди и отправится сам, как только появится интернет или компьютер. Можешь закрыть окно — ответ придёт в раздел «ИИ».")}</div>`;
 }
-function queueNow(id, outId){ SH.jobId = id; SH.outId = outId; setTimeout(()=>jobStatus(id), 60); }
+function queueNow(id, outId){ if (!id || !SH) return; SH.jobId = id; SH.outId = outId; setTimeout(()=>jobStatus(id), 60); }
 
 /* provider picker used in every AI sheet */
 function provPicker(needImg){
@@ -1176,6 +1192,7 @@ function renderTop(){
     <button class="iconbtn" data-act="kb" aria-label="${tr("База знаний")}">${ic('book')}</button>
     <button class="iconbtn aibtn" data-act="aiSheet" aria-label="${tr("ИИ: ответы и очередь")}">${ic('spark')}<span class="badge" id="aiBadge" hidden></span></button>
   </div>${S.tab==='content'?`<button class="backlink" data-act="tab" data-v="more">${tr("‹ Ещё")}</button>`:''}${titles[S.tab]?`<h1 class="ptitle">${titles[S.tab]}</h1>`:`<h1 class="vh">${tr('День')}</h1>`}
+  ${S.online && syncBehind() ? `<div class="note" style="margin-top:12px">${trf('Облачная копия отстаёт: изменений ждут отправки {n}. Всё сохранено на телефоне, отправлю, когда сервер ответит.', {n: syncBehind()})}</div>` : ''}
   ${!S.online ? `<div class="note" style="margin-top:12px">${tr("Нет интернета. Всё работает и сохраняется в телефоне; запросы к Claude подождут в очереди.")}</div>`:''}
   ${!S.live && S.ready ? `<div class="note" style="margin-top:12px">${tr("Хранилище телефона недоступно: данные не сохранятся после закрытия. Проверь, что это не приватная вкладка Safari.")}</div>`:''}`;
   setTimeout(renderBadge);
@@ -2314,7 +2331,7 @@ A.addSupp = async () => {
   const prompt = `Пользователь добавляет БАД в трекер: ${tr('«')}${name}${tr('»')}. Дай краткую справку по общепринятым данным (инструкции производителей, обзоры исследований).
 ${profileBrief()}
 Верни только JSON: {"name":"нормализованное название на русском","what":"зачем он и работает ли по исследованиям, 1–2 предложения","dose":"типичная доза","timing":"когда принимать","withFood":"с едой или натощак","evidence":"сильная|умеренная|слабая","cautions":"с чем осторожно, 1 предложение"}`;
-  await submitJob('supp', {prompt, label:tr('БАД: ')+name});
+  if (!(await submitJob('supp', {prompt, label:tr('БАД: ')+name}))) return;
   $('#suppName').value = '';
   $('#suppOut').innerHTML = `<div class="note">${tr("Запрос про «")}${esc(name)}${tr("» отправлен. Если ИИ сейчас недоступен, справка придёт позже. Добавить без справки можно кнопкой ниже.")}</div><button class="btn ghost" data-act="addSuppPlain" data-n="${esc(name)}">${tr("Добавить без справки")}</button>`;
 };
@@ -3964,7 +3981,7 @@ function accountCard(){
   const sync = S.syncErr ? tr('Не удалось синхронизировать, повторю позже') : st.at ? tr('Синхронизировано в') + ' ' + new Date(st.at).toTimeString().slice(0, 5) : tr('Синхронизация…');
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="t">${esc(AUTH.email)}</div>
     ${KAI_USE ? `<div class="hint">${tr('ИИ сегодня:')} ${KAI_USE.used} ${tr('из')} ${KAI_USE.limit}</div>` : ''}${usageBtn}
-    <div class="hint">${esc(sync)}${left ? ' · ' + tr('ждёт отправки:') + ' ' + left : ''}. ${tr('Фото пока хранятся только на телефоне.')}</div>${privacy}
+    <div class="hint">${esc(sync)}${left ? ' · ' + tr('ждёт отправки:') + ' ' + left : ''}. ${tr('Фото пока хранятся только на телефоне.')}</div>${Object.keys(st.stuck || {}).length ? `<div class="note">${trf('Сервер не принял записей: {n}, обычно из-за размера. Они сохранены на телефоне и попадут в облако после следующего изменения.', {n: Object.keys(st.stuck).length})}</div>` : ''}${privacy}
     <div class="btnrow"><button class="btn ghost" data-act="authOut">${tr('Выйти')}</button><button class="btn danger" data-act="authDelete">${tr('Удалить аккаунт')}</button></div>${legalLinks()}</section>`;
 }
 
@@ -4020,7 +4037,9 @@ function syncSave(st){ SYNC = st || {}; lsSet('kai_sync', st); }
 function syncMark(path){
   if (S.fromCloud || S.inClaude || !syncable(path)) return;
   const st = syncState(); if (!st.owner) return;
-  st.dirty = {...(st.dirty || {}), [path]: Date.now()}; syncSave(st);
+  st.dirty = {...(st.dirty || {}), [path]: Date.now()};
+  if (st.stuck?.[path]){ st.stuck = {...st.stuck}; delete st.stuck[path]; } // changed since: worth another try
+  syncSave(st);
   syncSoon();
 }
 function syncSoon(ms = 4000){
@@ -4048,11 +4067,27 @@ async function syncPush(){
     const batch = paths.slice(i, i + 50), stamps = batch.map(p => st.dirty[p]);
     const items = batch.map((path, k) => { const data = S.docs[path]; return {path, data: data ?? null, deleted: data === undefined, ts: stamps[k]}; });
     const r = await apiFetch('/rest/v1/rpc/sync_push', {method:'POST', body: JSON.stringify({p_items: items})});
+    if (r.status === 400 && items.length > 1){ await syncOneByOne(items); continue; } // one bad document must not hold back the rest
+    if (r.status === 400){ syncStuck(items[0]); continue; }
     if (!r.ok) throw new Error('push ' + r.status);
     const cur = syncState(), dirty = {...cur.dirty};
     batch.forEach((p, k) => { if (dirty[p] === stamps[k]) delete dirty[p]; }); // an edit made during the upload stays queued
     syncSave({...cur, dirty});
   }
+}
+async function syncOneByOne(items){
+  for (const it of items){
+    const r = await apiFetch('/rest/v1/rpc/sync_push', {method:'POST', body: JSON.stringify({p_items: [it]})});
+    if (r.status === 400){ syncStuck(it); continue; }
+    if (!r.ok) throw new Error('push ' + r.status);
+    const cur = syncState(), dirty = {...cur.dirty}; if (dirty[it.path] === it.ts) delete dirty[it.path]; syncSave({...cur, dirty});
+  }
+}
+/* the server refused this document (too large, for one): it stays on the phone and is tried again after its next change */
+function syncStuck(it){
+  const cur = syncState(), dirty = {...cur.dirty};
+  if (dirty[it.path] === it.ts) delete dirty[it.path];
+  syncSave({...cur, dirty, stuck: {...(cur.stuck || {}), [it.path]: it.ts}});
 }
 /* first sync on a device: the cloud copy wins, anything only here is uploaded, and what would be replaced is kept in a local backup */
 async function syncFirst(){
@@ -4084,10 +4119,12 @@ async function syncNow(){
     await syncPush();
     const st = syncState(); syncSave({...st, at: Date.now()});
     S.syncErr = false;
-  } catch(e){ S.syncErr = true; }
+  } catch(e){ if (!S.syncErr) S.syncErrSince = Date.now(); S.syncErr = true; }
   finally { syncBusy = false; if (S.tab === 'more') scheduleRender(); }
 }
 setInterval(() => syncSoon(0), 300000);
+// shown on screen only after half an hour of failures, so a short outage stays quiet
+const syncBehind = () => S.syncErr && Date.now() - (S.syncErrSince || 0) > 30 * 60000 ? Object.keys(syncState().dirty || {}).length : 0;
 window.addEventListener('online', () => syncSoon(500));
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncSoon(500); });
 

@@ -1884,4 +1884,7 @@ window.I18N_EN = {
 "Прогресс и подробности":"Progress and details",
 "Подходы по мышцам, рост силы, осанка, шаги":"Sets per muscle, strength progress, posture, steps",
 "Твои статьи и заметки, ответы ИИ по ним":"Your articles and notes, with AI answers from them",
+"Прогресс и награды":"Progress and awards",
+"Добавь скриншот, и увидишь, на что уходит день":"Add a screenshot to see where your day goes",
+"Весь день: ещё {n}":"Rest of the day: {n} more",
 };

@@ -1238,7 +1238,6 @@ function viewDay(){
   h += nowCard();
   h += taskCard();
   h += timelineCard();
-  h += progressCard();
   h += screenCard();
   h += onboardCard();
   h += backupBanner();
@@ -1271,8 +1270,8 @@ function viewDay(){
   </section>`;
   h += weekCard();
   h += badgesShelf();
-  const statsHTML = h; h = hKeep;
-  h += acc('stats', 'activity', tr('Статистика и награды'), `${tr("серия")} ${st} ${tr("· выполнено")} ${Math.round(avg7*100)}${tr("% за 7 дней")}`, statsHTML, true);
+  const statsHTML = progressCard() + h; h = hKeep;
+  h += acc('stats', 'activity', tr('Прогресс и награды'), `${tr('Уровень')} ${levelOf(totalXP()).level} · ${tr("серия")} ${st} ${tr("· выполнено")} ${Math.round(avg7*100)}${tr("% за 7 дней")}`, statsHTML, true);
   return h;
 }
 function taskSub(t, d){
@@ -2935,16 +2934,16 @@ function timelineCard(){
     </div>${open ? `<div class="tl-det">${b.note ? `<div>${esc(b.note)}</div>` : ''}<div class="btnrow">${b.gym ? `<button class="btn" data-act="goTrain">${tr("Открыть тренировку")}</button>` : ''}${b.kind !== 'sleep' ? [15, 30, 60].map(m => `<button class="btn ghost" data-act="tlShift" data-id="${esc(b.id)}" data-m="${m}">+${m} ${tr("мин")}</button>`).join('') : ''}${b.sh || d.ext?.[b.id] || d.trim?.[b.id] || d.auto?.[b.id] ? `<button class="btn ghost" data-act="tlShift" data-id="${esc(b.id)}" data-m="0">${tr("Вернуть время")}</button>` : ''}${!BARRIER_KINDS.includes(b.kind) ? `<button class="btn ghost" data-act="tlLock" data-id="${esc(b.id)}">${d.lock?.[b.id] ? tr('Открепить') : tr('Закрепить время')}</button>` : ''}${b.kind !== 'sleep' && !b.gym ? `<button class="btn ghost" data-act="tlSkip" data-id="${esc(b.id)}">${s === 'skip' ? tr('Вернуть') : tr('Пропустить')}</button>` : ''}${b.evId ? `<button class="btn danger" data-act="evDel" data-id="${esc(b.evId)}">${ic('trash')}${tr("Удалить событие")}</button>` : ''}</div></div>` : ''}`;
   };
   const evs = eventsFor(date).filter(ev => !ev.from);
-  const typeName = dow(date) <= 5 ? tr('Будний день') : dow(date) === 6 ? tr('Суббота') : tr('Воскресенье');
   return `<div class="sec-h"><h2>${tr("Расписание дня")}</h2><button class="link" data-act="evSheet">${tr("События")}</button></div>
   <section class="card" style="padding:14px 18px 6px">
     ${evs.map(ev => `<div class="tl-ev">${ic('star')}<div><b>${esc(ev.title)}</b>${ev.note ? `<div class="s">${esc(ev.note)}</div>` : ''}</div></div>`).join('')}
     <div class="tl-walk"><div class="tl-walk-h"><span>${ic('steps')}${tr("Прогулки")}</span><b>${walked} / ${goal} ${tr("мин")}</b></div><div class="bar"><i style="width:${Math.min(100, walked / goal * 100)}%;background:var(--c3)"></i></div>
       <div class="walkq"><span>${tr("Ещё ходил?")}</span>${[10, 20, 30].map(m => `<button data-act="walkAdd" data-m="${m}">+${m}</button>`).join('')}${d.walkExtra ? `<button data-act="walkAdd" data-m="0" aria-label="${tr("Сбросить добавленное")}">${d.walkExtra} ${tr("мин ×")}</button>` : ''}<span class="walk7">${tr("неделя:")} ${Math.round(week7 / 6) / 10} ${tr("из")} ${Math.round(goal * 7 / 6) / 10} ${tr("ч")}</span></div></div>
-    <div class="hint" style="margin:10px 0 2px">${typeName} ${tr("· время по часам телефона")}</div>${adj ? `<button class="link" style="font-size:13px;padding:2px 0 6px" data-act="tlResetDay">${tr("Сбросить сдвиги дня")}</button>` : ''}
+    <div style="margin:6px 0 0"></div>${adj ? `<button class="link" style="font-size:13px;padding:2px 0 6px" data-act="tlResetDay">${tr("Сбросить сдвиги дня")}</button>` : ''}
     ${past.length ? `<button class="link tl-past" data-act="toggleOpen" data-k="tl_past" style="padding:6px 0">${showPast ? tr('Скрыть прошедшее') : `${tr("Прошедшее:")} ${past.length} ${plural(past.length, tr('блок'), tr('блока'), tr('блоков'))} ${tr("· отмечено")} ${past.filter(b => st(b) === 'done').length}`}</button>` : ''}
     ${showPast ? past.map(row).join('') : ''}
-    ${rest.length ? rest.map(row).join('') : `<div class="hint" style="padding:10px 0">${tr("На сегодня всё. Хорошего сна.")}</div>`}
+    ${rest.length ? (S.open.tl_all ? rest : rest.slice(0, 3)).map(row).join('') : `<div class="hint" style="padding:10px 0">${tr("На сегодня всё. Хорошего сна.")}</div>`}
+    ${rest.length > 3 ? `<button class="link" data-act="toggleOpen" data-k="tl_all" style="padding:6px 0">${S.open.tl_all ? tr('Свернуть') : trf('Весь день: ещё {n}', {n: rest.length - 3})}</button>` : ''}
   </section>`;
 }
 A.tlOpen = el => { const k = 'tb_' + el.dataset.id; S.open[k] = !S.open[k]; render(); };
@@ -3328,7 +3327,7 @@ function checkinCard(){
   if (c.type === 'plan') body = `<div class="qadd"><input class="in" id="ciPlan" placeholder="${tr("Дела через запятую")}" aria-label="${tr("Дела на сегодня")}" autocomplete="off"><button class="btn" data-act="ciPlan" aria-label="${tr("Добавить")}">${ic('plus')}</button></div><div class="btnrow">${b('none', tr('Дел нет'), 'ghost')}</div>`;
   else if (c.type === 'task') body = `<div class="btnrow">${b('yes', tr('Сделал'))}${b('later', tr('Через час'), 'ghost')}${b('tom', tr('Завтра'), 'ghost')}${b('del', tr('Убрать'), 'ghost')}</div>`;
   else if (c.type === 'when') body = `<div class="btnrow">${b('eve', tr('Сегодня вечером'), 'ghost')}${b('tom', tr('Завтра'), 'ghost')}${b('wk', tr('В выходные'), 'ghost')}${b('none', tr('Без срока'), 'ghost')}</div>`;
-  else if (c.type === 'block') body = `<div class="btnrow">${b('yes', tr('Да'))}${b('no', tr('Нет'), 'ghost')}${b('later', tr('Позже'), 'ghost')}</div>`;
+  else if (c.type === 'block') body = `<div class="btnrow">${b('yes', tr('Да'))}${b('no', tr('Нет'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'rate') body = `<div class="rate5">${[1, 2, 3, 4, 5].map(i => `<button data-act="ciAns" data-k="rate" data-a="${i}" aria-label="${i} ${tr("из 5")}">${'★'}<small>${i}</small></button>`).join('')}</div><div class="btnrow">${b('later', tr('Не сейчас'), 'ghost')}</div>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
   return `<section class="card ci"><div class="nc-l">${tr("Вопрос")}${more ? tr(' · ещё ') + more : ''}</div><div class="t" style="font-weight:700;font-size:17px">${esc(c.text)}</div>${body}</section>`;
@@ -3537,7 +3536,7 @@ function screenCard(){
   const last = [...ks].reverse().find(k => get(k));
   const goal = meta().screenGoal || null;
   const head = `<div class="sec-h"><h2>${tr('Экранное время')}</h2><button class="link" data-act="screenAdd">${tr('+ Скриншот')}</button></div>`;
-  if (!last) return head + `<section class="card" style="display:flex;flex-direction:column;gap:10px"><div class="hint">${tr("iPhone не отдаёт приложениям экранное время сам. Раз в день сделай скриншот раздела «Экранное время»: я вытащу приложения и минуты и покажу, на что уходит день.")}</div><button class="btn" data-act="screenAdd">${ic('image')}${tr("Добавить скриншот")}</button></section>`;
+  if (!last) return `<button class="card navrow" data-act="screenAdd"><span class="ic">${ic('phone')}</span><div class="mid"><div class="t">${tr('Экранное время')}</div><div class="s">${tr('Добавь скриншот, и увидишь, на что уходит день')}</div></div>${ic('chevR')}</button>`;
   const s = get(last), apps = (s.apps || []).slice(0, 5), mx = Math.max(1, ...apps.map(a => a.min));
   const prev = ks.map(k => get(k)?.total).filter(Boolean), avg = prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : 0;
   const p0 = [...Array(7)].map((_, i) => get(addDays(date, i - 13))?.total).filter(Boolean), avg0 = p0.length ? p0.reduce((a, b) => a + b, 0) / p0.length : 0;

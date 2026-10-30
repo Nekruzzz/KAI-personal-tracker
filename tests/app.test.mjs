@@ -688,3 +688,18 @@ test("a backup or cloud copy made in Russian shows its default texts in English 
   assert.equal(out.dailyTasks[1].title, 'Полить цветы', 'what the person wrote stays as written');
   assert.equal(out.dailyTasks[0].id, 'steps', 'ids are never translated');
 });
+
+test('cached minutes per day follow changes to the day and to the plan', () => {
+  const d = run(`addDays(todayISO(), -1)`);
+  run(`mutDay('${d}', x => { x.timeExtra = {study: 30}; x.walkExtra = 0; })`);
+  assert.equal(run(`timeOn('${d}').study`), 30);
+  assert.equal(run(`timeOn('${d}') === timeOn('${d}')`), true, 'second call is cached');
+  run(`mutDay('${d}', x => { x.timeExtra = {study: 45}; })`);
+  assert.equal(run(`timeOn('${d}').study`), 45, 'a changed day is counted again');
+  const before = run(`timeOn('${d}')`);
+  run(`save('app/plan', clone(plan()))`);
+  assert.equal(run(`timeOn('${d}') === ${JSON.stringify(null)} || timeOn('${d}') !== globalThis.__x`), true);
+  run(`globalThis.__x = timeOn('${d}')`); run(`save('app/plan', clone(plan()))`);
+  assert.equal(run(`timeOn('${d}') !== globalThis.__x`), true, 'a changed plan is counted again');
+  assert.ok(before);
+});

@@ -1,5 +1,5 @@
 /* Offline shell for KAI. Bump VERSION when files change. */
-const VERSION = 'kai-v33';
+const VERSION = 'kai-v34';
 const SHELL = ['./', './index.html', './app.js', './config.js', './i18n-en.js', './privacy.html', './terms.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo.png'];
 const CDN = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 

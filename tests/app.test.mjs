@@ -764,3 +764,13 @@ test('lighter screens: the workout comes first, details are folded, and the head
   assert.equal(run(`FACE_ON`), false);
   run(`mutDay(todayISO(), d => { delete d.workout; })`);
 });
+
+test('people who are not students see no class timetable, and the body tab has no repeats or empty charts', () => {
+  run(`save('app/profile', {...profile(), role: 'work'}); save('app/plan', {...clone(plan()), classes: []})`);
+  assert.doesNotMatch(run(`viewMore()`), /Class timetable/);
+  assert.equal(run(`onboardSteps().some(s => s[0] === 'classes')`), false);
+  run(`save('app/profile', {...profile(), role: 'study'})`);
+  assert.match(run(`viewMore()`), /Class timetable/);
+  run(`S.sub.health = 'body'`);
+  assert.doesNotMatch(run(`hBody()`), /Target adjustment/);
+});

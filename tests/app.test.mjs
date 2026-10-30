@@ -497,3 +497,12 @@ test('the tasks header doesn\'t say "all done" when there was nothing to do', ()
   run(`saveTasks([])`);
   assert.doesNotMatch(run(`taskCard()`), /all done/);
 });
+
+test('charts and tabs can be read by a screen reader', () => {
+  assert.match(run(`donut([{v: 3, c: 'c1', label: 'Food'}, {v: 1, c: 'c2', label: 'Rent'}])`), /role="img" aria-label="Food 75%, Rent 25%"/);
+  assert.match(run(`donut([{v: 0, c: 'c1', label: 'Food'}])`), /aria-hidden="true"/);
+  run(`S.tab = 'health'; S.sub.health = 'train'`);
+  const html = run(`viewHealth()`);
+  for (const m of html.matchAll(/role="tablist">([\s\S]*?)<\/div>/g)) assert.ok(!/<button(?![^>]*role="tab")/.test(m[1]), 'every button in a tablist is a tab');
+  run(`S.tab = 'day'`);
+});

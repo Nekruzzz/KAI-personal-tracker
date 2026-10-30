@@ -1,6 +1,6 @@
 # Progress report
 
-Work on branch `claude/relaxed-ritchie-yeh48t`. Each improvement is its own commit. This file is updated as work continues.
+Work on branch `claude/relaxed-ritchie-yeh48t`. Each improvement is its own commit. All nine items on the list are done, plus the later requests listed below.
 
 ## Done so far
 
@@ -12,19 +12,32 @@ Work on branch `claude/relaxed-ritchie-yeh48t`. Each improvement is its own comm
 6. **Workouts:** a new "At home, no equipment · 3 days" program (chair, wall and floor only, bodyweight sets without a weight column). New installs start on it; onboarding asks "home or gym" when workouts are chosen. Existing plans get the program added but stay on what they use.
 7. **Paywall groundwork:** a plan screen comparing Free and Plus, with the price clearly marked as a placeholder and the buy button disabled; an AI usage screen (today's use and limit, 14-day chart, own-key usage, queue); a RevenueCat webhook (`server/supabase/functions/revenuecat`) that checks a shared secret from an environment variable, applies each event once, ignores late older events, and treats a plan past its end date as free. Setup steps are in `server/README.md`.
 
-Also, from the owner's later message:
+8. **Error handling:**
+   - **Offline:** an AI request made offline says plainly that it's queued until you're back online.
+   - **Full queue:** more than 30 waiting requests are refused with a message, and the typed text stays.
+   - **Full phone:** a photo that can't be stored is refused with a message, and no half-made request is left behind.
+   - **Failed saves:** a failed save is retried, and is no longer swapped for the older stored copy in the meantime (that was a real way to lose a change).
+   - **Sync:** a document the server refuses is set aside instead of blocking every later upload. Sync failures lasting over 30 minutes are shown at the top.
+9. **Tests:** new tests for backups (export, restore, keys and queued requests never in the file, bad files change nothing), parsing AI answers, applying a Tell KAI answer, translating imported data, the save retry, the sync failure path, the queue limits, and the server's subscriptions and webhook. Two bugs found and fixed: a double tap could apply a Tell KAI answer twice, and a backup made in the other language kept its default texts untranslated.
+
+Also, from the owner's later messages:
 
 - **Light and dark themes:** every colour moved onto tokens, with an Apple-style light palette. Follows the phone by default; More has System, Light and Dark.
 - **Liquid glass:** the tab bar floats as a translucent capsule; header buttons, toasts and sheet titles use the same glass. Turns solid when the phone asks for reduced transparency.
 - **Permissions on iPhone:** onboarding ends with a step that explains reminders and Apple Health before iOS asks.
 - **Sign-in buttons:** Apple and Google buttons in the colours they require.
 - **Screen Time blocking:** not built; `docs/screen-time-blocking.md` explains what Apple requires and how it would fit.
+- **Speed:** the Day and Workouts screens worked out every logged day's routine on each redraw. That result is now cached per day and plan: with two years of data, the Day screen went from about 21 ms to 12 ms on a desktop browser.
+- **Less clutter:** the "Which AI" choice appears only when two or more AIs are set up.
+- **Feature review:** `docs/feature-review.md` lists features a new person may not need (the content tools, the on-computer and on-phone AI, the face log) and places where progress is shown several times. Nothing was removed.
 - **Bug fix:** when the same document was saved twice quickly, the database's copy of the first save could briefly replace the newer one in memory, and code running in that moment could act on old data. Found because a new install's program reverted; fixed by not letting snapshots overwrite documents with writes still in flight.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: all pass (48).
-- In `server/`: `npm ci` and `npm test`: all pass (36), including new database and webhook tests.
+- `node --test tests/app.test.mjs`: 57 tests, all pass (36 at the start).
+- In `server/`: `npm ci` and `npm test`: 36 tests, all pass (28 at the start), including new database and webhook tests.
+- GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
+- Accessibility: axe-core on nine screens in both themes, with no violations.
 - `node tools/check-i18n.js kai`: `missing: 0`.
 - In Chromium at 390×844 (phone size), served with `python -m http.server 8123 --directory kai`: each change was tried, in English and Russian where relevant, and in both themes.
 
@@ -43,3 +56,5 @@ Also, from the owner's later message:
 5. **Plus price and limits:** 10 and 100 requests a day come from the `tiers` table. The price is a placeholder until you decide it.
 6. **Google sign-in inside the iPhone app** needs a URL scheme and Supabase redirect settings, and has to be tried on a device. On the web it already works once added to `providers` in `kai/config.js`.
 7. **Screen Time blocking** needs the Family Controls entitlement from Apple first. See `docs/screen-time-blocking.md`.
+8. **Features to cut or hide:** see `docs/feature-review.md`. The one with a safety angle: supplement presets include caffeine dosing and are shown to under-18s too.
+9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.

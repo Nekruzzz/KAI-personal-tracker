@@ -479,3 +479,21 @@ test('weight badges speak pounds when the app does, without changing the rule', 
   assert.equal(run(`BADGES.find(b => b.id === 'kg1').n`), 1, 'still counted in kg');
   setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'});
 });
+
+test('a new person sees one obvious first step, and nothing marked missed before they started', () => {
+  const m0 = JSON.stringify(run(`JSON.stringify(meta())`));
+  run(`setMeta({startedOn: todayISO(), toldOnce: false, firstTellOff: false})`);
+  assert.equal(run(`hasTold()`), false);
+  assert.match(run(`viewDay()`), /Tell KAI how your day went/);
+  run(`setMeta({toldOnce: true})`);
+  assert.doesNotMatch(run(`viewDay()`), /Tell KAI how your day went/, 'gone after the first message');
+  run(`setMeta({toldOnce: false, firstTellOff: true})`);
+  assert.doesNotMatch(run(`viewDay()`), /Tell KAI how your day went/, 'and when dismissed');
+  assert.equal(run(`trackedFrom()`), run(`todayISO()`));
+  run(`setMeta(JSON.parse(${m0}))`);
+});
+
+test('the tasks header doesn\'t say "all done" when there was nothing to do', () => {
+  run(`saveTasks([])`);
+  assert.doesNotMatch(run(`taskCard()`), /all done/);
+});

@@ -1369,14 +1369,15 @@ function hFood(){
   h += adaptiveCard();
   // menu
   const m = pl.menu;
-  h += `<div class="sec-h"><h2>${tr("Меню и заготовки")}</h2>${m?`<button class="link" data-act="menu">${tr("Обновить")}</button>`:''}</div><section class="card" style="display:flex;flex-direction:column;gap:12px">`;
+  if (!m) h += `<button class="card navrow" data-act="menu"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr("Меню и заготовки")}</div><div class="s">${tr("Меню на завтра из простых продуктов под твою норму")}</div></div>${ic('chevR')}</button>`;
+  else h += `<div class="sec-h"><h2>${tr("Меню и заготовки")}</h2><button class="link" data-act="menu">${tr("Обновить")}</button></div><section class="card" style="display:flex;flex-direction:column;gap:12px">`;
   if (m) {
     h += (m.meals||[]).map(x=>`<div><div style="display:flex;justify-content:space-between;gap:10px"><b>${esc(x.name)}</b><span class="muted">${num(x.kcal)} ${tr("ккал · Б")} ${num(x.p)}</span></div><div class="hint">${esc((x.items||[]).join(', '))}</div></div>`).join('');
     if (m.prep?.length) h += `<div><b>${tr("Вечером приготовить")}</b><ol class="ai-list">${m.prep.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>`;
     if (m.shop?.length) h += `<div><b>${tr("Список покупок на неделю")}</b><div class="hint">${esc(m.shop.join(', '))}</div></div>`;
     if (m.note) h += `<div class="note">${esc(m.note)}</div>`;
-  } else h += `<div class="muted">${tr("Меню на день из простых продуктов, которое можно приготовить с вечера, под твою норму.")}</div><button class="btn" data-act="menu">${ic('spark')}${tr("Составить меню")}</button>`;
-  h += `</section>`;
+    h += `</section>`;
+  }
   h += whyCard('food');
   h += `<div class="hint" style="padding:0 4px">${NOT_MED()}</div>`;
   return h;
@@ -2198,7 +2199,7 @@ CH.bodyPhoto = async el => {
 
 /* ============ TELL ============ */
 A.tell = () => { openSheet(tr('Скажи KAI'), () => `
-  <div class="hint">${tr("Напиши или надиктуй что угодно одним сообщением. Что сделал: «Был в зале, присед 60 на 8, 8 и 7. Съел гречку с курицей». Что изменить: «В пятницу в 10:00 экзамен по физике, а в среду встреча в 18:00». Я всё разберу, проверю расписание и покажу, прежде чем менять.")}</div>
+  <div class="hint">${tr("Одним сообщением: что сделал, что съел, что потратил или что изменить в планах. Я покажу, прежде чем что-то менять.")}</div>
   ${connectNudge()}
   <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
   ${provPicker(false)}

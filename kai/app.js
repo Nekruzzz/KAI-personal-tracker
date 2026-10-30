@@ -3686,8 +3686,17 @@ A.examIcs = async el => {
 A.evKind = el => { SH.evKind = el.dataset.v; $$('button', el.parentElement).forEach(b => b.classList.toggle('on', b === el)); };
 
 /* ---- time totals: the part of the effort you normally cannot see ---- */
+/* a day's minutes depend only on that day and the plan; both are replaced, never changed in place, on save */
+const TIME_ON = new WeakMap();
 function timeOn(date){
   const d = S.docs['days/' + date]; if (!d) return {walk:0, gym:0, study:0, sleep:null};
+  const pl = S.docs['app/plan'], hit = TIME_ON.get(d);
+  if (hit && hit.pl === pl && hit.date === date) return hit.v;
+  const v = timeOnFresh(date, d);
+  TIME_ON.set(d, {pl, date, v});
+  return v;
+}
+function timeOnFresh(date, d){
   const bl = dayBlocks(date), g = bl.find(b => b.gym), gymDone = d.tasks?.some(t => t.id === 'gym' && t.done);
   const study = bl.filter(b => ['study', 'class'].includes(b.kind) && d.tl?.[b.id] === 'done').reduce((a, b) => a + ((b.e ?? b.s) - b.s), 0);
   return {walk: walkedOn(date), gym: (gymDone ? (g?.e ? g.e - g.s : 50) : 0) + (d.timeExtra?.gym || 0), study: study + (d.timeExtra?.study || 0), sleep: toNum(d.sleep)};

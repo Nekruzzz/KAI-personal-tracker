@@ -559,3 +559,17 @@ test('appearance follows the system until fixed on this device, and is never syn
   assert.equal(run(`themePref()`), 'system');
   assert.match(run(`viewMore()`), /Appearance/);
 });
+
+test('on an iPhone, onboarding ends with a permissions step that explains before iOS asks', async () => {
+  run(`globalThis.asked = 0; window.Capacitor = {isNativePlatform: () => true, Plugins: {LocalNotifications: {requestPermissions: async () => { asked++; return {display: 'granted'}; }, checkPermissions: async () => ({display: 'granted'}), getPending: async () => ({notifications: []}), cancel: async () => {}, schedule: async () => {}, addListener() {}}}}`);
+  try {
+    run(`setMeta({remindAsked: false}); SH = null; A.welcome(); SH.ob.goals = ['study']; A.obDone()`);
+    assert.equal(run(`SH && SH.title`), 'Permissions');
+    assert.equal(run(`asked`), 0, 'nothing asked before a tap');
+    assert.match(run(`permBody()`), /Allow/);
+    await run(`A.notifOn()`);
+    assert.equal(run(`asked`), 1);
+    assert.equal(run(`meta().remindAsked`), true);
+    assert.match(run(`permBody()`), /Done/);
+  } finally { run(`clearTimeout(remindT); delete window.Capacitor; SH = null; setMeta({remindAsked: false})`); }
+});

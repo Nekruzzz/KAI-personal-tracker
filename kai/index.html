@@ -562,6 +562,15 @@ details.manual .field{margin-bottom:10px}
 .sh-h{position:sticky;top:-10px;z-index:3;margin:0 -16px;padding:10px 16px}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.nav,.toast,.top .iconbtn,.top .seasonchip,.sh-h{background:var(--card)}}
 @media (prefers-reduced-transparency:reduce){.nav,.toast,.top .iconbtn,.top .seasonchip,.sh-h{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none}}
+/* sign-in buttons in the colours Apple and Google ask for: black or white for Apple, white with a grey outline for Google */
+.sso{min-height:50px;font-weight:700;background:var(--card-2);color:var(--text)}
+.sso.apple{background:#fff;color:#000}
+.sso.google{background:#fff;color:#1f1f1f;border:1px solid #747775}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .sso.apple{background:#000;color:#fff}}
+:root[data-theme=light] .sso.apple{background:#000;color:#fff}
+.permc{display:flex;flex-direction:column;gap:10px}
+.permc .ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent)}
+.permc .ic svg{width:22px;height:22px}
 </style>
 </head>
 <body>

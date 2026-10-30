@@ -1841,4 +1841,10 @@ window.I18N_EN = {
 "Как в системе":"System",
 "Светлое":"Light",
 "Тёмное":"Dark",
+"Разрешения":"Permissions",
+"Разрешить":"Allow",
+"Включено":"On",
+"KAI спросит разрешение только на то, что нужно. Это можно изменить позже в настройках iPhone.":"KAI only asks for what it needs. You can change this later in iPhone Settings.",
+"Об экзаменах, тренировках и конфликтах в планах. Работают без интернета, даже когда приложение закрыто.":"About exams, workouts and clashes in your plans. They work offline, even when the app is closed.",
+"KAI только читает шаги, сон и тренировки. Записи, которые ты сделал сам, не меняются.":"KAI only reads steps, sleep and workouts. Nothing you entered yourself gets changed.",
 };

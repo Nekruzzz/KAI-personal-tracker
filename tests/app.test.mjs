@@ -751,3 +751,15 @@ test('supplements are switched off: no tab, no task, no reminder, and a saved li
   assert.equal(run(`ICS_ITEMS.some(i => i[0] === 'supps')`), false);
   assert.equal(run(`plan().supps.length`), 1, 'the saved list is still there');
 });
+
+test('lighter screens: the workout comes first, details are folded, and the header holds only what is used daily', () => {
+  run(`S.sub.health = 'train'; S.open.ready = false; delete S.open.acc_trainMore`);
+  const h = run(`hTrain()`);
+  assert.match(h, /How do you feel\?/);
+  assert.doesNotMatch(h, /data-act="rdy"/, 'the readiness questions open on a tap');
+  assert.match(h, /Progress and details/);
+  assert.doesNotMatch(h, /Strength progress/, 'folded until opened');
+  assert.doesNotMatch(run(`(renderTop(), document.querySelector('#top').innerHTML)`) || '', /data-act="kb"/);
+  assert.match(run(`viewMore()`), /data-act="kb"/, 'the knowledge base is still one tap away in More');
+  assert.equal(run(`FACE_ON`), false);
+});

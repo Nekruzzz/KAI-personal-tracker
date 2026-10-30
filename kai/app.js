@@ -2245,7 +2245,7 @@ function tellView(it){
   return `<section class="card" style="background:var(--card);display:flex;flex-direction:column;gap:10px"><div class="ai-out">${esc(r.reply||'')}</div>${alerts.length?`<div class="banner" role="status">${ic('alert')}<div>${alerts.map(esc).join('<br>')}</div></div>`:''}${lines.length?`<ul class="ai-list">${lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:`<div class="hint">${tr("Не нашёл, что отметить. Опиши подробнее.")}</div>`}</section>${lines.length && !it.done?`<button class="btn block" data-act="tellApply" data-id="${it.id}">${ic('check')}${tr("Применить всё")}</button>`:''}`;
 }
 A.tellApply = el => {
-  const it = S.docs['inbox/'+el.dataset.id]; if (!it) return;
+  const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
@@ -2421,7 +2421,7 @@ CH.importData = async el => {
   try {
     const d = JSON.parse(await f.text());
     const docs = d.docs || d; let n = 0;
-    for (const [k, v] of Object.entries(docs)) { if (!/^[a-z]+\/[^/]+$/.test(k) || k.startsWith('jobs/')) continue; if (k === 'app/ai' && S.docs['app/ai']) { const cur = S.docs['app/ai']; save(k, {...v, claude:{...v.claude, key: cur.claude?.key||''}}); } else save(k, v); n++; }
+    for (const [k, v] of Object.entries(docs)) { if (!/^[a-z]+\/[^/]+$/.test(k) || k.startsWith('jobs/')) continue; if (k === 'app/ai' && S.docs['app/ai']) { const cur = S.docs['app/ai']; save(k, {...v, claude:{...v.claude, key: cur.claude?.key||''}}); } else save(k, langDoc(k, v)); n++; }
     for (const [k, v] of Object.entries(d.blobs||{})) { const bin = Uint8Array.from(atob(v.b64), c=>c.charCodeAt(0)); await blobPut(k, new Blob([bin], {type:v.type})); }
     setMeta({imported:true}); initBadges(); toast(tr('Загружено записей: ')+n); closeSheet();
   } catch(e){ toast(tr('Файл не подошёл: это не копия этого приложения')); }

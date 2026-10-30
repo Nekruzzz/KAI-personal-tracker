@@ -630,3 +630,61 @@ test('a save the phone fails to write is tried again, and nothing newer is overw
     assert.equal(run(`localOnly.has('app/retrytest')`), false, 'nothing left pending');
   } finally { run(`DB = db0; toast = toast0; delete S.docs['app/retrytest']`); }
 });
+
+test('AI answers are read from code fences and thinking, and anything else is refused', () => {
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(parseJSON('<think>hmm {no}</think>Sure! \`\`\`json\\n{"a": 1}\\n\`\`\`'))`)), {a: 1});
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(parseJSON('Here: {"b": {"c": 2}} done'))`)), {b: {c: 2}});
+  assert.throws(() => run(`parseJSON('no json here')`));
+  assert.throws(() => run(`parseJSON('')`));
+});
+
+test('applying a Tell KAI answer logs it once, in metric, even with a double tap', () => {
+  run(`save('app/profile', {...profile(), units: 'us'})`);
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.meals = []; x.weight = null; x.steps = 0; x.log = []; })`);
+  run(`save('inbox/t1', {id: 't1', kind: 'tell', meta: {date: '${d}', text: 'lunch'}, done: false, created: new Date().toISOString(), result: {reply: 'ok', meals: [{name: 'Soup', kcal: 300, p: 10, f: 5, c: 40}], weight: 80, steps: 5000, money: [{type: 'out', amount: 12, cat: 'Кафе и рестораны', note: 'soup'}]}})`);
+  const txBefore = run(`monthTx(todayISO().slice(0, 7)).length`);
+  run(`SH = null; A.tellApply({dataset: {id: 't1'}}); A.tellApply({dataset: {id: 't1'}})`);
+  const day = JSON.parse(run(`JSON.stringify(getDay('${d}'))`));
+  assert.equal(day.meals.length, 1);
+  assert.equal(day.weight, 80, 'stored in kg whatever the screen shows');
+  assert.equal(day.steps, 5000);
+  assert.equal(run(`monthTx(todayISO().slice(0, 7)).length`), txBefore + 1);
+  assert.equal(run(`S.docs['inbox/t1'].done`), true);
+  run(`save('app/profile', {...profile(), units: 'metric'}); remove('inbox/t1')`);
+});
+
+test('a backup comes back whole: no keys or queued requests leave the phone, and a bad file changes nothing', async () => {
+  run(`globalThis.shared = null; globalThis.sod0 = shareOrDownload; shareOrDownload = async (n, b) => { shared = await b.text(); return true; }`);
+  run(`save('app/ai', {...(S.docs['app/ai'] || {}), claude: {key: 'sk-local-only'}, openai: {key: 'sk-other'}}); save('jobs/x1', {id: 'x1', status: 'queued', created: new Date().toISOString()}); mutDay(todayISO(), d => { d.steps = 4321; })`);
+  try {
+    await run(`A.exportData()`);
+    const backup = JSON.parse(run(`shared`));
+    assert.equal(backup.app, 'kai');
+    assert.equal(backup.docs['app/ai'].claude.key, '', 'the API key is not in the file');
+    assert.equal(backup.docs['app/ai'].openai.key, '');
+    assert.ok(!Object.keys(backup.docs).some(k => k.startsWith('jobs/')));
+    assert.equal(backup.docs['days/' + run(`todayISO()`)].steps, 4321);
+    // restore onto a changed phone
+    run(`mutDay(todayISO(), d => { d.steps = 1; })`);
+    backup.docs['../escape'] = {x: 1}; backup.docs['jobs/evil'] = {status: 'queued'};
+    backup.docs['app/plan'].dailyTasks = [{id: 'steps', title: '8 000+ шагов', cat: 'steps'}]; // as if made on a phone set to Russian
+    const file = (text) => `({files: [{text: async () => ${JSON.stringify(text)}}]})`;
+    await run(`CH.importData(${file(JSON.stringify(backup))})`);
+    assert.equal(run(`getDay(todayISO()).steps`), 4321);
+    assert.equal(run(`S.docs['app/ai'].claude.key`), 'sk-local-only', 'the key on this phone is kept');
+    assert.equal(run(`'../escape' in S.docs || 'jobs/evil' in S.docs`), false);
+    assert.equal(run(`plan().dailyTasks[0].title`), '8,000+ steps');
+    const before = run(`JSON.stringify(S.docs['app/plan'])`);
+    await run(`CH.importData(${file('not a backup')})`);
+    assert.equal(run(`JSON.stringify(S.docs['app/plan'])`), before);
+  } finally { run(`shareOrDownload = sod0; remove('jobs/x1')`); }
+});
+
+test("a backup or cloud copy made in Russian shows its default texts in English here, and keeps the person's own", () => {
+  const ru = run(`JSON.stringify({...clone(plan()), dailyTasks: [{id: 'steps', title: '8 000+ шагов', cat: 'steps'}, {id: 'c1', title: 'Полить цветы', cat: 'custom'}]})`);
+  const out = JSON.parse(run(`JSON.stringify(langDoc('app/plan', ${ru}))`));
+  assert.equal(out.dailyTasks[0].title, '8,000+ steps');
+  assert.equal(out.dailyTasks[1].title, 'Полить цветы', 'what the person wrote stays as written');
+  assert.equal(out.dailyTasks[0].id, 'steps', 'ids are never translated');
+});

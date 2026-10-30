@@ -506,3 +506,21 @@ test('charts and tabs can be read by a screen reader', () => {
   for (const m of html.matchAll(/role="tablist">([\s\S]*?)<\/div>/g)) assert.ok(!/<button(?![^>]*role="tab")/.test(m[1]), 'every button in a tablist is a tab');
   run(`S.tab = 'day'`);
 });
+
+test('English sentences with numbers read as whole sentences', () => {
+  const tue = nextDow(2);
+  setPlan([{id: 'c', date: tue, title: 'Concert', from: '21:00', until: '01:30'}]);
+  const w = warns(tue).find(x => x.id.startsWith('sleep'));
+  assert.match(w.text, /^Only [\d.]+ h of sleep after “Concert”: you get up at \d\d:\d\d\.$/);
+  assert.equal(run(`trf('Тренировка {w} выполнена', {w: 'Upper'})`), 'Mark the Upper workout done');
+  assert.equal(run(`trf('{a} опубл. · {b} в плане · цель {c}', {a: 1, b: 2, c: 4})`), '1 published · 2 planned · goal 4');
+  assert.equal(run(`trf('нет такого {x}')`), 'нет такого {x}', 'an unknown key and gap stay visible rather than vanish');
+});
+
+test('the readiness card gives the same reps in reserve as the program for the same effort', () => {
+  run(`S.sub.health = 'train'; mutDay(todayISO(), d => { d.ready = {}; })`);
+  const html = run(`readyCard(todayISO())`);
+  const eff = Number(/Effort today: <b>(\d+) out of 10/.exec(html)?.[1]);
+  if (eff === 6) assert.match(html, /Keep 3–4 reps in reserve/);
+  else assert.match(html, new RegExp(`Keep ${Math.max(1, 9 - eff)}–${Math.max(2, 10 - eff)} reps`));
+});

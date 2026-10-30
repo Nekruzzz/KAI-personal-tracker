@@ -1837,4 +1837,8 @@ window.I18N_EN = {
 "Где будешь тренироваться?":"Where will you work out?",
 "Дома, без инвентаря":"At home, no equipment",
 "В зале":"At a gym",
+"Оформление":"Appearance",
+"Как в системе":"System",
+"Светлое":"Light",
+"Тёмное":"Dark",
 };

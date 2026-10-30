@@ -3957,12 +3957,13 @@ A.authDelete = async el => {
 function accountCard(){
   const consent = meta().aiConsent;
   const privacy = `<div class="hint">${consent ? tr('Ты разрешил отправлять данные ИИ.') : tr('Отправка данных ИИ не разрешена.')} ${consent ? `<button class="link" data-act="consentOff">${tr('Отозвать')}</button>` : ''}</div>`;
-  if (!cloudOn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Конфиденциальность')}</b>${privacy}${legalLinks()}</section>`;
-  if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ без ключей и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${privacy}${legalLinks()}</section>`;
+  const usageBtn = `<div class="btnrow"><button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>${cloudOn() ? `<button class="btn ghost" data-act="planSheet">${ic('star')}${tr('Тарифы')}</button>` : ''}</div>`;
+  if (!cloudOn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Конфиденциальность')}</b>${privacy}${usageBtn}${legalLinks()}</section>`;
+  if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ без ключей и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${privacy}${legalLinks()}${usageBtn}</section>`;
   const st = syncState(), left = Object.keys(st.dirty || {}).length;
   const sync = S.syncErr ? tr('Не удалось синхронизировать, повторю позже') : st.at ? tr('Синхронизировано в') + ' ' + new Date(st.at).toTimeString().slice(0, 5) : tr('Синхронизация…');
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="t">${esc(AUTH.email)}</div>
-    ${KAI_USE ? `<div class="hint">${tr('ИИ сегодня:')} ${KAI_USE.used} ${tr('из')} ${KAI_USE.limit}</div>` : ''}
+    ${KAI_USE ? `<div class="hint">${tr('ИИ сегодня:')} ${KAI_USE.used} ${tr('из')} ${KAI_USE.limit}</div>` : ''}${usageBtn}
     <div class="hint">${esc(sync)}${left ? ' · ' + tr('ждёт отправки:') + ' ' + left : ''}. ${tr('Фото пока хранятся только на телефоне.')}</div>${privacy}
     <div class="btnrow"><button class="btn ghost" data-act="authOut">${tr('Выйти')}</button><button class="btn danger" data-act="authDelete">${tr('Удалить аккаунт')}</button></div>${legalLinks()}</section>`;
 }
@@ -4434,6 +4435,56 @@ function permBody(){
 }
 A.permSheet = () => openSheet(tr('Разрешения'), permBody);
 A.permHealth = async el => { await A.healthConnect(el); if (SH) drawSheet(); };
+
+/* ============ plans and AI usage: limits mirror server/supabase (tiers); no payments exist yet ============ */
+const PLANS = {free: {daily: 10, photos: false, smart: false}, plus: {daily: 100, photos: true, smart: true}};
+const PLUS_PRICE = null; // set when payments are added; until then the screen says the price is a placeholder
+const planNow = () => SH?.prof?.tier || KAI_USE?.tier || 'free';
+async function loadAccountUsage(){
+  if (!cloudOn() || !signedIn() || !SH) return;
+  SH.usageErr = false;
+  try {
+    const [tiers, prof, use] = await Promise.all(['/rest/v1/tiers?select=tier,daily_requests,images_allowed,smart_model', '/rest/v1/profiles?select=tier,tier_expires_at', `/rest/v1/ai_usage?select=day,requests,input_tokens,output_tokens&day=gte.${addDays(todayISO(), -29)}&order=day.asc`].map(async u => { const r = await apiFetch(u); if (!r.ok) throw new Error(r.status); return r.json(); }));
+    if (!SH) return;
+    tiers.forEach(t => { if (PLANS[t.tier]) PLANS[t.tier] = {daily: t.daily_requests, photos: t.images_allowed, smart: t.smart_model}; });
+    SH.prof = prof[0] || null; SH.use = use;
+  } catch { if (SH) SH.usageErr = true; }
+  if (SH) drawSheet();
+}
+function planBody(){
+  const cur = planNow(), yes = ic('check'), no = '–';
+  const row = (l, f, p) => `<div class="pl-row"><span>${l}</span><b>${f}</b><b>${p}</b></div>`;
+  return `<div class="hint">${tr('Всё, что работает без ИИ, бесплатно и без ограничений: дневник, тренировки, еда, деньги, напоминания и синхронизация.')}</div>
+    <section class="card pl-table"><div class="pl-row pl-h"><span></span><b class="${cur === 'free' ? 'on' : ''}">${tr('Бесплатно')}</b><b class="${cur === 'plus' ? 'on' : ''}">Plus</b></div>
+      ${row(tr('Запросов к ИИ в день'), PLANS.free.daily, PLANS.plus.daily)}
+      ${row(tr('Разбор фото еды и скриншотов'), PLANS.free.photos ? yes : no, PLANS.plus.photos ? yes : no)}
+      ${row(tr('Более умная модель для разборов недели и меню'), PLANS.free.smart ? yes : no, PLANS.plus.smart ? yes : no)}
+      ${row(tr('Всё без ИИ, синхронизация, напоминания'), yes, yes)}
+      ${row(tr('Цена'), '0', PLUS_PRICE || `<span class="tag warn">${tr('пример, не настоящая цена')}</span>`)}</section>
+    <div class="note">${tr('Оплата ещё не подключена: ничего не списывается, и купить Plus пока нельзя. Твой тариф сейчас:')} <b>${cur === 'plus' ? 'Plus' : tr('Бесплатно')}</b>${SH?.prof?.tier_expires_at ? ` · ${tr('до')} ${fmtShort(SH.prof.tier_expires_at.slice(0, 10))}` : ''}.</div>
+    <button class="btn block" disabled>${tr('Скоро')}</button>`;
+}
+A.planSheet = () => { openSheet(tr('Тарифы'), planBody); loadAccountUsage(); };
+function usageBody(){
+  let h = '';
+  if (cloudOn()){
+    if (!signedIn()) h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('ИИ от KAI')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ без ключей. Здесь появится расход по дням.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button></section>`;
+    else {
+      const today = (SH.use || []).find(u => u.day === todayISO())?.requests ?? KAI_USE?.used ?? 0, lim = PLANS[planNow()]?.daily ?? KAI_USE?.limit ?? PLANS.free.daily;
+      const pts = [...Array(14)].map((_, i) => addDays(todayISO(), i - 13)).map(k => ({x: fmtShort(k).split(' ')[0], y: (SH.use || []).find(u => u.day === k)?.requests || 0}));
+      const month = (SH.use || []).reduce((a, u) => a + u.requests, 0);
+      h += `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${tr('ИИ от KAI')}</b><button class="link" data-act="planSheet">${planNow() === 'plus' ? 'Plus' : tr('Бесплатно')}</button></div>
+        <div><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>${tr('Сегодня')}</span><span class="muted">${trf('{n} из {m}', {n: today, m: lim})}</span></div><div class="bar"><i style="width:${Math.min(100, today / (lim || 1) * 100)}%;background:${today >= lim ? 'var(--bad)' : 'var(--accent)'}"></i></div><div class="hint" style="margin-top:6px">${tr('Лимит обновляется каждый день. Неудачные запросы не считаются.')}</div></div>
+        ${SH.usageErr ? `<div class="note">${tr('Не получилось загрузить расход. Проверь интернет и открой ещё раз.')}</div>` : SH.use ? `${pts.some(p => p.y) ? barChart(pts, {unit: tr('запр.'), c: 'c1', label: tr('Запросы к ИИ за 14 дней')}) : ''}<div class="hint">${trf('За 30 дней: {n}', {n: month})}</div>` : `<div class="hint">${tr('Загружаю…')}</div>`}</section>`;
+    }
+  }
+  const own = Object.entries(meta().claudeUsage || {}).sort().reverse().slice(0, 6);
+  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Свой ключ Claude')}</b>${own.length ? `<div class="list">${own.map(([m, u]) => `<div class="row" style="padding:8px 0"><div class="mid"><div class="t">${esc(new Date(m + '-15').toLocaleDateString(LOCALE, {month: 'long', year: 'numeric'}))}</div><div class="s">${trf('{n} запросов · {i} входящих и {o} исходящих токенов', {n: u.n, i: num(u.in), o: num(u.out)})}</div></div></div>`).join('')}</div><div class="hint">${tr('Оплата идёт напрямую в Anthropic по твоему ключу. Точную сумму смотри в их консоли.')}</div>` : `<div class="hint">${tr('Запросов по своему ключу пока не было.')}</div>`}</section>`;
+  const jobs = Object.keys(S.docs).filter(k => k.startsWith('jobs/')).map(k => S.docs[k]), wait = jobs.filter(j => j.status === 'queued' || j.status === 'running').length, bad = jobs.filter(j => j.status === 'error').length;
+  if (wait || bad) h += `<section class="card navrow" style="cursor:pointer" data-act="aiSheet"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Очередь ИИ')}</div><div class="s">${trf('ждут: {w} · с ошибкой: {b}', {w: wait, b: bad})}</div></div>${ic('chevR')}</section>`;
+  return h;
+}
+A.usageSheet = () => { openSheet(tr('Расход ИИ'), usageBody); loadAccountUsage(); };
 
 /* ============ appearance: follows the phone by default; light or dark can be fixed per device ============ */
 const themePref = () => { try { const t = localStorage.getItem('kai_theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch { return 'system'; } };

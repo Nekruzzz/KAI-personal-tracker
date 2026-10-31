@@ -928,10 +928,11 @@ test('describing food without AI counts it from the food table, and still waits 
   run(`mutDay('${d}', x => { x.meals = []; }); SH = null; A.foodText()`);
   assert.equal(run(`foodLocal('200 g rice with 2 eggs', '${d}')`), true);
   const it = JSON.parse(run(`JSON.stringify(S.docs['inbox/' + SH.jobId])`));
-  assert.equal(it.result.meals.length, 2);
+  assert.equal(it.result.meals.length, 1, 'one description, one meal');
+  assert.match(it.result.meals[0].name, /rice.*\+.*egg/i);
   assert.equal(run(`getDay('${d}').meals.length`), 0, 'nothing logged yet');
   run(`A.tellApply({dataset: {id: '${it.id}'}})`);
-  assert.equal(run(`getDay('${d}').meals.length`), 2);
+  assert.equal(run(`getDay('${d}').meals.length`), 1);
   assert.equal(run(`foodLocal('a bowl of soup', '${d}')`), false);
   run(`SH = null`);
 });

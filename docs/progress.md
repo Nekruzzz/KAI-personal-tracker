@@ -73,9 +73,18 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Finishing a season no longer loses history for good.** It used to clear every day (weights, meals, sets) after two taps, with no way back. Now the days are copied on the phone first, and if the copy can't be saved, nothing is cleared. The toast has Undo, and later the archive offers "Bring back the days": days written since keep their values and only get what they're missing. The archive's weights follow the pounds setting.
 - **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
 - **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
+- **A first currency from the phone's region** ($, €, £, ₽ and others), filled in during onboarding and changeable; before, money showed as bare numbers until someone typed a symbol.
 - **No backup nag while the account's cloud copy is up to date:** the weekly reminder said data would be lost if iOS cleared storage, which isn't true once records sync.
 - **Unreachable code removed:** an old profile sheet that a later line had replaced (about 8 KB), with its 17 translations.
 - **Automatic copies are reachable.** The copy kept before the first cloud sync was announced in a message but couldn't be opened anywhere. Data and backup now lists the copies on the phone, and each can be saved as a file that "Restore a backup" accepts. Without the phone's storage (a private Safari tab), photos waiting for the AI and these copies now last until the app closes instead of being lost at once.
+
+## App Review fixes found in the iPhone project
+
+- **A crash on "Save Image":** sharing the weekly summary offers Save Image, and iOS ends an app that saves to Photos without `NSPhotoLibraryAddUsageDescription`. Added.
+- **Privacy manifest:** App Store Connect refuses uploads (ITMS-91053) when code reads file dates or stored settings without saying why. The Filesystem and Apple sign-in plugins do both and ship no manifest. `PrivacyInfo.xcprivacy` now gives the reasons, says there's no tracking, and mirrors the App Privacy answers. GitHub's iPhone build compiles it.
+- **Permission prompts in Russian:** camera, photos, saving to Photos and Health, in `ru.lproj/InfoPlist.strings`.
+- **Sign-in buttons:** the Apple button has the Apple logo in the title's colour (black on light, white on dark), and the Google button has the four-colour G, as both companies' button guidelines ask.
+- `node tools/check-release.js` and the tests now check all of the above.
 
 ## Liquid Glass, redone (iOS 26)
 
@@ -89,12 +98,13 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 - **Sheets:** inset glass panels whose title bar frosts only when content scrolls under it. Buttons, pills and segmented controls are capsules with a lit top edge.
 - **Accessibility:** Reduce Transparency gives solid surfaces with no blur or colour; Increase Contrast gives solid surfaces with visible edges; Reduce Motion stops the sliding and receding. Every text element was measured over the real rendered glass, in both themes, on four tabs and two scroll positions, by sampling the pixels behind it: all at 4.5:1 or better (3:1 for large text).
 - **Speed:** scrolling stays at 60 fps with the CPU slowed four times.
+- **Text on glass:** toasts and the rest timer use a thicker glass, so content scrolling beneath never competes with their words.
 
 **To see it**, run this branch, not `main`: `python3 -m http.server 8123 --directory kai` and open http://localhost:8123, or build the iPhone app from this branch. An installed web app may need one extra reload to drop its cached copy.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 105 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 109 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

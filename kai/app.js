@@ -247,11 +247,12 @@ async function idbDB(){
     collection: c => ({ onSnapshot: next => { const f = () => next({docs:[...docs.keys()].filter(k=>k.startsWith(c+'/') && k.split('/').length===2).map(snap)}); if (!subs.has(c)) subs.set(c, new Set()); subs.get(c).add(f); setTimeout(f); return () => subs.get(c).delete(f); } }),
   };
 }
-/* blobs: photos, screenshots waiting in the AI queue */
-const blobPut = (k, b) => IDB ? idbTx('blobs','readwrite', st => st.put(b, k)) : Promise.resolve();
-const blobGet = k => IDB ? idbTx('blobs','readonly', st => st.get(k)) : Promise.resolve(null);
-const blobDel = k => IDB ? idbTx('blobs','readwrite', st => st.delete(k)) : Promise.resolve();
-const blobKeys = () => IDB ? idbTx('blobs','readonly', st => st.getAllKeys()) : Promise.resolve([]);
+/* blobs: photos, screenshots waiting in the AI queue, automatic copies. Without the phone's storage they live in memory until the app closes, like the records */
+const MEMB = new Map();
+const blobPut = (k, b) => IDB ? idbTx('blobs','readwrite', st => st.put(b, k)) : (MEMB.set(k, b), Promise.resolve());
+const blobGet = k => IDB ? idbTx('blobs','readonly', st => st.get(k)) : Promise.resolve(MEMB.get(k) ?? null);
+const blobDel = k => IDB ? idbTx('blobs','readwrite', st => st.delete(k)) : (MEMB.delete(k), Promise.resolve());
+const blobKeys = () => IDB ? idbTx('blobs','readonly', st => st.getAllKeys()) : Promise.resolve([...MEMB.keys()]);
 const BURL = {};
 function blobURL(k){ if (BURL[k]) return BURL[k]; if (BURL[k] === undefined){ BURL[k] = null; blobGet(k).then(b => { if (b){ BURL[k] = URL.createObjectURL(b); scheduleRender(); } }); } return ''; }
 
@@ -1193,6 +1194,7 @@ function render(){
   S.animIn = false;
   window.scrollTo(0, y);
   animateUI(v);
+  if ($('#storeInfo')) showStorage(); // the data section's storage line and copies are filled in after drawing
   queueBadgeCheck();
 }
 const emptyState = (icon, text) => `<div class="empty"><span class="e-ic">${ic(icon)}</span><span>${text}</span></div>`;
@@ -2323,9 +2325,11 @@ A.tellApply = el => {
 };
 let UNDO = null;
 A.undoApply = () => {
-  if (!UNDO) return;
-  UNDO.forEach(([p, v]) => { if (v === undefined){ if (S.docs[p] !== undefined) remove(p); } else save(p, v); });
-  UNDO = null; hideToast(); haptic('selection'); toast(tr('Отменено, всё как было'));
+  const u = UNDO; if (!u) return;
+  UNDO = null;
+  u.forEach(([p, v]) => { if (v === undefined){ if (S.docs[p] !== undefined) remove(p); } else save(p, v); });
+  u.after?.();
+  hideToast(); haptic('selection'); toast(tr('Отменено, всё как было'));
   if (SH) drawSheet();
 };
 /* a delete is one tap, so it can be taken back for a few seconds */
@@ -2412,6 +2416,7 @@ A.addSuppPlain = el => { const name = el.dataset.n; if (!name) return; const p =
 /* ============ PROFILE / SEASON / BACKUP ============ */
 A.profile = () => openSheet(tr('Профиль и план'), profileBody, showStorage);
 async function showStorage(){
+  showCopies();
   const el = $('#storeInfo'); if (!el || !navigator.storage?.estimate) return;
   try { const e = await navigator.storage.estimate(); const persisted = await navigator.storage.persisted?.(); const gb = v => (v/1073741824).toFixed(v > 1073741824 ? 1 : 2); el.textContent = `${tr("Занято")} ${gb(e.usage||0)} ${tr("ГБ из доступных")} ${gb(e.quota||0)} ${tr("ГБ")}${persisted ? tr(' · iOS не удалит данные сама') : ''}.`; } catch {}
 }
@@ -2502,7 +2507,7 @@ A.chatReport = async () => {
   const text = weekReportText() + tr('\n\nРазбери неделю: что получилось, что нет, что изменить в плане. Если что-то меняешь в плане — пришли обновление файлом для импорта в приложение.');
   try { await navigator.clipboard.writeText(text); toast(tr('Отчёт скопирован: вставь его в чат с Claude')); } catch { shareOrDownload('report.txt', new Blob([text], {type:'text/plain'})); }
 };
-A.season = () => openSheet(tr('Сезон'), seasonBody);
+A.season = () => { openSheet(tr('Сезон'), seasonBody); if (!COPIES) loadCopies().then(() => { if (SH?.body === seasonBody) drawSheet(); }); };
 function seasonBody(){
   const s = season(), keys = dayKeys().filter(k=>k>=s.start);
   const sick = keys.filter(k=>S.docs['days/'+k].status==='sick').length;
@@ -2515,23 +2520,29 @@ function seasonBody(){
     <div class="field"><label for="snG">${tr("Цели (по одной в строке)")}</label><textarea class="in" id="snG">${esc((s.goals||[]).join('\n'))}</textarea></div>
     <div class="note">${tr("Конец сезона:")} ${fmtDay(end)}${sick?` ${tr("(продлён на")} ${sick} ${plural(sick,tr('день'),tr('дня'),tr('дней'))} ${tr("болезни)")}`:''}${tr(". Выполнение в среднем")} ${Math.round(avg*100)}%.</div>
     <button class="btn block" data-act="seasonSave">${tr("Сохранить")}</button></section>
-  <section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Завершить сезон")}</b><div class="hint">${tr("Итоги сохранятся в архив, дневник дней очистится, и начнётся новый сезон с сегодняшнего дня. Деньги, контент и база знаний останутся.")}</div>
+  <section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Завершить сезон")}</b><div class="hint">${tr("Итоги сохранятся в архив, дневник дней очистится, и начнётся новый сезон с сегодняшнего дня. Деньги, контент и база знаний останутся. Копия дней останется на этом телефоне, и их можно будет вернуть из архива.")}</div>
     <button class="btn danger" data-act="seasonEnd" id="snEnd">${tr("Завершить и начать новый")}</button></section>
-  ${Object.keys(S.docs).some(k=>k.startsWith('seasons/'))?`<section class="card"><b>${tr("Архив")}</b>${Object.entries(S.docs).filter(([k])=>k.startsWith('seasons/')).map(([k,v])=>`<div class="row"><div class="mid"><div class="t">${esc(v.title)}</div><div class="s">${fmtShort(v.start)} — ${fmtShort(v.end)} ${tr("· выполнение")} ${v.avg}${tr("% · тренировок")} ${v.gym}${v.w0&&v.w1?` ${tr("· вес")} ${v.w0} → ${v.w1} ${tr("кг")}`:''}</div></div></div>`).join('')}</section>`:''}`;
+  ${Object.keys(S.docs).some(k=>k.startsWith('seasons/'))?`<section class="card"><b>${tr("Архив")}</b>${Object.entries(S.docs).filter(([k])=>k.startsWith('seasons/')).map(([k,v])=>`<div class="row"><div class="mid"><div class="t">${esc(v.title)}</div><div class="s">${fmtShort(v.start)} — ${fmtShort(v.end)} ${tr("· выполнение")} ${v.avg}${tr("% · тренировок")} ${v.gym}${v.w0&&v.w1?` ${tr("· вес")} ${W(v.w0)} → ${W(v.w1)} ${kgU()}`:''}</div></div>${COPIES?.includes('season_'+k.slice(8))?`<button class="link" data-act="seasonBack" data-id="${esc(k.slice(8))}">${tr("Вернуть дни")}</button>`:''}</div>`).join('')}</section>`:''}`;
 }
 A.seasonSave = () => { save('app/season', {...season(), title:val('snT'), start:val('snS')||season().start, length:toNum(val('snL'))||90, goals:val('snG').split('\n').map(x=>x.trim()).filter(Boolean)}); closeSheet(); toast(tr('Сезон сохранён')); };
 A.seasonEnd = async el => {
-  if (!SH.confirmEnd){ SH.confirmEnd = true; el.textContent = tr('Точно? Нажми ещё раз — дни сезона удалятся'); return; }
-  const s = season(), keys = dayKeys();
+  if (!SH.confirmEnd){ SH.confirmEnd = true; el.textContent = tr('Точно? Нажми ещё раз: дни сезона уйдут в копию на телефоне'); return; }
+  const s = season(), keys = dayKeys(), id = uid();
   const ds = keys.map(k=>S.docs['days/'+k]);
   const scored = ds.filter(d=>d.status!=='sick' && dayScore(d)!=null);
   const ws = ds.filter(d=>toNum(d.weight));
-  save('seasons/'+uid(), {title:s.title, start:s.start, end:todayISO(), goals:s.goals||[], avg: scored.length?Math.round(scored.reduce((a,d)=>a+dayScore(d),0)/scored.length*100):0, gym: ds.filter(d=>d.tasks?.some(t=>t.id==='gym'&&t.done)).length, w0: ws[0]?.weight||null, w1: ws[ws.length-1]?.weight||null});
   busy(el, true, tr('Архивирую…'));
+  /* the days are copied first; if the copy can't be kept, nothing is cleared */
+  try { await keepCopy('season_'+id, Object.fromEntries(keys.map(k => ['days/'+k, S.docs['days/'+k]]))); }
+  catch { busy(el, false); toast(tr('Не получилось сохранить копию дней, поэтому ничего не удалено. Освободи место на телефоне и попробуй снова.'), {ms: 5000}); return; }
+  const snap = [...keys.map(k => 'days/'+k), 'app/season', 'seasons/'+id].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
+  save('seasons/'+id, {title:s.title, start:s.start, end:todayISO(), goals:s.goals||[], avg: scored.length?Math.round(scored.reduce((a,d)=>a+dayScore(d),0)/scored.length*100):0, gym: ds.filter(d=>d.tasks?.some(t=>t.id==='gym'&&t.done)).length, w0: ws[0]?.weight||null, w1: ws[ws.length-1]?.weight||null});
   for (const k of keys) remove('days/'+k);
   const n = Object.keys(S.docs).filter(k=>k.startsWith('seasons/')).length + 1;
   save('app/season', {title:tr('Сезон ')+n, start:todayISO(), length:90, goals:s.goals||[]});
-  closeSheet(); toast(tr('Новый сезон начался'));
+  closeSheet();
+  UNDO = snap; UNDO.after = () => dropCopy('season_'+id);
+  toast(tr('Новый сезон начался'), {ms: 8000, action: {label: tr('Вернуть'), act: 'undoApply'}});
 };
 
 /* ============ CONTENT ============ */
@@ -3078,7 +3089,7 @@ A.accToggle = el => {
   S.open[k] = !was;
   const inSheet = !!el.closest('.sheet');
   if (inSheet) drawSheet(); else render();
-  if (S.open[k]){ if (el.dataset.k === 'data') showStorage(); setTimeout(() => { const h = $(`[data-act=accToggle][data-k=${el.dataset.k}]`); if (h) h.scrollIntoView({block:'nearest', behavior: reduceMotion() ? 'auto' : 'smooth'}); }, 30); }
+  if (S.open[k]){ setTimeout(() => { const h = $(`[data-act=accToggle][data-k=${el.dataset.k}]`); if (h) h.scrollIntoView({block:'nearest', behavior: reduceMotion() ? 'auto' : 'smooth'}); }, 30); }
 };
 
 /* ---- AI: status + one-step connect ---- */
@@ -3232,6 +3243,7 @@ function viewMore(){
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
     <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>
     <button class="btn ghost" data-act="moneyCsv">${tr("Деньги таблицей (CSV)")}</button>
+    <div id="copyList" style="display:flex;flex-direction:column;gap:6px"></div>
     <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>
     <button class="btn danger" data-act="wipeLocal">${ic('trash')}${tr("Удалить все данные на этом телефоне")}</button>`);
   if (!cloudOn()) h += accountCard(); // without a server it is privacy and legal links: last
@@ -4233,7 +4245,7 @@ async function syncFirst(){
   const differs = rows.filter(r => !r.deleted && S.docs[r.path] && JSON.stringify(S.docs[r.path]) !== JSON.stringify(r.data) && r.path.startsWith('days/'));
   if (differs.length){
     const copy = Object.fromEntries(Object.entries(S.docs).filter(([k]) => syncable(k)));
-    await blobPut('presync_' + Date.now(), new Blob([JSON.stringify({app:'kai', version:1, exported:new Date().toISOString(), docs: copy})], {type:'application/json'}));
+    await keepCopy('presync_' + Date.now(), copy);
     toast(tr('В облаке уже есть данные. Они загружены, а копия с этого телефона сохранена.'), {ms:5000});
   }
   rows.forEach(applyCloud);
@@ -4946,6 +4958,70 @@ const dragEnd = () => {
   if (dy > 110 || (fast && dy > 30)){ haptic('light'); closeSheet(); } else sh.style.transform = '';
 };
 document.addEventListener('pointerup', dragEnd); document.addEventListener('pointercancel', dragEnd);
+
+/* ============ copies kept on this phone before big changes ============ */
+/* before the first cloud sync replaces records, and before a finished season's days are cleared, KAI keeps a copy in the "Save a copy" format */
+let COPIES = null; // the copies' keys, read once from the phone's storage
+async function loadCopies(){
+  try { COPIES = (await blobKeys()).map(String).filter(k => k.startsWith('presync_') || k.startsWith('season_')).reverse(); } catch { COPIES = []; }
+  return COPIES;
+}
+async function keepCopy(key, docs){
+  await blobPut(key, new Blob([JSON.stringify({app:'kai', version:1, exported:new Date().toISOString(), docs})], {type:'application/json'}));
+  if (COPIES) COPIES = [key, ...COPIES.filter(k => k !== key)];
+}
+async function dropCopy(key){ await blobDel(key).catch(() => {}); if (COPIES) COPIES = COPIES.filter(k => k !== key); }
+function copyTitle(k){
+  if (k.startsWith('presync_')){ const t = +k.slice(8); return trf('Перед первой синхронизацией с облаком, {d}', {d: t ? fmtShort(iso(t)) : '?'}); }
+  const a = S.docs['seasons/' + k.slice(7)];
+  return a ? trf('Дни сезона «{t}», {a} — {b}', {t: a.title, a: fmtShort(a.start), b: fmtShort(a.end)}) : tr('Дни завершённого сезона');
+}
+async function showCopies(){
+  const el = $('#copyList'); if (!el) return;
+  const keys = COPIES || await loadCopies();
+  el.innerHTML = keys.length ? `<b>${tr('Копии на этом телефоне')}</b><div class="hint">${tr('KAI сохраняет их сам перед большими изменениями. Сохранённый файл открывается кнопкой «Загрузить копию».')}</div><div class="list">${keys.map(k => `<div class="row"><div class="mid"><div class="t">${esc(copyTitle(k))}</div></div><button class="link" data-act="copySave" data-k="${esc(k)}">${tr('В файл')}</button></div>`).join('')}</div>` : '';
+}
+A.copySave = async el => {
+  const k = el.dataset.k, b = await blobGet(k).catch(() => null);
+  if (!b){ await dropCopy(k); showCopies(); return toast(tr('Этой копии на телефоне уже нет')); }
+  if (await shareOrDownload(`kai-${k.startsWith('season_') ? 'season' : 'before-sync'}-${todayISO()}.json`, b)) toast(tr('Копия готова: сохрани её в «Файлы» или iCloud'));
+};
+/* a finished season's days come back; a day written since keeps what it has and only gets what it is missing */
+A.seasonBack = async el => {
+  const k = 'season_' + el.dataset.id;
+  busy(el, true, tr('Возвращаю…'));
+  let docs = null;
+  try { const b = await blobGet(k); docs = b ? JSON.parse(await b.text()).docs : null; } catch {}
+  if (!docs || typeof docs !== 'object'){ await dropCopy(k); if (SH) drawSheet(); return toast(tr('Копии этих дней на телефоне уже нет')); }
+  const n = restoreDays(docs);
+  await dropCopy(k);
+  if (SH) drawSheet();
+  haptic('success'); toast(n ? trf('Вернулось дней: {n}', {n}) : tr('Все эти дни уже на месте'), n ? {icon: 'checkc', tone: 'good'} : {});
+};
+function restoreDays(docs){
+  let n = 0;
+  for (const [p, old] of Object.entries(docs)){
+    if (!/^days\/\d{4}-\d{2}-\d{2}$/.test(p) || !old || typeof old !== 'object' || Array.isArray(old)) continue;
+    const cur = S.docs[p], next = cur ? fillDay(cur, old) : old;
+    if (cur && JSON.stringify(next) === JSON.stringify(cur)) continue;
+    save(p, next); n++;
+  }
+  return n;
+}
+const isEmptyVal = v => v == null || v === '' || (Array.isArray(v) ? !v.length : typeof v === 'object' && !Object.keys(v).length);
+function fillDay(cur, old){
+  const out = clone(cur);
+  for (const [k, v] of Object.entries(old)){
+    const c = out[k];
+    if (isEmptyVal(c)){ if (!isEmptyVal(v)) out[k] = clone(v); continue; }
+    if (Array.isArray(c) && Array.isArray(v)){
+      const id = x => x && typeof x === 'object' && x.id != null ? 'id:' + x.id : JSON.stringify(x);
+      const have = new Map(c.map(x => [id(x), x]));
+      v.forEach(x => { const h = have.get(id(x)); if (!h) c.push(clone(x)); else if (k === 'tasks' && x.done && !h.done) h.done = true; });
+    } else if (typeof c === 'object' && v && typeof v === 'object' && !Array.isArray(c) && !Array.isArray(v)) out[k] = {...clone(v), ...c};
+  }
+  return out;
+}
 
 /* ============ init ============ */
 async function init(){

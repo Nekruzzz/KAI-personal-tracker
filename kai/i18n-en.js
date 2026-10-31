@@ -1207,7 +1207,7 @@ window.I18N_EN = {
 "Шаги":"Steps",
 "Шаги в день":"Steps per day",
 "Шаги за 14 дней":"Steps over 14 days",
-"Шаги и осанка по плану":"Steps and posture on plan",
+"Отдых и прогулка":"Rest and a walk",
 "Шаги сегодня":"Steps today",
 "Шаги:":"Steps:",
 "Шкала: 1 — нет отёка, 3 — заметный.":"Scale: 1 is no puffiness, 3 is noticeable.",

@@ -1397,7 +1397,7 @@ function hTrain(){
   const w = pl.workouts[sel];
   const nx = nextWorkout(addDays(date,1));
   let h = `<section class="card hero"><div class="hero-num" style="font-size:28px">${todayW?tr('Сегодня: тренировка ')+tr(todayW):tr('Сегодня отдых')}</div>
-    <div class="hero-sub">${todayW?esc(pl.workouts[todayW].name):tr('Шаги и осанка по плану')} ${tr("· дальше")} ${nx.w?DOW[dow(nx.date)]+' — '+tr(nx.w):'—'}</div>
+    <div class="hero-sub">${todayW?esc(pl.workouts[todayW].name):tr('Отдых и прогулка')} ${tr("· дальше")} ${nx.w?DOW[dow(nx.date)]+' — '+tr(nx.w):'—'}</div>
     <div class="seg" style="margin-top:14px" role="tablist">${programKeys().map(k=>`<button class="${sel===k?'on':''}" role="tab" aria-selected="${sel===k}" data-act="pickW" data-v="${k}">${tr(k)}${k===todayW?tr(' · сегодня'):''}</button>`).join('')}</div>${pl.programs?`<div class="progrow"><span class="hint">${esc(activeProgram()?.name||tr('Своя программа'))}</span><button class="link" data-act="programSheet">${tr("Сменить")}</button></div>`:''}</section>`;
   h += deloadNote();
   h += readyCard(todayW ? date : null);

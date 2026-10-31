@@ -1337,7 +1337,7 @@ window.I18N_EN = {
 "например, креатин моногидрат":"for example, creatine monohydrate",
 "например, курица 150 г, соус не ел":"for example, chicken 150 g, no sauce",
 "например, ролик про утреннюю рутину, снимал дома":"for example, a video about my morning routine, filmed at home",
-"например, что убрать из питания, чтобы лицо было менее отёчным?":"for example, what should I cut from my diet so my face is less puffy?",
+"например, что в моих заметках сказано про разминку перед тренировкой?":"for example, what do my notes say about warming up before a workout?",
 "например, ₽, $, €, RM":"for example, $, €, £, RM",
 "настроен, сейчас недоступен":"set up, unavailable right now",
 "не записана":"not logged",

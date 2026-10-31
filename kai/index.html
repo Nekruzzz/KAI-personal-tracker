@@ -149,7 +149,7 @@ body.resting .app{padding-bottom:calc(196px + env(safe-area-inset-bottom,0px))}
 .sec-h a,.link{color:var(--accent);font-weight:600;font-size:14.5px;cursor:pointer;background:none;border:0}
 .pills{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
 .pills::-webkit-scrollbar{display:none}
-.pill{flex:none;padding:9px 16px;border-radius:999px;background:var(--card-2);font-weight:600;font-size:14.5px;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.pill{flex:none;padding:9px 16px;border-radius:22px;background:var(--card-2);font-weight:600;font-size:14.5px;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
 .pill > svg{width:16px;height:16px}
 .pill.on{background:var(--pill-on);color:var(--pill-on-ink)}
 .list{display:flex;flex-direction:column}
@@ -198,7 +198,7 @@ body.resting .app{padding-bottom:calc(196px + env(safe-area-inset-bottom,0px))}
 .macro .n{text-align:right;color:var(--text-2)}
 .macro .n b{color:var(--text)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px}
-.btn svg{width:20px;height:20px}
+.btn svg{width:20px;height:20px;flex:none} /* an icon keeps its size when the label wraps */
 .btn.ghost{background:var(--card-2);color:var(--text)}
 .btn.danger{background:var(--bad-bg);color:var(--bad-ink)}
 .btn.block{width:100%}
@@ -667,8 +667,8 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;bac
 .lg:active{transform:scale(1.07);background:radial-gradient(circle at var(--px,50%) var(--py,50%),var(--lg-touch),rgba(255,255,255,0) 70%),linear-gradient(180deg,var(--lg-sheen),rgba(255,255,255,0) 60%),var(--lg-press)}
 /* glass that carries text (toasts, the rest timer) is thicker: what scrolls beneath must not compete with the words */
 .toast,.rb-in{--lgt:var(--lg-tint-thick);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
-.toast{border-radius:999px;border:0}
-.rb-in{border-radius:999px;padding:8px 8px 8px 18px}
+.toast{border-radius:26px;border:0}
+.rb-in{border-radius:30px;padding:8px 8px 8px 18px}
 
 /* the floating header: a glass capsule for the profile, a glass circle for AI; content fades softly under it */
 .top,.top.plain{background:none;padding-top:calc(70px + env(safe-area-inset-top,0px))}
@@ -725,12 +725,12 @@ body.nav-min .nav .mic span.b{width:44px;height:44px}
 .sheet.scrolled .sh-h{background:color-mix(in srgb,var(--sheet) 86%,transparent);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:0 1px 0 var(--lg-line)}
 
 /* controls in the content layer: capsules with a lit top edge */
-.btn{border-radius:999px}
+.btn{border-radius:24px} /* a capsule at one line; a rounded rectangle when the label wraps */
 .btn:not(.ghost):not(.danger):not(.sso){background-image:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,0) 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),inset 0 -1px 0 rgba(0,0,0,.10),0 8px 18px -8px var(--accent)}
 .btn.ghost,.pill{background:var(--fill-1);box-shadow:inset 0 1px 0 var(--fill-hi),inset 0 0 0 1px var(--lg-line)}
 .pill.on{background:var(--pill-on);box-shadow:0 4px 12px -4px rgba(0,0,0,.35)}
-.seg{background:var(--fill-1);border-radius:999px}
-.seg button{border-radius:999px}
+.seg{background:var(--fill-1);border-radius:24px}
+.seg button{border-radius:21px}
 .seg button.on{box-shadow:inset 0 1px 0 var(--fill-hi),0 2px 8px rgba(0,0,0,.14)}
 
 /* the selected capsule of a section switcher glides to the new choice; the switcher itself stays put while the content changes */

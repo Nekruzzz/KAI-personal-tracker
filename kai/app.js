@@ -2312,6 +2312,7 @@ A.foodGo = async () => {
   const comment = val('fpC'); if (!SH.file && !comment) return toast(tr('Добавь фото или описание'));
   if (carePause(comment, 'fpOut', 'foodGo')) return;
   const date = todayISO(), d = getDay(date), e = eaten(d);
+  if (!SH.file && !aiStatus().ok && foodLocal(comment, date)) return; // no AI: foods with an amount from the built-in table
   const prompt = `Ты нутрициолог. ${SH.file?'На фото еда, которую пользователь ест или собирается съесть.':'Пользователь описал еду.'} ${comment?`Комментарий/описание: ${tr('«')}${comment}${tr('»')}.`:''}
 Определи продукты и реалистичный вес порций в граммах, посчитай КБЖУ по стандартным таблицам. Если видна этикетка — бери цифры с неё.
 ${profileBrief()}
@@ -3048,7 +3049,7 @@ function connectNudge(forTell){
   // Tell KAI half-works without AI, so it says what does
   if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
   if (cloudOn()) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
-  return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него разбор дня, фото еды и скриншотов не работает. Это занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;
+  return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него не работают фото еды и скриншоты, а сообщения я понимаю только простые. Подключение занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;
 }
 const SVC = {
   claude: {name:'Claude', url:'https://console.anthropic.com/settings/keys', host:'console.anthropic.com', hint:'sk-ant-…'},
@@ -4649,6 +4650,16 @@ function localSets(text, date, out){
     for (let i = 0; i < +n; i++) out.push({ex: ex.id, w: 0, r: +rp});
     return ' ';
   });
+}
+/* the food sheet's "describe" without AI: only the meals, shown and confirmed like a Tell answer */
+function foodLocal(text, date){
+  const meals = String(text).split(/[;\n]+|,\s+|\s+(?:и|with|and|с)\s+/i).map(x => x.trim()).filter(Boolean).map(localMeal).filter(Boolean);
+  if (!meals.length) return false;
+  const id = uid(), it = {id, kind: 'tell', result: {reply: tr('Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.'), meals}, meta: {date, text, local: true}, provider: 'local', label: tr('КБЖУ · ') + String(text).slice(0, 30), date, created: new Date().toISOString(), done: false};
+  save('inbox/' + id, it);
+  SH.jobId = id; SH.outId = 'fpOut';
+  const out = $('#fpOut'); if (out) out.innerHTML = jobView(it);
+  return true;
 }
 function tellLocal(text, date){
   const {r, left} = localTellParse(text, date);

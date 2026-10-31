@@ -922,3 +922,16 @@ test('without AI, a clear to-do without a date is still a to-do', () => {
   assert.equal(p('надо купить молоко')[0].title, 'Купить молоко');
   assert.deepEqual(p('I need a break'), [], 'only "need to", not any "need"');
 });
+
+test('describing food without AI counts it from the food table, and still waits for a tap', () => {
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.meals = []; }); SH = null; A.foodText()`);
+  assert.equal(run(`foodLocal('200 g rice with 2 eggs', '${d}')`), true);
+  const it = JSON.parse(run(`JSON.stringify(S.docs['inbox/' + SH.jobId])`));
+  assert.equal(it.result.meals.length, 2);
+  assert.equal(run(`getDay('${d}').meals.length`), 0, 'nothing logged yet');
+  run(`A.tellApply({dataset: {id: '${it.id}'}})`);
+  assert.equal(run(`getDay('${d}').meals.length`), 2);
+  assert.equal(run(`foodLocal('a bowl of soup', '${d}')`), false);
+  run(`SH = null`);
+});

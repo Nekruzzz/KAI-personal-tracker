@@ -50,6 +50,9 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Startup:** with a year of data and the CPU slowed four times, content appears in about 0.2 s.
 - **Food charts:** one week chart with a Calories/Protein switch instead of two stacked charts. This also fixed a bug where the Progress period switch (Today / 7 days / 30 days) un-highlighted the Day tab.
 - **"What can I write?"** in Tell KAI: example phrases by topic, all of which work without AI (a test checks every one, in both languages), and a tap adds one to the message. Gym sets and task check-offs now match in either language too.
+- **Money reading fixed and widened:** "потратил 1 200 руб" was read as 200; thousands with a space are now one number. "$12", "€20", "15 dollars", "300р", "got paid 1 500" and "lunch 12" (the example the Money screen itself gives) now work.
+- **Health and the cloud:** once a server is connected, the Health permission step and Health setting say Health data is in the cloud copy, not iCloud (App Review 5.1.3).
+- **Privacy policy draft updated** to match the app: on-phone reading when no AI is connected, Health in the cloud copy, and deleting everything on the phone from More.
 - **Own API key in the iPhone app:** hidden once KAI's own AI server is connected (App Review 3.1.1); the web keeps it, and `ownKeys: true` in `kai/config.js` brings it back.
 - **Pull to close:** sheets close by pulling down from the grab bar or title, like iOS; a short pull springs back.
 - **Day notes in the to-do field:** typing "slept 7 hours" into Tasks now goes to Tell KAI instead of becoming a to-do called "Slept 7 hours".
@@ -63,7 +66,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 86 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 88 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

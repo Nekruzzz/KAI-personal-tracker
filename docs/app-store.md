@@ -25,6 +25,7 @@ See your effort add up: hours walked and studied, active days, streaks, levels a
 - Study plans built around your real week
 - Apple Health for steps, sleep and workouts
 - English and Russian
+- Understands everyday messages on your phone, even without AI: sleep, steps, spending, workouts, food with an amount, to-dos and exams
 - Works offline. AI is optional and only runs with your permission
 
 The free plan includes 10 AI messages a day. [Paid plan details and price.]
@@ -56,6 +57,7 @@ KAI предупредит, если планы мешают друг другу
 - Планы подготовки под твою реальную неделю
 - Здоровье iPhone: шаги, сон и тренировки
 - Русский и английский
+- Понимает обычные сообщения прямо на телефоне, даже без ИИ: сон, шаги, расходы, тренировки, еду с граммами, дела и экзамены
 - Работает без интернета. ИИ необязателен и включается только с твоего разрешения
 
 В бесплатном плане 10 сообщений ИИ в день. [Условия и цена платного плана.]

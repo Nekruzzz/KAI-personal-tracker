@@ -74,6 +74,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
 - **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
 - **A first currency from the phone's region** ($, €, £, ₽ and others), filled in during onboarding and changeable; before, money showed as bare numbers until someone typed a symbol.
+- **Text size:** follows the iPhone's text size up to 120%, or pick 100%, 110% or 120% in More. Small screens keep enough room that nothing clips (an iPhone SE stays at 100%).
 - **App updates:** the installed web app shows an Update button when a new version is ready, and one left open for days checks again when it comes back to the screen.
 - **No backup nag while the account's cloud copy is up to date:** the weekly reminder said data would be lost if iOS cleared storage, which isn't true once records sync.
 - **Unreachable code removed:** an old profile sheet that a later line had replaced (about 8 KB), with its 17 translations.
@@ -87,6 +88,8 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Sign-in buttons:** the Apple button has the Apple logo in the title's colour (black on light, white on dark), and the Google button has the four-colour G, as both companies' button guidelines ask.
 - **Sign in with Apple and account deletion:** Apple requires that deleting an account also revokes the person's Apple token. After signing in with Apple, the server now keeps a refresh token (in a table only it can read), and deleting the account revokes it with Apple first. It needs a Sign in with Apple key in the server's secrets (see `server/README.md`); without one, everything works as before. Tested with a throwaway key and a stand-in for Apple.
 - **Reviewer notes** list what's native (guideline 4.2) and what to try without signing in.
+- **Home Screen quick actions** in the iPhone app: long-press the icon for Tell KAI or Today (in Russian too). GitHub's iPhone build compiles the Swift; the action itself needs trying on a device.
+- **Accessibility labels for the App Store:** `docs/app-store.md` says which of Apple's accessibility labels KAI can claim (dark interface, sufficient contrast, reduced motion) and which need a device check first.
 - `node tools/check-release.js` and the tests now check all of the above.
 
 ## Liquid Glass, redone (iOS 26)
@@ -111,7 +114,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 112 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 113 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

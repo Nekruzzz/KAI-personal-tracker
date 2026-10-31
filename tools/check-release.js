@@ -29,6 +29,10 @@ for (const [key, why] of [
   ['NSPhotoLibraryAddUsageDescription', 'someone taps Save Image when sharing the weekly summary'],
 ]) if (!plist.includes(`<key>${key}</key>`)) blockers.push(`Info.plist: ${key} is missing, and iOS ends the app when ${why}`);
 
+// people using the app in Russian see the permission texts in Russian
+const ruStrings = fs.existsSync(path.join(root, 'native/ios/App/App/ru.lproj/InfoPlist.strings')) ? read('native/ios/App/App/ru.lproj/InfoPlist.strings') : '';
+for (const [, key] of plist.matchAll(/<key>(NS\w+UsageDescription)<\/key>/g)) if (!new RegExp(`^${key} = "`, 'm').test(ruStrings)) blockers.push(`ru.lproj/InfoPlist.strings: no Russian text for ${key}`);
+
 // App Store Connect refuses an upload whose code reads file dates or stored settings without saying why (the Filesystem and Apple sign-in plugins do)
 const manifest = fs.existsSync(path.join(root, 'native/ios/App/App/PrivacyInfo.xcprivacy')) ? read('native/ios/App/App/PrivacyInfo.xcprivacy') : '';
 if (!manifest) blockers.push('native/ios/App/App/PrivacyInfo.xcprivacy is missing: the upload is refused (ITMS-91053)');

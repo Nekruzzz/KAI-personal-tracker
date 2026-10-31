@@ -1361,3 +1361,14 @@ test('the iPhone app ships a privacy manifest that says why it reads file dates 
   const proj = readFileSync(new URL('../native/ios/App/App.xcodeproj/project.pbxproj', import.meta.url), 'utf8');
   assert.match(proj, /PrivacyInfo\.xcprivacy in Resources \*\/,/, 'copied into the app');
 });
+
+test('the permission texts are in Russian too, for every key in Info.plist', () => {
+  const plist = readFileSync(new URL('../native/ios/App/App/Info.plist', import.meta.url), 'utf8');
+  const ru = readFileSync(new URL('../native/ios/App/App/ru.lproj/InfoPlist.strings', import.meta.url), 'utf8');
+  const keys = [...plist.matchAll(/<key>(NS\w+UsageDescription)<\/key>/g)].map(m => m[1]);
+  assert.ok(keys.length >= 4);
+  for (const k of keys) assert.match(ru, new RegExp(`^${k} = "[^"]*[А-Яа-яЁё][^"]*";$`, 'm'), k);
+  const proj = readFileSync(new URL('../native/ios/App/App.xcodeproj/project.pbxproj', import.meta.url), 'utf8');
+  assert.match(proj, /InfoPlist\.strings in Resources \*\/,/);
+  assert.match(proj, /knownRegions = \([^)]*\bru,/);
+});

@@ -2414,59 +2414,13 @@ ${profileBrief()}
 A.addSuppPlain = el => { const name = el.dataset.n; if (!name) return; const p = clone(plan()); p.supps = p.supps||[]; if (!p.supps.some(s=>s.name===name)) p.supps.push({name, dose:'', timing:''}); save('app/plan', p); };
 
 /* ============ PROFILE / SEASON / BACKUP ============ */
-A.profile = () => openSheet(tr('Профиль и план'), profileBody, showStorage);
 async function showStorage(){
   showCopies();
   const el = $('#storeInfo'); if (!el || !navigator.storage?.estimate) return;
   try { const e = await navigator.storage.estimate(); const persisted = await navigator.storage.persisted?.(); const gb = v => (v/1073741824).toFixed(v > 1073741824 ? 1 : 2); el.textContent = `${tr("Занято")} ${gb(e.usage||0)} ${tr("ГБ из доступных")} ${gb(e.quota||0)} ${tr("ГБ")}${persisted ? tr(' · iOS не удалит данные сама') : ''}.`; } catch {}
 }
-function profileBody(){
-  const p = profile(), t = targets(), pl = plan(), c = content();
-  return `${modulesCard()}${programCard()}<section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr("Данные для расчёта нормы")}</b>
-    <div class="fgrid">
-      <div class="field"><label for="pfN">${tr("Имя")}</label><input class="in" id="pfN" value="${esc(p.name||'')}"></div>
-      <div class="field"><label for="pfA">${tr("Возраст")}</label><input class="in" id="pfA" inputmode="numeric" value="${esc(p.age||'')}"></div>
-      <div class="field"><label for="pfH">${tr("Рост, см")}</label><input class="in" id="pfH" inputmode="decimal" value="${esc(p.height||'')}"></div>
-      <div class="field"><label for="pfW">${tr("Вес, кг")}</label><input class="in" id="pfW" inputmode="decimal" value="${esc(p.weight||'')}"></div>
-      <div class="field"><label for="pfWa">${tr("Талия, см")}</label><input class="in" id="pfWa" inputmode="decimal" value="${esc(p.waist||'')}"></div>
-      <div class="field"><label for="pfAc">${tr("Активность")}</label><select class="in" id="pfAc">${[[1.35,tr('Учёба сидя + 3 тренировки')],[1.45,tr('+ 8–10 тыс. шагов')],[1.6,tr('+ 12 тыс. шагов и больше')]].map(([v,l])=>`<option value="${v}" ${(+p.activity||1.45)===v?'selected':''}>${l}</option>`).join('')}</select></div>
-    </div>
-    ${t.ok?`<div class="note">${tr("Норма сейчас:")} <b>${t.kcal} ${tr("ккал")}</b> ${tr("· белок")} ${t.p} ${tr("г · жиры")} ${t.f} ${tr("г · углеводы")} ${t.c} ${tr("г. Расход ~")}${t.tdee} ${tr("ккал, дефицит")} ${t.deficit} ${tr("ккал (≈0,5% веса в неделю).")}</div>`:`<div class="hint">${tr("После сохранения норма рассчитается сама.")}</div>`}
-  </section>
-  <section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr("Дни тренировок")}</b>
-    <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(90px,1fr))">${[1,2,3,4,5,6,7].map(n=>`<div class="field"><label for="sch${n}">${DOW[n]}</label><select class="in" id="sch${n}"><option value="">${tr("отдых")}</option>${Object.keys(pl.workouts).map(k=>`<option ${pl.schedule?.[n]===k?'selected':''}>${k}</option>`).join('')}</select></div>`).join('')}</div></section>
-  <section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr("Расписание пар")}</b>
-    <div id="clsList" style="display:flex;flex-direction:column;gap:8px">${(pl.classes||[]).map((c,i)=>clsRow(c,i)).join('')}</div>
-    <button class="btn ghost" data-act="clsAdd">${ic('plus')}${tr("Добавить пару")}</button></section>
-  <section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Задачи каждый день")}</b>
-    ${(pl.dailyTasks||[]).map((t,i)=>`<div style="display:flex;gap:8px;align-items:center"><span style="flex:1">${esc(t.title)}</span><button class="iconbtn" data-act="dtDel" data-i="${i}" aria-label="${tr("Убрать")} ${esc(t.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}
-    <div style="display:flex;gap:8px"><input class="in" id="dtNew" placeholder="${tr("Новая ежедневная задача")}"><button class="btn" data-act="dtAdd" aria-label="${tr("Добавить")}">${ic('plus')}</button></div></section>
-  <section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr("Контент")}</b><div class="field"><label for="pfWT">${tr("Цель роликов в неделю")}</label><input class="in" id="pfWT" inputmode="numeric" value="${c.weeklyTarget||4}"></div></section>
-  <button class="btn block" data-act="profileSave">${tr("Сохранить")}</button>
-  <section class="card" style="display:flex;flex-direction:column;gap:4px"><b>${tr("Отклик")}</b>
-    ${[['haptics',tr('Вибрация при действиях'),tr('На iPhone нужна iOS 18 или новее')],['sound',tr('Звуки'),tr('Короткий звук при отметке и наградах')]].map(([k,l,h])=>`<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${h}</div></div><input type="checkbox" switch class="sw" data-ch="fxToggle" data-k="${k}" ${FX()[k]?'checked':''}></label>`).join('')}</section>
-  <section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Данные и резервная копия")}</b>
-    <div class="hint">${tr("Всё хранится в этом телефоне. Раз в неделю сохраняй копию в «Файлы» или iCloud: если iOS очистит память, данные можно будет вернуть.")}</div>
-    <div id="storeInfo" class="hint"></div>
-    <div class="btnrow"><button class="btn ghost" data-act="exportData">${tr("Сохранить копию")}</button><label class="btn ghost">${tr("Загрузить копию")}<input type="file" accept="application/json,.json" hidden data-ch="importData"></label></div>
-    <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="expPhotos"> ${tr("Включить фото формы в копию")}</label>
-    <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>
-    <button class="btn ghost" data-act="ics">${ic('day')}${tr("Напоминания в Календарь iPhone")}</button></section>`;
-}
-function clsRow(c, i){ return `<div class="fgrid cls" data-i="${i}" style="grid-template-columns:70px 90px 1fr 40px;gap:6px;align-items:center"><select class="in" aria-label="${tr("День")}" data-f="day">${[1,2,3,4,5,6].map(n=>`<option value="${n}" ${+c.day===n?'selected':''}>${DOW[n]}</option>`).join('')}</select><input class="in" aria-label="${tr("Время")}" type="time" data-f="time" value="${esc(c.time||'08:00')}"><input class="in" aria-label="${tr("Предмет и аудитория")}" data-f="title" value="${esc(c.title||'')}" placeholder="${tr("Предмет, ауд.")}"><button class="iconbtn" data-act="clsDel" data-i="${i}" aria-label="${tr("Удалить пару")}" style="color:var(--text-3)">${ic('trash')}</button></div>`; }
-function readClasses(){ return $$('.cls').map(r=>({day:+$('[data-f=day]',r).value, time:$('[data-f=time]',r).value, title:$('[data-f=title]',r).value.trim()})).filter(c=>c.title); }
-A.clsAdd = () => { const list = $('#clsList'); list.insertAdjacentHTML('beforeend', clsRow({day:1,time:'08:00',title:''}, list.children.length)); };
-A.clsDel = el => el.closest('.cls').remove();
 A.dtDel = el => withUndo(['app/plan'], () => { const p = clone(plan()); p.dailyTasks.splice(+el.dataset.i,1); save('app/plan', p); drawSheet(); });
 A.dtAdd = () => { const t = val('dtNew'); if (!t) return; const p = clone(plan()); p.dailyTasks.push({id:uid(), title:t, cat:'custom'}); save('app/plan', p); drawSheet(); };
-A.profileSave = () => {
-  const p = {...clone(profile()), name:val('pfN'), age:toNum(val('pfA')), height:toNum(val('pfH')), weight:toNum(val('pfW')), waist:toNum(val('pfWa')), activity:toNum(val('pfAc'))};
-  save('app/profile', p);
-  const pl = clone(plan()); pl.schedule = {}; [1,2,3,4,5,6,7].forEach(n=>{ const v = $('#sch'+n).value; if (v) pl.schedule[n] = v; }); pl.classes = readClasses(); if (pl.programs?.[pl.program]) pl.programs[pl.program].schedule = clone(pl.schedule); save('app/plan', pl);
-  const c = clone(content()); c.weeklyTarget = toNum(val('pfWT'))||4; save('app/content', c);
-  if (p.weight) mutDay(todayISO(), d => { if (d.weight==null) d.weight = p.weight; if (d.waist==null && p.waist) d.waist = p.waist; });
-  closeSheet(); toast(tr('Сохранено'));
-};
 async function shareOrDownload(name, blob){
   if (isNative()){
     try {
@@ -2799,11 +2753,6 @@ const MODULES = [
   ['content',tr('Контент'),tr('Сценарии, план роликов, продвижение. Данные остаются в телефоне'), false],
 ];
 const modOn = id => { const m = (meta().modules || {})[id]; if (m !== undefined) return !!m; const d = MODULES.find(x => x[0] === id); return d ? d[3] : true; };
-function modulesCard(){
-  return `<section class="card" style="display:flex;flex-direction:column;gap:4px"><b>${tr("Модули")}</b>
-    ${MODULES.map(([k,l,h]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${h}</div></div><input type="checkbox" switch class="sw" data-ch="modToggle" data-k="${k}" aria-label="${l}" ${modOn(k)?'checked':''}></label>`).join('')}
-    <div class="hint">${tr("Выключенный модуль прячется, но его данные не удаляются.")}</div></section>`;
-}
 CH.modToggle = el => {
   const k = el.dataset.k;
   setMeta({modules: {...(meta().modules || {}), [k]: el.checked}});
@@ -2889,13 +2838,6 @@ function programKeys(){
   const pl = plan(), pr = activeProgram();
   const ks = (pr?.keys || [...new Set(Object.values(pl.schedule || {}))]).filter(k => pl.workouts[k]);
   return ks.length ? ks : Object.keys(pl.workouts);
-}
-function programCard(){
-  const pl = plan(), pr = activeProgram();
-  if (!pl.programs) return '';
-  return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Программа тренировок")}</b>
-    <div class="t">${esc(pr?.name || tr('Своя'))}</div><div class="hint">${esc(pr?.info || '')}</div>
-    <button class="btn ghost" data-act="programSheet">${ic('swap')}${tr("Сменить программу")}</button></section>`;
 }
 A.programSheet = () => openSheet(tr('Программа тренировок'), () => {
   const pl = plan();

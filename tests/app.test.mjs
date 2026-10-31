@@ -1165,3 +1165,13 @@ test('a typo in today\'s weight, sleep or steps is not saved', () => {
   run(`CH.weight({value: ''})`);
   assert.equal(run(`getDay(todayISO()).weight`), null, 'clearing the field still works');
 });
+
+test('an answer with an impossible weight or sleep shows and applies neither', () => {
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.weight = 80; x.sleep = 7; }); save('inbox/bad', {id: 'bad', kind: 'tell', meta: {date: '${d}', text: 'x'}, done: false, created: new Date().toISOString(), result: {reply: 'ok', weight: 800, sleep_h: 30, steps: 5000}})`);
+  const lines = JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/bad'].result, '${d}'))`));
+  assert.ok(!lines.some(l => /Weight|Sleep/.test(l)), lines.join(' | '));
+  run(`SH = null; A.tellApply({dataset: {id: 'bad'}})`);
+  assert.deepEqual([run(`getDay('${d}').weight`), run(`getDay('${d}').sleep`), run(`getDay('${d}').steps`)], [80, 7, 5000]);
+  run(`remove('inbox/bad')`);
+});

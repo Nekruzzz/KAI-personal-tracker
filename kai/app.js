@@ -4595,7 +4595,12 @@ A.tellEx = el => {
 };
 A.firstTellOff = () => setMeta({firstTellOff: true});
 const tellGo0 = A.tellGo;
-A.tellGo = async (...a) => { if (val('tellT') && !meta().toldOnce) setMeta({toldOnce: true}); return tellGo0(...a); };
+A.tellGo = async (...a) => { if (val('tellT') && !meta().toldOnce) setMeta({toldOnce: true}); const r = await tellGo0(...a); revealOut('tellOut'); return r; };
+/* what was understood, and its Apply button, appear below the message: bring them into view */
+function revealOut(id){
+  const el = $('#' + id); if (!el || !el.textContent?.trim()) return;
+  setTimeout(() => el.scrollIntoView?.({block: 'start', behavior: reduceMotion() ? 'auto' : 'smooth'}), 60);
+}
 
 /* ============ Tell KAI without AI: the most common messages are read on the phone, in the same format the AI answers in ============ */
 const NUM = '(\\d+(?:[.,]\\d+)?)';

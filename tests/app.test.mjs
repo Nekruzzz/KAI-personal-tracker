@@ -935,3 +935,17 @@ test('describing food without AI counts it from the food table, and still waits 
   assert.equal(run(`foodLocal('a bowl of soup', '${d}')`), false);
   run(`SH = null`);
 });
+
+test('an applied answer can be undone in one tap, and everything returns as it was', () => {
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.sleep = 5; x.meals = []; }); saveTasks([])`);
+  const before = run(`JSON.stringify([getDay('${d}').sleep, getDay('${d}').meals.length, smartTasks().length, monthTx('${d}'.slice(0, 7)).length])`);
+  run(`SH = null; A.tell(); tellLocal('slept 8 hours, 150 g rice, spent 12 on lunch, call mom tomorrow at 18:30', '${d}')`);
+  const id = run(`SH.jobId`);
+  run(`A.tellApply({dataset: {id: '${id}'}})`);
+  assert.equal(run(`getDay('${d}').sleep`), 8);
+  run(`A.undoApply()`);
+  assert.equal(run(`JSON.stringify([getDay('${d}').sleep, getDay('${d}').meals.length, smartTasks().length, monthTx('${d}'.slice(0, 7)).length])`), before);
+  assert.equal(run(`S.docs['inbox/${id}'].done`), false, 'the answer can be applied again');
+  run(`SH = null`);
+});

@@ -97,9 +97,9 @@ function nextToast(){
   const it = TQ.shift(); if (!it){ TCUR = null; return; }
   const [msg, o] = it;
   const t = document.createElement('div'); t.className = 'toast' + (o.tone ? ' tn-'+o.tone : ''); t.setAttribute('role','status');
-  t.innerHTML = (o.iconHTML ? `<span class="ti">${o.iconHTML}</span>` : o.icon ? `<span class="ti">${ic(o.icon)}</span>` : '') + `<span>${esc(msg)}</span>`;
+  t.innerHTML = (o.iconHTML ? `<span class="ti">${o.iconHTML}</span>` : o.icon ? `<span class="ti">${ic(o.icon)}</span>` : '') + `<span>${esc(msg)}</span>` + (o.action ? `<button class="link toast-act" data-act="${o.action.act}">${esc(o.action.label)}</button>` : '');
   document.body.append(t);
-  TCUR = {el: t, at: Date.now(), timer: setTimeout(hideToast, TQ.length ? 1300 : (o.ms || 2600))};
+  TCUR = {el: t, at: Date.now(), timer: setTimeout(hideToast, TQ.length && !o.action ? 1300 : (o.ms || 2600))};
 }
 function hideToast(){ if (!TCUR) return; const t = TCUR.el; t.classList.add('out'); setTimeout(()=>{ t.remove(); TCUR = null; nextToast(); }, 240); }
 
@@ -2276,6 +2276,10 @@ function tellView(it){
 A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
+  // everything this answer can change, kept so one tap can undo it
+  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7)]);
+  (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
+  UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
     (r.tasks_undone||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = false; });
@@ -2290,7 +2294,13 @@ A.tellApply = el => {
   if ((r.money||[]).length) addTx(r.money.map(m=>({id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
   if (SH?.jobId === it.id) closeSheet(); else drawSheet();
-  haptic('success'); toast(tr('Готово, всё отмечено'), {icon:'checkc', tone:'good'});
+  haptic('success'); toast(tr('Готово, всё отмечено'), {icon:'checkc', tone:'good', ms: 6000, action: {label: tr('Вернуть'), act: 'undoApply'}});
+};
+let UNDO = null;
+A.undoApply = () => {
+  if (!UNDO) return;
+  UNDO.forEach(([p, v]) => { if (v === undefined){ if (S.docs[p] !== undefined) remove(p); } else save(p, v); });
+  UNDO = null; hideToast(); haptic('selection'); toast(tr('Отменено, всё как было'));
 };
 
 /* ============ FOOD ============ */

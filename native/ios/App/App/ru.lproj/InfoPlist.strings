@@ -3,3 +3,7 @@ NSCameraUsageDescription = "KAI использует камеру, когда т
 NSPhotoLibraryUsageDescription = "KAI открывает только те фото, которые ты выбираешь, например еду или прогресс.";
 NSPhotoLibraryAddUsageDescription = "KAI сохраняет картинку в «Фото», только когда ты выбираешь «Сохранить изображение», например итоги недели.";
 NSHealthShareUsageDescription = "KAI читает шаги, сон и тренировки, чтобы показывать прогресс и планировать день. В «Здоровье» он ничего не записывает.";
+
+/* Home Screen quick actions (long-press the app icon) */
+"Tell KAI" = "Сказать KAI";
+"Today" = "Сегодня";

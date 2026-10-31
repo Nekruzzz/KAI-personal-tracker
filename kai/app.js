@@ -1345,7 +1345,8 @@ function lastSets(exId, before){
 
 /* ============ HEALTH ============ */
 function viewHealth(){
-  const tabs = [['food',tr('Питание'),'food'],['train',tr('Тренировки'),'gym'],['body',tr('Тело'),'scale'],['sleep',tr('Сон'),'moon'],['supps',tr('БАДы'),'pill']].filter(([id]) => id !== 'supps' || SUPPS_ON);
+  const tabs = [['food',tr('Питание'),'food'],['train',tr('Тренировки'),'gym'],['body',tr('Тело'),'scale'],['supps',tr('БАДы'),'pill']].filter(([id]) => id !== 'supps' || SUPPS_ON);
+  if (S.sub.health === 'sleep') S.sub.health = 'body'; // sleep is a section of Body now, so three tabs fit on a phone
   if (!tabs.some(([id]) => id === S.sub.health)) S.sub.health = 'food';
   const cur = S.sub.health;
   return `<div class="pills" role="tablist">${tabs.map(([id,l,i])=>`<button class="pill ${cur===id?'on':''}" role="tab" aria-selected="${cur===id}" data-act="sub" data-k="health" data-v="${id}">${ic(i)}${l}</button>`).join('')}</div>` +
@@ -1445,8 +1446,9 @@ function hBody(){
   const photos = (S.docs['app/photos']?.list||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
   let h = `<section class="card hero"><div class="hero-row"><div class="grow"><div class="hero-num">${last?num(W(last.v),1)+' '+kgU():'—'}</div><div class="hero-sub">${last?`${tr("среднее за 7 записей")} ${num(W(avg7),1)} ${kgU()}${first&&first!==last?` ${tr("· за сезон")} ${last.v-first.v>0?'+':''}${num(W(last.v-first.v),1)} ${kgU()}`:''}`:tr('Взвешивайся утром натощак, после туалета')}</div></div></div>
     <div class="fgrid" style="margin-top:14px"><div class="field"><label for="wIn">${tr("Вес сегодня")}, ${kgU()}</label><input class="in" id="wIn" inputmode="decimal" data-ch="weight" value="${W(d.weight)??''}" placeholder="${last?W(last.v):W(75)}"></div><div class="field"><label for="waIn">${tr("Талия")}, ${cmU()} ${tr("(раз в неделю)")}</label><input class="in" id="waIn" inputmode="decimal" data-ch="waist" value="${L(d.waist)??''}" placeholder="${waists.length?L(waists[waists.length-1].v):tr('на уровне пупка')}"></div></div></section>`;
-  h += `<div class="sec-h"><h2>${tr("Вес")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Линия — среднее за 7 дней, точки — каждое взвешивание. Смотри на линию: вес скачет от воды и соли.")}</div>${lineChart(ws.slice(-60).map(x=>({x:fmtShort(x.k), y:W(x.v)})), {avg:true, c:'c1', unit:kgU(), dec:1, id:'w', label:tr('Вес')})}<div class="hint" style="margin-top:8px">${tr("Цель темпа: −0,5…0,7% веса в неделю")}${last?` (≈ ${num(W(last.v*0.005),1)}–${num(W(last.v*0.007),1)} ${kgU()})`:''}${tr(". Быстрее — растёт риск потерять мышцы.")}</div></section>`;
+  h += `<div class="sec-h"><h2>${tr("Вес")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Линия — среднее за 7 дней, точки — взвешивания")}</div>${lineChart(ws.slice(-60).map(x=>({x:fmtShort(x.k), y:W(x.v)})), {avg:true, c:'c1', unit:kgU(), dec:1, id:'w', label:tr('Вес')})}<div class="hint" style="margin-top:8px">${tr("Цель темпа: −0,5…0,7% веса в неделю")}${last?` (≈ ${num(W(last.v*0.005),1)}–${num(W(last.v*0.007),1)} ${kgU()})`:''}${tr(". Быстрее — растёт риск потерять мышцы.")}</div></section>`;
   // the calorie adjustment lives on the Food tab, where the target is used
+  h += sleepSection();
   if (FACE_ON) h += faceCard(); // niche and about looks; switched off for now, entries already logged are kept
   if (waists.length >= 2) h += `<div class="sec-h"><h2>${tr("Талия")}</h2></div><section class="card">${lineChart(waists.slice(-30).map(x=>({x:fmtShort(x.k), y:x.v})), {c:'c3', unit:tr('см'), dec:1, id:'wa', label:tr('Талия')})}</section>`;
   h += `<div class="sec-h"><h2>${tr("Фото формы")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px">
@@ -1464,6 +1466,15 @@ function hSleep(){
     <div class="field"><label>${tr("Качество сна")}</label><div class="seg">${[1,2,3,4,5].map(n=>`<button class="${d.sleepQ===n?'on':''}" data-act="sleepQ" data-v="${n}" aria-label="${tr("Качество")} ${n}">${n}</button>`).join('')}</div></div></div></section>
     <section class="card">${barChart(pts,{target:7.5, unit:tr('ч'), dec:1, c:'c7', label:tr('Сон за 14 дней'), colorFn:p=>p.y>=7?'var(--c7)':'var(--sick-bg)'})}</section>
     <section class="card"><b>${tr("Почему сон в плане")}</b><div class="hint" style="margin-top:6px">${tr("При недосыпе на дефиците калорий больше теряется мышц и меньше жира, растёт аппетит и отёчность лица утром. Держи 7+ часов и одинаковое время подъёма.")}</div></section>`;
+}
+function sleepSection(){
+  const d = getDay(todayISO());
+  const pts = [...Array(14)].map((_,i)=>addDays(todayISO(),i-13)).map(k=>({x:fmtShort(k).split(' ')[0], y:toNum(S.docs['days/'+k]?.sleep)||0}));
+  const got = pts.filter(p=>p.y>0), avg = got.reduce((a,b)=>a+b.y,0)/(got.length||1);
+  return `<div class="sec-h"><h2>${tr("Сон")}</h2><span class="hint">${got.length ? trf('в среднем {h} ч · цель 7–9', {h: num(avg, 1)}) : tr('цель 7–9 ч')}</span></div>
+    <section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="fgrid"><div class="field"><label for="slIn">${tr("Спал прошлой ночью, ч")}</label><input class="in" id="slIn" inputmode="decimal" data-ch="sleep" value="${d.sleep??''}" placeholder="7.5"></div>
+    <div class="field"><label>${tr("Качество сна")}</label><div class="seg">${[1,2,3,4,5].map(n=>`<button class="${d.sleepQ===n?'on':''}" data-act="sleepQ" data-v="${n}" aria-label="${tr("Качество")} ${n}">${n}</button>`).join('')}</div></div></div>
+    ${got.length >= 2 ? barChart(pts,{target:7.5, unit:tr('ч'), dec:1, c:'c7', label:tr('Сон за 14 дней'), colorFn:p=>p.y>=7?'var(--c7)':'var(--sick-bg)'}) : ''}</section>`;
 }
 function hSupps(){
   const pl = plan(), d = getDay(todayISO()), list = pl.supps||[];

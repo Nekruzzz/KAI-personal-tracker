@@ -792,3 +792,11 @@ test('the plans screen stays out of sight until payments are real, so a review b
     assert.match(run(`accountCard()`), /data-act="planSheet"/);
   } finally { run(`Object.assign(CFG, cfg0)`); }
 });
+
+test('sleep is a section of Body, so the health tabs fit on a phone, and old links to the sleep tab still work', () => {
+  run(`S.sub.health = 'sleep'`);
+  const h = run(`viewHealth()`);
+  assert.equal(run(`S.sub.health`), 'body');
+  assert.doesNotMatch(h, /data-v="sleep"/);
+  assert.match(h, /Slept last night/);
+});

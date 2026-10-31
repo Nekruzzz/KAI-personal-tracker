@@ -1934,4 +1934,5 @@ window.I18N_EN = {
 "Деньги таблицей (CSV)":"Money as a spreadsheet (CSV)",
 "Тип":"Type",
 "Таблица готова":"Spreadsheet ready",
+"Удалено":"Deleted",
 };

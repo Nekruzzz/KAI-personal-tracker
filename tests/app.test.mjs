@@ -1189,3 +1189,25 @@ test('money exports as a spreadsheet: every entry, oldest first, with commas and
   assert.ok(i5 > 0 && i2 > i5, 'oldest first');
   assert.equal(csv[i2], '2030-02-02,Expense,12,Cafes and restaurants,"lunch, with ""friends"""');
 });
+
+test('deleting a to-do, a meal, a transaction or an event can be undone', () => {
+  const d = run(`todayISO()`);
+  run(`saveTasks([{id: 'u1', title: 'Call', due: null, done: false, pri: 2}]); A.tkDel({dataset: {id: 'u1'}})`);
+  assert.equal(run(`smartTasks().length`), 0);
+  run(`A.undoApply()`);
+  assert.equal(run(`smartTasks()[0].title`), 'Call');
+  run(`mutDay('${d}', x => { x.meals = [{name: 'Soup', kcal: 300, p: 10, f: 5, c: 40}]; }); A.delMeal({dataset: {i: '0'}})`);
+  assert.equal(run(`getDay('${d}').meals.length`), 0);
+  run(`A.undoApply()`);
+  assert.equal(run(`getDay('${d}').meals.length`), 1);
+  run(`addTx([{id: 'u2', date: '${d}', type: 'out', amount: 7, cat: 'Другое', note: 'x'}]); SH = {tx: {id: 'u2', date: '${d}'}}; A.txDel()`);
+  assert.equal(run(`monthTx('${d}'.slice(0, 7)).some(t => t.id === 'u2')`), false);
+  run(`A.undoApply()`);
+  assert.equal(run(`monthTx('${d}'.slice(0, 7)).some(t => t.id === 'u2')`), true);
+  setPlan([{id: 'ev1', date: d, title: 'Dentist', from: '15:00', until: '16:00'}]);
+  run(`SH = null; A.evDel({dataset: {id: 'ev1'}})`);
+  assert.equal(run(`allEvents().length`), 0);
+  run(`A.undoApply()`);
+  assert.equal(run(`allEvents()[0].title`), 'Dentist');
+  run(`SH = null`);
+});

@@ -1755,7 +1755,7 @@ function onboardSteps(){
     ['classes', tr('Расписание пар'), (plan().classes||[]).length > 0, tr('Пары появятся в задачах дня')],
     ['ai', tr('Подключить ИИ'), PROV_LIST().some(provConfigured), cloudOn() ? tr('Войди в аккаунт, и ИИ заработает') : tr('Claude или ChatGPT: вставь один ключ')],
     isNative() ? ['ics', tr('Напоминания'), !!m.remindAsked, tr('Работают даже когда приложение закрыто')] : ['ics', tr('Напоминания в Календарь iPhone'), !!m.icsAt, tr('Работают даже когда приложение закрыто')],
-    ['backup', tr('Первая резервная копия'), !!m.lastBackup, tr('Сохрани файл в «Файлы» или iCloud')],
+    ['backup', tr('Первая резервная копия'), !!m.lastBackup || cloudKept(), tr('Сохрани файл в «Файлы» или iCloud')],
   ];
   const student = (profile().role || 'study') === 'study' || (plan().classes || []).length;
   const mine = all.filter(s => s[0] !== 'classes' || student);
@@ -1780,7 +1780,7 @@ A.onboardGo = el => {
   if (v==='ics') return A.ics();
 };
 function backupBanner(){
-  const m = meta(); if (!meta().onboardHidden && onboardSteps().some(s=>!s[2])) return '';
+  const m = meta(); if (cloudKept() || (!meta().onboardHidden && onboardSteps().some(s=>!s[2]))) return '';
   const last = m.lastBackup, days = last ? dayDiff(last, todayISO()) : null;
   if (dayKeys().length < 3 || (days !== null && days < 7)) return '';
   return `<div class="banner" role="status">${ic('alert')}<div><div>${last ? `${tr("Последняя резервная копия")} ${days} ${plural(days,tr('день'),tr('дня'),tr('дней'))} ${tr("назад.")}` : tr('Резервной копии ещё нет.')} ${tr("Если iOS очистит память, данные пропадут.")}</div><div class="btnrow"><button class="btn" data-act="exportData">${tr("Сделать копию")}</button></div></div></div>`;
@@ -3189,7 +3189,7 @@ function viewMore(){
   h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
   h += acc('fx', 'zap', tr('Отклик'), (fx.haptics ? tr('Вибрация вкл') : tr('Вибрация выкл')) + ' · ' + (fx.sound ? tr('звуки вкл') : tr('звуки выкл')), [['haptics', tr('Вибрация при действиях'), tr('На iPhone нужна iOS 18 или новее')], ['sound', tr('Звуки'), tr('Короткий звук при отметке и наградах')]].map(([k, l, hh]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${hh}</div></div><input type="checkbox" switch class="sw" data-ch="fxToggle" data-k="${k}" aria-label="${l}" ${fx[k] ? 'checked' : ''}></label>`).join(''));
   h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Язык')}</b>${langSeg()}<b id="themeL">${tr('Оформление')}</b>${themeSeg()}</section>`;
-  h += acc('data', 'shield', tr('Данные и копия'), lastB == null ? tr('Копии ещё нет') : lastB === 0 ? tr('Копия сегодня') : `${tr("Копия")} ${lastB} ${plural(lastB, tr('день'), tr('дня'), tr('дней'))} ${tr("назад")}`, `<div class="hint">${tr("Всё хранится в этом телефоне. Раз в неделю сохраняй копию в «Файлы» или iCloud: если iOS очистит память, данные можно вернуть.")}</div><div id="storeInfo" class="hint"></div>
+  h += acc('data', 'shield', tr('Данные и копия'), cloudKept() && lastB == null ? tr('В облачной копии аккаунта') : lastB == null ? tr('Копии ещё нет') : lastB === 0 ? tr('Копия сегодня') : `${tr("Копия")} ${lastB} ${plural(lastB, tr('день'), tr('дня'), tr('дней'))} ${tr("назад")}`, `<div class="hint">${cloudKept() ? tr('Записи хранятся в этом телефоне и в облачной копии аккаунта. Файл с копией нужен, только если хочешь держать данные и у себя.') : tr("Всё хранится в этом телефоне. Раз в неделю сохраняй копию в «Файлы» или iCloud: если iOS очистит память, данные можно вернуть.")}</div><div id="storeInfo" class="hint"></div>
     <div class="btnrow"><button class="btn" data-act="exportData">${tr("Сохранить копию")}</button><label class="btn ghost">${tr("Загрузить копию")}<input type="file" accept="application/json,.json" hidden data-ch="importData"></label></div>
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
     <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>
@@ -3988,6 +3988,8 @@ const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null');
 const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 let AUTH = lsGet('kai_auth'), KAI_USE = lsGet('kai_use');
 const signedIn = () => cloudOn() && !!AUTH?.refresh;
+/* signed in, past the first sync and not stuck: the account's cloud copy has the records */
+const cloudKept = () => signedIn() && !!syncState().owner && !syncState().first && !syncBehind();
 
 /* ---- signing in: plain calls to Supabase Auth ---- */
 const apiUrl = p => CFG.supabaseUrl.replace(/\/+$/, '') + p;

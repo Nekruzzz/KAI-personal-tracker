@@ -1320,3 +1320,16 @@ test('deleting a class and the two resets (day schedule, calorie target) can be 
   run(`A.undoApply()`);
   assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay(todayISO()).shift)`)), {walk: 30});
 });
+
+test('no "make a backup" nag while the account\'s cloud copy is up to date', () => {
+  for (let i = 1; i <= 4; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.steps = 1000; })`);
+  run(`setMeta({onboardHidden: true, lastBackup: null})`);
+  assert.match(run(`backupBanner()`), /No backup yet/, 'without an account: reminded');
+  run(`globalThis.cfg3 = {...CFG}; globalThis.auth3 = AUTH; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; AUTH = {refresh: 'r'}; syncSave({owner: 'u', first: false, dirty: {}})`);
+  try {
+    assert.equal(run(`backupBanner()`), '');
+    assert.equal(run(`onboardSteps().find(s => s[0] === 'backup')[2]`), true);
+    run(`syncSave({owner: 'u', first: true, dirty: {}})`);
+    assert.match(run(`backupBanner()`), /No backup yet/, 'before the first sync finishes: still reminded');
+  } finally { run(`Object.assign(CFG, cfg3); CFG.supabaseUrl = ''; CFG.supabaseKey = ''; AUTH = auth3; syncSave(null); setMeta({onboardHidden: false})`); }
+});

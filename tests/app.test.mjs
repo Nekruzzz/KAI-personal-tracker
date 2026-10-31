@@ -1386,3 +1386,14 @@ test('a downloaded update offers a one-tap reload, and an app left open checks a
     run(`swCheck()`); assert.equal(L.updates, 1, 'and then waits again');
   } finally { run(`Date.now = now0; toast = toast0; delete navigator.serviceWorker; SW_REG = null`); }
 });
+
+test('the weekly summary leads with something real, never "0 min", and leaves out empty tiles', () => {
+  const plan = st => JSON.parse(run(`JSON.stringify(recapPlan(${JSON.stringify(st)}))`));
+  const base = {total: 0, walk: 0, gym: 0, study: 0, active: 2, tasks: 23, streak: 1};
+  const a = plan(base);
+  assert.equal(a.head, '23'); assert.equal(a.headLabel, 'tasks done this week');
+  assert.deepEqual(a.tiles.map(t => t[1]), ['active days', 'days in a row'], 'no zero-minute tiles, and the tasks are not shown twice');
+  const b = plan({...base, total: 130, walk: 90, gym: 40});
+  assert.equal(b.head, '2.2 h'); assert.equal(b.headLabel, 'invested this week');
+  assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'days in a row']);
+});

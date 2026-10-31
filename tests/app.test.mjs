@@ -986,6 +986,9 @@ test('an AI food answer is added once even with a double tap, and can be undone'
   assert.equal(run(`getDay('${d}').meals.length`), 0);
   assert.equal(run(`S.docs['inbox/f1'].done`), false);
   run(`remove('inbox/f1')`);
+  run(`save('inbox/f2', {id: 'f2', kind: 'food', meta: {date: '${d}', mult: 1}, done: false, created: new Date().toISOString(), result: {name: 'Huge', kcal: 90000, p: 10, f: 5, c: 40}}); A.foodAdd({dataset: {id: 'f2'}})`);
+  assert.equal(run(`getDay('${d}').meals.length`), 0, 'impossible numbers are not logged');
+  run(`remove('inbox/f2')`);
 });
 
 test('without AI, sleep from bedtime and wake time', () => {

@@ -1930,4 +1930,5 @@ window.I18N_EN = {
 "Проверить профиль":"Check profile",
 "Норма уже на нижней границе, ниже KAI не советует. Больше движения и сна помогут сильнее, а если вес стоит долго, стоит обсудить это с врачом.":"Your target is already at the lowest KAI suggests. More movement and sleep will help more, and if your weight stays the same for a long time, talk to a doctor.",
 "Похоже на опечатку, не сохранил:":"Looks like a typo, not saved:",
+"Цифры в ответе не похожи на одну порцию. Попробуй ещё раз или введи вручную.":"The numbers in this answer don't look like one portion. Try again or enter it by hand.",
 };

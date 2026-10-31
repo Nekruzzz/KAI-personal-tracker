@@ -176,3 +176,13 @@ test('nobody but the server can apply subscription events or read them', async (
     await assert.rejects(db.query(`update public.profiles set tier='plus', tier_expires_at=null where user_id='${C}'`));
   });
 });
+
+test('Apple sign-in tokens are for the server only, and go with the account', async () => {
+  const D = '44444444-4444-4444-4444-444444444444';
+  await db.exec(`insert into auth.users values ('${D}')`);
+  await asServer(() => db.query(`insert into public.apple_tokens (user_id, client_id, refresh_token) values ($1, 'com.example.kai', 'r')`, [D]));
+  await assert.rejects(as(D, () => db.query('select * from public.apple_tokens')), /permission denied/, 'not even your own');
+  await assert.rejects(as(D, () => db.query(`delete from public.apple_tokens`)), /permission denied/);
+  await db.exec(`delete from auth.users where id='${D}'`);
+  assert.equal((await rows(`select count(*)::int c from public.apple_tokens where user_id='${D}'`))[0].c, 0);
+});

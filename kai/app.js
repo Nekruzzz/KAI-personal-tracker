@@ -4032,7 +4032,10 @@ async function authFromUrl(){
   const access = h.get('access_token');
   const r = await fetch(apiUrl('/auth/v1/user'), {headers:{apikey:CFG.supabaseKey, authorization:'Bearer ' + access}});
   const user = await r.json().catch(() => null);
-  if (r.ok && setSession({access_token: access, refresh_token: h.get('refresh_token'), expires_in: +h.get('expires_in'), user})) toast(tr('Ты вошёл в аккаунт'), {icon:'checkc', tone:'good'});
+  if (r.ok && setSession({access_token: access, refresh_token: h.get('refresh_token'), expires_in: +h.get('expires_in'), user})){
+    toast(tr('Ты вошёл в аккаунт'), {icon:'checkc', tone:'good'});
+    if (user?.app_metadata?.provider === 'apple' && h.get('provider_refresh_token')) keepAppleToken({refresh_token: h.get('provider_refresh_token')});
+  }
 }
 function accountBody(){
   const step = SH.authStep || 'start';
@@ -4550,6 +4553,7 @@ A.authApple = async el => {
     const {response} = await SA.authorize({clientId: 'app', redirectURI: '', scopes: 'email name', nonce: await sha256Hex(nonce)});
     const r = await authCall('/token?grant_type=id_token', {provider: 'apple', id_token: response.identityToken, nonce});
     if (!r.ok || !setSession(r.d)) return toast(tr('Не получилось войти через Apple'));
+    if (response.authorizationCode) keepAppleToken({code: response.authorizationCode});
     closeSheet(); haptic('success'); toast(tr('Ты вошёл в аккаунт'), {icon:'checkc', tone:'good'}); syncSoon(0); processQueue();
   } catch(e){ if (!/cancel|1001/i.test(String(e?.message || e?.code))) toast(tr('Не получилось войти через Apple')); } finally { busy(el, false); }
 };
@@ -5093,6 +5097,11 @@ function pillGlide(k, v, from){
   requestAnimationFrame(() => requestAnimationFrame(() => { g.style.transform = `translateX(${to.offsetLeft - from.left}px)`; g.style.width = to.offsetWidth + 'px'; }));
   setTimeout(() => { g.remove(); to.classList.remove('arriving'); }, 450);
 }
+
+/* ============ Sign in with Apple: a way to revoke it later ============ */
+/* Apple asks that its sign-in token be revoked when the account is deleted, so the server keeps one for that.
+   Handed over once after signing in; signing in never waits for it or depends on it. */
+function keepAppleToken(body){ Promise.resolve().then(() => apiFetch('/functions/v1/apple-token', {method: 'POST', body: JSON.stringify(body)})).catch(() => {}); }
 
 /* ============ init ============ */
 async function init(){

@@ -48,6 +48,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Double taps:** adding an AI food answer or a bank import twice by a quick double tap is now ignored, and food answers also get Undo.
 - **More screen order:** everyday settings first (profile, workouts, schedule, daily tasks, reminders), one-time ones last (language, appearance, privacy). Sign-in stays near the top once a server is connected.
 - **Startup:** with a year of data and the CPU slowed four times, content appears in about 0.2 s.
+- **Food charts:** one week chart with a Calories/Protein switch instead of two stacked charts. This also fixed a bug where the Progress period switch (Today / 7 days / 30 days) un-highlighted the Day tab.
 - **Pull to close:** sheets close by pulling down from the grab bar or title, like iOS; a short pull springs back.
 - **Day notes in the to-do field:** typing "slept 7 hours" into Tasks now goes to Tell KAI instead of becoming a to-do called "Slept 7 hours".
 - **People who used supplements** get a one-time note on Day saying the section was removed and their list is saved.
@@ -60,7 +61,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 83 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 84 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

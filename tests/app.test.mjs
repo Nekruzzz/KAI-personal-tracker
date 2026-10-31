@@ -1448,3 +1448,12 @@ test('text people type is shown as text on every screen, never as markup', () =>
   }
   assert.match(run(`viewDay()`), /&lt;img src=x/, 'it is there, as text');
 });
+
+test('Tell KAI explains what works without AI the first time, then keeps it to one line', () => {
+  run(`setMeta({toldOnce: false})`);
+  assert.match(run(`connectNudge(true)`), /Without AI I understand sleep/);
+  run(`setMeta({toldOnce: true})`);
+  const h = run(`connectNudge(true)`);
+  assert.doesNotMatch(h, /Without AI I understand/);
+  assert.match(h, /Reading on the phone: simple messages\..*data-act="aiConnect"/);
+});

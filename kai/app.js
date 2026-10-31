@@ -3054,7 +3054,8 @@ function aiStatus(){
 }
 function connectNudge(forTell){
   if (aiStatus().ok) return '';
-  // Tell KAI half-works without AI, so it says what does
+  // Tell KAI half-works without AI, so it says what does; after the first message, one line is enough
+  if (forTell && meta().toldOnce) return `<div class="hint">${tr('Читаю на телефоне: простые сообщения.')} <button class="link" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${cloudOn() ? tr('Войти для ИИ') : tr('Подключить ИИ')}</button></div>`;
   if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
   if (cloudOn()) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
   return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него не работают фото еды и скриншоты, а сообщения я понимаю только простые. Подключение занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;

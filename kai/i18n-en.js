@@ -666,7 +666,6 @@ window.I18N_EN = {
 "Обзор":"Overview",
 "Обновить":"Update",
 "Обновить план":"Update the plan",
-"Обновление скачано: перезапусти приложение":"Update downloaded: restart the app",
 "Обновлён":"Updated",
 "Обрати внимание":"Heads up",
 "Обычно 1000–2000 МЕ в день, лучше по анализу 25(OH)D":"Usually 1000–2000 IU a day, ideally based on a 25(OH)D blood test",
@@ -1935,4 +1934,5 @@ window.I18N_EN = {
 "Файл загрузился не полностью. Проверь данные или верни как было.":"The file only partly loaded. Check your data, or undo.",
 "В облачной копии аккаунта":"In your account's cloud copy",
 "Записи хранятся в этом телефоне и в облачной копии аккаунта. Файл с копией нужен, только если хочешь держать данные и у себя.":"Your records are on this phone and in your account's cloud copy. A backup file is only needed if you also want a copy of your own.",
+"Есть новая версия KAI":"A new version of KAI is ready",
 };

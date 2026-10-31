@@ -1372,3 +1372,17 @@ test('the permission texts are in Russian too, for every key in Info.plist', () 
   assert.match(proj, /InfoPlist\.strings in Resources \*\/,/);
   assert.match(proj, /knownRegions = \([^)]*\bru,/);
 });
+
+test('a downloaded update offers a one-tap reload, and an app left open checks again when it returns', () => {
+  const L = {}, worker = {state: 'installing', addEventListener: (t, f) => { L['w' + t] = f; }};
+  const reg = {installing: worker, update: () => { L.updates = (L.updates || 0) + 1; return Promise.resolve(); }, addEventListener: (t, f) => { L[t] = f; }};
+  run(`globalThis.toasts = []; globalThis.toast0 = toast; toast = (m, o) => toasts.push([m, o?.action?.act]); navigator.serviceWorker = {controller: {}}; globalThis.now0 = Date.now`);
+  try {
+    run(`swReady`)(reg);
+    L.updatefound(); worker.state = 'installed'; L.wstatechange();
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(toasts)`)), [['A new version of KAI is ready', 'appReload']]);
+    run(`swCheck()`); assert.equal(L.updates, undefined, 'not again right away');
+    run(`Date.now = () => now0() + 2 * 3600e3; swCheck()`); assert.equal(L.updates, 1, 'an hour later, it checks');
+    run(`swCheck()`); assert.equal(L.updates, 1, 'and then waits again');
+  } finally { run(`Date.now = now0; toast = toast0; delete navigator.serviceWorker; SW_REG = null`); }
+});

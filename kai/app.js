@@ -4742,7 +4742,8 @@ function foodLocal(text, date){
 function tellLocal(text, date){
   const {r, left} = localTellParse(text, date);
   if (!tellLines(r, date).length) return false;
-  r.reply = tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.') + (left.length ? ' ' + tr('Часть сообщения без ИИ не понял: еду проще записать с граммами, например «150 г риса».') : '');
+  const missed = left.map(x => x.trim()).filter(x => x.length > 2).slice(0, 4).map(x => (LANG === 'ru' ? '«' : '“') + x.slice(0, 60) + (LANG === 'ru' ? '»' : '”'));
+  r.reply = tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.') + (missed.length ? ' ' + tr('Не понял без ИИ:') + ' ' + missed.join(', ') + '. ' + tr('Еду проще записать с граммами, например «150 г риса».') : '');
   const id = uid(), it = {id, kind: 'tell', result: r, meta: {date, text, local: true}, provider: 'local', label: tr('Разбор · ') + fmtShort(date), date, created: new Date().toISOString(), done: false};
   save('inbox/' + id, it);
   SH.jobId = id; SH.outId = 'tellOut';

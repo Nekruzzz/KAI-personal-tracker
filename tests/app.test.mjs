@@ -1100,3 +1100,11 @@ test('in the small hours, the Now card says it is time to sleep, not a free slot
     assert.doesNotMatch(h, /Nothing planned/);
   } finally { run(`tlState = tl0`); }
 });
+
+test('the on-phone answer names the parts it did not understand', () => {
+  run(`SH = null; A.tell()`);
+  run(`tellLocal('slept 7 hours, had some soup', todayISO())`);
+  const reply = run(`S.docs['inbox/' + SH.jobId].result.reply`);
+  assert.match(reply, /Not understood without AI: “had some soup”|Not understood without AI: «had some soup»/);
+  run(`SH = null`);
+});

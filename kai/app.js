@@ -2698,7 +2698,7 @@ function kbBody(){
   const items = kbItems(), q = SH?.kbq || '';
   const found = q ? kbSearch(q) : null;
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Спросить")}</b>
-    <textarea class="in" id="kbQ" placeholder="${tr("например, что убрать из питания, чтобы лицо было менее отёчным?")}">${esc(q)}</textarea>
+    <textarea class="in" id="kbQ" placeholder="${tr("например, что в моих заметках сказано про разминку перед тренировкой?")}">${esc(q)}</textarea>
     ${provPicker(false)}
     <div class="btnrow"><button class="btn" data-act="kbAsk">${ic('spark')}${tr("Ответить по моей базе")}</button><button class="btn ghost" data-act="kbFind">${tr("Найти без ИИ")}</button></div><div id="kbA"></div>
     ${found?`<div class="hint">${tr("Найдено записей:")} ${found.length}</div>${found.slice(0,5).map(({k})=>`<button class="row" data-act="kbOpen" data-id="${k.id}" style="padding:8px 0"><div class="mid"><div class="t">${esc(k.title)}</div><div class="s">${esc((k.summary||k.text||'').slice(0,100))}</div></div></button>`).join('')}`:''}</section>

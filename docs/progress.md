@@ -69,10 +69,13 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Quick add** (and the on-phone reader) learned dates with month names, a bare "at 5" or "в 5" as 17:00, "tonight", "tomorrow morning", "в субботу утром", "at noon", "in 2 hours" and "через 2 часа". It also fixes a bug: "9:30pm" was saved as 09:30 with "pm" left in the title.
 - **Home-screen shortcuts** for the installed web app: "Tell KAI" and "Today".
 - **Health:** sleep is a section of Body, so the three tabs fit on a phone; the weight chart caption is one short line.
+- **Undo for one-tap deletes:** to-dos, meals, money entries, events, daily tasks and knowledge base entries can be brought back from the toast for a few seconds.
+- **Finishing a season no longer loses history for good.** It used to clear every day (weights, meals, sets) after two taps, with no way back. Now the days are copied on the phone first, and if the copy can't be saved, nothing is cleared. The toast has Undo, and later the archive offers "Bring back the days": days written since keep their values and only get what they're missing. The archive's weights follow the pounds setting.
+- **Automatic copies are reachable.** The copy kept before the first cloud sync was announced in a message but couldn't be opened anywhere. Data and backup now lists the copies on the phone, and each can be saved as a file that "Restore a backup" accepts. Without the phone's storage (a private Safari tab), photos waiting for the AI and these copies now last until the app closes instead of being lost at once.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 98 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 102 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -98,3 +101,4 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.
 10. **Commit history note.** One commit ("Test the quick-add date fixes", the first of two with that name) went in with a test that was wrong for Saturdays; the next commit fixes it. Squashing the branch on merge hides both.
 11. **Calorie floor for losing weight** is now 1,200 kcal (it was the person's BMR, which can be lower for small people). That matches the AI's safety rules. If you'd rather use separate floors (for example 1,200 for women and 1,500 for men), it's `KCAL_FLOOR` in `kai/app.js`.
+12. **Should finishing a season clear the day diary at all?** It's how the feature was designed, so it still does, now with a copy and a way back. Keeping the days and only starting a new season count would keep the weight trend and records whole. Your call.

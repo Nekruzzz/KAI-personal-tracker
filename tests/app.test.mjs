@@ -1333,3 +1333,16 @@ test('no "make a backup" nag while the account\'s cloud copy is up to date', () 
     assert.match(run(`backupBanner()`), /No backup yet/, 'before the first sync finishes: still reminded');
   } finally { run(`Object.assign(CFG, cfg3); CFG.supabaseUrl = ''; CFG.supabaseKey = ''; AUTH = auth3; syncSave(null); setMeta({onboardHidden: false})`); }
 });
+
+test('the first currency is guessed from the phone region, and stays editable', () => {
+  const guess = lang => run(`(() => { const l0 = navigator.language; navigator.language = '${lang}'; try { return guessCurrency(); } finally { navigator.language = l0; } })()`);
+  assert.equal(guess('en-US'), '$');
+  assert.equal(guess('en-GB'), '£');
+  assert.equal(guess('de-DE'), '€');
+  assert.equal(guess('ru-RU'), '₽');
+  assert.equal(guess('ru'), '₽', 'a language alone gives its likely region');
+  assert.equal(guess('xx-QQ'), '', 'unknown: left empty');
+  run(`SH = null; A.welcome()`);
+  assert.equal(run(`SH.ob.cur`), run(`profile().currency || '$'`), 'onboarding starts with it filled in');
+  run(`closeSheet()`);
+});

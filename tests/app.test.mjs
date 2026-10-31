@@ -1427,3 +1427,24 @@ test('text size: up to 120%, never so large that a small screen clips, and "as o
   assert.equal(scale(null, 390), 1, 'follows the phone, which here has no text size to report');
   assert.equal(run(`textPref()`), 'system');
 });
+
+test('text people type is shown as text on every screen, never as markup', () => {
+  const X = '<img src=x onerror=alert(1)>';
+  const d = run(`todayISO()`);
+  run(`(() => { const X = ${JSON.stringify(X)};
+    save('app/profile', {...clone(profile()), name: X, about: X});
+    saveTasks([{id: 'x1', title: X, due: '${d}', time: '10:00', done: false, pri: 2}, {id: 'x2', title: X, due: null, done: false, pri: 2}]);
+    const p = clone(plan()); p.routine = clone(DEFAULT_ROUTINE); p.routine.events = [{id: 'xe', date: '${d}', title: X, kind: 'exam', from: '09:00', until: '10:00'}]; p.classes = [{day: dow('${d}'), time: '12:00', title: X}]; p.dailyTasks = [...(p.dailyTasks || []), {id: 'xd', title: X, cat: 'custom'}]; save('app/plan', p);
+    mutDay('${d}', x => { x.meals = [{id: 'xm', name: X, kcal: 100, p: 1, f: 1, c: 1}]; x.note = X; });
+    addTx([{id: 'xt', date: '${d}', type: 'out', amount: 5, cat: X, note: X}]);
+    save('kb/xk', {title: X, text: X, summary: X, date: '${d}'});
+    save('app/season', {...season(), title: X, goals: [X]});
+    save('seasons/xs', {title: X, start: '${d}', end: '${d}', goals: [X], avg: 0, gym: 0});
+  })()`);
+  const screens = {day: `viewDay()`, health: `(S.sub.health = 'food', viewHealth())`, train: `(S.sub.health = 'train', viewHealth())`, money: `viewMoney()`, more: `viewMore()`, season: `seasonBody()`, top: `(renderTop(), document.querySelector('#top').innerHTML || '')`};
+  for (const [name, src] of Object.entries(screens)) {
+    const html = run(src);
+    assert.ok(!/<img src=x/i.test(html), `${name} renders a typed <img> as markup`);
+  }
+  assert.match(run(`viewDay()`), /&lt;img src=x/, 'it is there, as text');
+});

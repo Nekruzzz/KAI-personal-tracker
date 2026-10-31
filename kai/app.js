@@ -2224,6 +2224,7 @@ const DAY_LIMITS = {weight: [25, 300], waist: [30, 250], sleep: [0, 16], steps: 
 const dayField = (f, parse=toNum) => el => { const v = parse(el.value), lim = DAY_LIMITS[f];
   if (v != null && lim && (v < lim[0] || v > lim[1])){ toast(tr('Похоже на опечатку, не сохранил:') + ' ' + el.value, {ms: 4000}); el.value = ''; return; }
   return dayFieldSave(f, parse, el); };
+const okBody = (f, v) => !!v && +v >= DAY_LIMITS[f][0] && +v <= DAY_LIMITS[f][1];
 const dayFieldSave = (f, parse, el) => mutDay(todayISO(), d => { d[f] = parse(el.value); if (f==='steps'){ const t = d.tasks.find(x=>x.id==='steps'); if (t && d.steps>=targets().steps) t.done = true; } if (f==='sleep'){ const t = d.tasks.find(x=>x.id==='sleep'); if (t && d.sleep>=7) t.done = true; } });
 CH.steps = dayField('steps'); CH.sleep = dayField('sleep'); CH.weight = dayField('weight', v => wIn(toNum(v))); CH.waist = dayField('waist', v => lIn(toNum(v)));
 CH.set = el => {
@@ -2285,7 +2286,7 @@ function tellLines(r, date){
   (r.tasks_undone||[]).forEach(id=>lines.push(tr('✗ не сделано: ')+tname(id)));
   lines.push(...tellPlanLines(r));
   (r.meals||[]).forEach(m=>lines.push(`${tr("Еда:")} ${m.name} — ${num(m.kcal)} ${tr("ккал, Б")} ${num(m.p)} ${tr("Ж")} ${num(m.f)} ${tr("У")} ${num(m.c)}`));
-  if (r.steps) lines.push(tr('Шаги: ')+num(r.steps)); if (r.sleep_h) lines.push(tr('Сон: ')+r.sleep_h+tr(' ч')); if (r.weight) lines.push(tr('Вес: ')+W(r.weight)+' '+kgU());
+  if (okBody('steps', r.steps)) lines.push(tr('Шаги: ')+num(r.steps)); if (okBody('sleep', r.sleep_h)) lines.push(tr('Сон: ')+r.sleep_h+tr(' ч')); if (okBody('weight', r.weight)) lines.push(tr('Вес: ')+W(r.weight)+' '+kgU());
   (r.supps_taken||[]).forEach(s=>lines.push(tr('БАД принят: ')+s));
   (r.sets||[]).forEach(s=>lines.push(`${tr("Подход:")} ${allEx.find(e=>e.id===s.ex)?.name||s.ex} ${s.w?W(s.w)+' '+kgU()+' × ':''}${s.r}`));
   (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}`));
@@ -2307,7 +2308,7 @@ A.tellApply = el => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
     (r.tasks_undone||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = false; });
     (r.meals||[]).forEach(m => d.meals.push({name:m.name, kcal:+m.kcal||0, p:+m.p||0, f:+m.f||0, c:+m.c||0, time:pad(now.getHours())+':'+pad(now.getMinutes())}));
-    if (r.steps) d.steps = +r.steps; if (r.sleep_h) d.sleep = +r.sleep_h; if (r.weight) d.weight = +r.weight;
+    if (okBody('steps', r.steps)) d.steps = +r.steps; if (okBody('sleep', r.sleep_h)) d.sleep = +r.sleep_h; if (okBody('weight', r.weight)) d.weight = +r.weight; // an answer's typo is dropped, like a typed one
     d.supps = d.supps||{}; (r.supps_taken||[]).forEach(s => { const m = (plan().supps||[]).find(x=>x.name.toLowerCase()===String(s).toLowerCase()); if (m) d.supps[m.name] = true; });
     d.sets = d.sets||{}; (r.sets||[]).forEach(s => { const a = d.sets[s.ex] = d.sets[s.ex]||[]; let i = a.findIndex(x=>!x || (!x.r && !x.w)); if (i<0) i = a.length; a[i] = {w:toNum(s.w), r:toNum(s.r)}; });
     if (r.sick) d.status = 'sick'; if (r.rating) d.rating = +r.rating;

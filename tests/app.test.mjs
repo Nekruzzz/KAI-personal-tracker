@@ -964,3 +964,14 @@ test('deleting all data on this phone takes two taps, signs out first so nothing
   assert.equal(r2(`localStorage.getItem('kai_lang')`), 'en');
   assert.equal(r2(`reloaded`), 1);
 });
+
+test('without AI, everyday portions count too, and one message is one meal', () => {
+  const r = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  const a = r('had 2 eggs and a slice of toast for breakfast');
+  assert.equal(a.meals.length, 1, 'one meal in the diary');
+  assert.match(a.meals[0].name, /egg.*\+.*bread/i);
+  assert.ok(a.meals[0].kcal > 200 && a.meals[0].kcal < 330, String(a.meals[0].kcal));
+  assert.ok(r('lunch: 200g grilled chicken breast with a cup of rice').meals[0].kcal > 450);
+  assert.ok(r('ate 2 slices of pizza').meals[0].kcal > 400, 'a pizza slice is a pizza slice, not 30 g');
+  assert.match(r('перекусил бананом и горстью орехов').meals[0].name, /banana.*walnut/i);
+});

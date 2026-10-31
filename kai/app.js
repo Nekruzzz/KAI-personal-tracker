@@ -4824,6 +4824,9 @@ function suppsGoneNote(){
 }
 A.suppsNoteOk = () => setMeta({suppsNoteSeen: true});
 
+/* Ctrl or Cmd + Enter sends a Tell KAI message from a keyboard */
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target?.id === 'tellT'){ e.preventDefault(); A.tellGo(); } });
+
 /* ============ sheets follow the finger: pull down from the grab bar or title to close, like iOS ============ */
 let DRAG = null;
 document.addEventListener('pointerdown', e => {

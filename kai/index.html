@@ -611,7 +611,7 @@ details.manual .field{margin-bottom:10px}
 @property --hue3{syntax:"<color>";inherits:true;initial-value:transparent}
 :root{
   --mat:rgba(30,30,34,.72);--mat-line:rgba(255,255,255,.07);--mat-drop:0 0 #0000;
-  --lg-tint:rgba(48,48,54,.36);--lg-tint-strong:rgba(40,40,46,.7);--lg-press:rgba(76,76,84,.55);
+  --lg-tint:rgba(48,48,54,.36);--lg-tint-strong:rgba(40,40,46,.7);--lg-tint-thick:rgba(32,32,38,.95);--lg-press:rgba(76,76,84,.55);
   --lg-hi:rgba(255,255,255,.34);--lg-lo:rgba(255,255,255,.10);--lg-line:rgba(255,255,255,.10);--lg-glow:rgba(255,255,255,.06);
   --lg-sheen:rgba(255,255,255,.10);--lg-touch:rgba(255,255,255,.26);
   --lg-drop:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
@@ -621,7 +621,7 @@ details.manual .field{margin-bottom:10px}
 }
 @media (prefers-color-scheme:light){:root:not([data-theme=dark]){
   --mat:rgba(255,255,255,.7);--mat-line:rgba(255,255,255,.85);--mat-drop:0 1px 2px rgba(20,30,50,.04),0 8px 24px rgba(20,30,50,.06);
-  --lg-tint:rgba(255,255,255,.32);--lg-tint-strong:rgba(255,255,255,.78);--lg-press:rgba(255,255,255,.66);
+  --lg-tint:rgba(255,255,255,.32);--lg-tint-strong:rgba(255,255,255,.78);--lg-tint-thick:rgba(250,250,252,.95);--lg-press:rgba(255,255,255,.66);
   --lg-hi:rgba(255,255,255,.98);--lg-lo:rgba(255,255,255,.6);--lg-line:rgba(255,255,255,.6);--lg-glow:rgba(255,255,255,.4);
   --lg-sheen:rgba(255,255,255,.42);--lg-touch:rgba(255,255,255,.85);
   --lg-drop:0 12px 32px rgba(30,40,60,.16),0 2px 6px rgba(30,40,60,.08);
@@ -630,7 +630,7 @@ details.manual .field{margin-bottom:10px}
   --fill-1:rgba(120,120,128,.13);--fill-hi:rgba(255,255,255,.75);--nav-ink:#575a61;}}
 :root[data-theme=light]{
   --mat:rgba(255,255,255,.7);--mat-line:rgba(255,255,255,.85);--mat-drop:0 1px 2px rgba(20,30,50,.04),0 8px 24px rgba(20,30,50,.06);
-  --lg-tint:rgba(255,255,255,.32);--lg-tint-strong:rgba(255,255,255,.78);--lg-press:rgba(255,255,255,.66);
+  --lg-tint:rgba(255,255,255,.32);--lg-tint-strong:rgba(255,255,255,.78);--lg-tint-thick:rgba(250,250,252,.95);--lg-press:rgba(255,255,255,.66);
   --lg-hi:rgba(255,255,255,.98);--lg-lo:rgba(255,255,255,.6);--lg-line:rgba(255,255,255,.6);--lg-glow:rgba(255,255,255,.4);
   --lg-sheen:rgba(255,255,255,.42);--lg-touch:rgba(255,255,255,.85);
   --lg-drop:0 12px 32px rgba(30,40,60,.16),0 2px 6px rgba(30,40,60,.08);
@@ -663,8 +663,10 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;bac
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 /* a touch lights the glass up from the finger and lets it swell a little, like iOS */
 .lg:active{transform:scale(1.07);background:radial-gradient(circle at var(--px,50%) var(--py,50%),var(--lg-touch),rgba(255,255,255,0) 70%),linear-gradient(180deg,var(--lg-sheen),rgba(255,255,255,0) 60%),var(--lg-press)}
-.toast{--lgt:var(--lg-tint-strong);border-radius:999px;border:0}
-.rb-in{--lgt:var(--lg-tint-strong);border-radius:999px;padding:8px 8px 8px 18px}
+/* glass that carries text (toasts, the rest timer) is thicker: what scrolls beneath must not compete with the words */
+.toast,.rb-in{--lgt:var(--lg-tint-thick);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+.toast{border-radius:999px;border:0}
+.rb-in{border-radius:999px;padding:8px 8px 8px 18px}
 
 /* the floating header: a glass capsule for the profile, a glass circle for AI; content fades softly under it */
 .top,.top.plain{background:none;padding-top:calc(70px + env(safe-area-inset-top,0px))}
@@ -732,12 +734,12 @@ body.nav-min .nav .mic span.b{width:44px;height:44px}
 /* without blur, glass needs more tint to stay readable */
 @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.lg,.nav,.toast,.rb-in{--lgt:var(--lg-tint-strong)}}
 @media (prefers-reduced-transparency:reduce){
-  :root,:root:not([data-theme=dark]),:root[data-theme=light]{--mat:var(--card);--lg-tint:var(--card);--lg-tint-strong:var(--card);--lg-press:var(--card-2)}
+  :root,:root:not([data-theme=dark]),:root[data-theme=light]{--mat:var(--card);--lg-tint:var(--card);--lg-tint-strong:var(--card);--lg-tint-thick:var(--card);--lg-press:var(--card-2)}
   body::after,.edge{display:none}
   .lg,.nav,.toast,.rb-in,.sheet{-webkit-backdrop-filter:none;backdrop-filter:none}
   .sheet{background:var(--sheet)}}
 @media (prefers-contrast:more){
-  :root,:root:not([data-theme=dark]),:root[data-theme=light]{--mat:var(--card);--mat-line:var(--edge);--lg-tint:var(--card);--lg-tint-strong:var(--card);--lg-line:var(--edge);--fill-1:var(--card-2)}}
+  :root,:root:not([data-theme=dark]),:root[data-theme=light]{--mat:var(--card);--mat-line:var(--edge);--lg-tint:var(--card);--lg-tint-strong:var(--card);--lg-tint-thick:var(--card);--lg-line:var(--edge);--fill-1:var(--card-2)}}
 </style>
 </head>
 <body>

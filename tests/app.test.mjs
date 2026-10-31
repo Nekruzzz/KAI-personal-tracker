@@ -1060,3 +1060,17 @@ test('Health screens say plainly that Health data is in the cloud copy once sign
   try { assert.match(run(`healthCloudNote()`), /cloud copy on KAI's server, not in iCloud/); }
   finally { run(`Object.assign(CFG, cfg2)`); }
 });
+
+test('without AI, money in the ways people write it, and thousands with a space are one number', () => {
+  const m = t => JSON.parse(run(`JSON.stringify(localMoney(${JSON.stringify(t)}))`));
+  assert.equal(m('потратил 1 200 руб на продукты').amount, 1200);
+  assert.equal(m('spent $12 on lunch').amount, 12);
+  assert.equal(m('spent €20 on a book').amount, 20);
+  assert.equal(m('paid 15 dollars for a taxi').amount, 15);
+  assert.equal(m('потратил 300р на такси').amount, 300);
+  assert.equal(m('обед 12').amount, 12, 'the example the Money screen gives');
+  assert.equal(m('кофе 150 руб').amount, 150);
+  assert.equal(m('got paid 1 500').type, 'in');
+  assert.equal(m('lunch 200 g rice'), null, 'grams are food, not money');
+  assert.equal(m('coffee with friends'), null);
+});

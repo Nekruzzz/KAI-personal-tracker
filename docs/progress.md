@@ -51,6 +51,8 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Food charts:** one week chart with a Calories/Protein switch instead of two stacked charts. This also fixed a bug where the Progress period switch (Today / 7 days / 30 days) un-highlighted the Day tab.
 - **"What can I write?"** in Tell KAI: example phrases by topic, all of which work without AI (a test checks every one, in both languages), and a tap adds one to the message. Gym sets and task check-offs now match in either language too.
 - **Safety: calorie targets.** A height typed in meters ("1.75") gave a target of 860 kcal; implausible profile values now give no target and ask the person to check their profile, and a height between 1 and 2.5 is read as meters. A small adult choosing "lose" could get a target under 1,200 kcal (930 for a 150 cm, 45 kg, 60-year-old), below the line the AI is held to; losing weight now never goes under 1,200 kcal, and the slow-progress advice suggests moving more instead of eating less once someone is at that floor.
+- **Typos and impossible values:** today's weight, waist, sleep and steps reject obvious typos (750 kg, 80 hours) with a short message instead of bending every chart and the calorie advice. AI answers with an impossible weight, sleep, steps or meal size are neither shown nor applied.
+- **On-phone answers name what they didn't understand**, so the person can rephrase or add an amount.
 - **Typed numbers:** in English, "9,500" was saved as 9.5 (the comma read as a decimal point). Now it's 9500, "1 200" is 1200, and "80,5" still works.
 - **Now card at night:** before wake-up time it says it's time to sleep, instead of "Free slot".
 - **Money reading fixed and widened:** "потратил 1 200 руб" was read as 200; thousands with a space are now one number. "$12", "€20", "15 dollars", "300р", "got paid 1 500" and "lunch 12" (the example the Money screen itself gives) now work.
@@ -69,7 +71,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 95 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 97 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

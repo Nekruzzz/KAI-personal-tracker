@@ -830,8 +830,9 @@ test('without AI, everyday messages are still understood on the phone, in both l
   assert.equal(x.r.events[0].kind, 'exam');
   assert.equal(x.r.events[0].from, '10:00');
   assert.equal(x.r.new_tasks[0].time, '18:30');
-  x = p('Had oatmeal with a banana');
-  assert.equal(x.left.length, 1, 'food needs the AI or the food table');
+  x = p('Had some soup');
+  assert.equal(x.left.length, 1, 'food without an amount or a known piece needs the AI');
+  assert.equal(p('курсовую сдать до 25 января').r.meals, undefined, 'a date is not a count of food');
   run(`save('app/profile', {...profile(), units: 'us'})`);
   assert.equal(p('weight 180').r.weight, 81.6, 'pounds become kilograms in storage');
   run(`save('app/profile', {...profile(), units: 'metric'})`);
@@ -893,4 +894,13 @@ test('without AI, gym sets and checking off today\'s tasks are understood too', 
   assert.deepEqual(p('did my posture exercises').tasks_done, ['posture']);
   assert.deepEqual(p("didn't get to the posture exercises").tasks_undone, ['posture']);
   assert.equal(p('push-ups against a table 3x10').sets?.length || 0, 3);
+});
+
+test('the on-phone reader leaves ordinary sentences alone', () => {
+  const lines = t => JSON.parse(run(`JSON.stringify(tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()))`));
+  for (const t of ['I have 2 kids', 'watched 3 episodes of a show', 'my exam score was 85', 'bus 42 was late', 'the gym was crowded', 'Had some soup', 'got an A on the test today', 'Friday is my favourite day', 'read 20 pages',
+    'у меня 2 кота', 'посмотрел 3 серии', 'получил 5 за контрольную', 'автобус 42 опоздал', 'мне 21 год', 'в 10 классе', 'пятница мой любимый день', 'курсовую сдать до 25 января'])
+    assert.deepEqual(lines(t), [], t);
+  assert.match(lines('call me at 5').join(), /17:00/, 'a bare 5 is the afternoon');
+  assert.match(lines('bought a new phone for 300').join(), /Electronics/);
 });

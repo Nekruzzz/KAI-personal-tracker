@@ -68,6 +68,8 @@
 	<string>KAI uses the camera when you photograph a meal or a screenshot to log it.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>KAI opens the photos you choose, such as a meal or your progress.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>KAI saves an image to Photos only when you choose Save Image, for example your weekly summary.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>KAI reads your steps, sleep and workouts to show your progress and plan your day. It never writes to Health.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

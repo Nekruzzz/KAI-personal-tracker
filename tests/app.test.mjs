@@ -1346,3 +1346,9 @@ test('the first currency is guessed from the phone region, and stays editable', 
   assert.equal(run(`SH.ob.cur`), run(`profile().currency || '$'`), 'onboarding starts with it filled in');
   run(`closeSheet()`);
 });
+
+test('the iPhone app explains every private thing it touches, so iOS never ends it', () => {
+  const plist = readFileSync(new URL('../native/ios/App/App/Info.plist', import.meta.url), 'utf8');
+  for (const k of ['NSHealthShareUsageDescription', 'NSCameraUsageDescription', 'NSPhotoLibraryUsageDescription', 'NSPhotoLibraryAddUsageDescription'])
+    assert.match(plist, new RegExp(`<key>${k}</key>\\s*<string>[^<]{20,}</string>`), `${k} with a real explanation`);
+});

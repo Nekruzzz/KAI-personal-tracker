@@ -738,6 +738,10 @@ test('first sync on a device: the cloud copy wins, a backup of what it replaces 
     assert.equal(st.cursor, 7);
     assert.equal(st.first, false);
     assert.ok(run(`toasts.some(t => /a copy from this phone was saved/i.test(t))`), run(`toasts.join(' | ')`));
+    const k = [...await run(`blobKeys()`)].find(x => x.startsWith('presync_'));
+    assert.ok(k, 'the backup is kept on the phone');
+    assert.equal(JSON.parse(await run(`blobGet('${k}').then(b => b.text())`)).docs[`days/${y}`].steps, 111, 'with the version the cloud replaced');
+    assert.match(run(`copyTitle('${k}')`), /^Before the first cloud sync, \d+ \w+$/);
   } finally { run(`apiFetch = af0; toast = toast0; clearTimeout(syncTimer); syncSave(null)`); }
 });
 
@@ -1210,4 +1214,67 @@ test('deleting a to-do, a meal, a transaction or an event can be undone', () => 
   run(`A.undoApply()`);
   assert.equal(run(`allEvents()[0].title`), 'Dentist');
   run(`SH = null`);
+});
+
+const archives = () => JSON.parse(run(`JSON.stringify(Object.keys(S.docs).filter(k => k.startsWith('seasons/')))`));
+const dayState = () => run(`JSON.stringify({days: dayKeys().map(k => [k, S.docs['days/' + k]]), season: S.docs['app/season'] || null})`);
+
+test('finishing a season keeps a copy of the days first, and Undo puts everything back', async () => {
+  const d0 = run(`addDays(todayISO(), -3)`), d1 = run(`todayISO()`);
+  run(`mutDay('${d0}', x => { x.weight = 80; x.meals = [{id: 'm1', name: 'Soup', kcal: 300, p: 10, f: 5, c: 40}]; }); mutDay('${d1}', x => { x.weight = 79.5; })`);
+  await run(`loadCopies()`);
+  const before = dayState(), had = archives();
+  run(`SH = {}; globalThis.btn = {dataset: {}, innerHTML: '', textContent: ''}`);
+  await run(`A.seasonEnd(btn)`);
+  assert.ok(run(`dayKeys().length`) >= 2, 'the first tap only asks');
+  assert.match(run(`btn.textContent`), /copy on this phone/);
+  await run(`A.seasonEnd(btn)`);
+  assert.equal(run(`dayKeys().length`), 0, 'the diary is cleared');
+  const added = archives().filter(k => !had.includes(k));
+  assert.equal(added.length, 1, 'one archive entry');
+  const id = added[0].slice(8);
+  assert.ok(run(`COPIES.includes('season_${id}')`));
+  const copy = JSON.parse(await run(`blobGet('season_${id}').then(b => b.text())`));
+  assert.equal(copy.app, 'kai', 'the copy has the format of a saved backup');
+  assert.equal(copy.docs[`days/${d0}`].weight, 80);
+  run(`A.undoApply()`);
+  assert.equal(dayState(), before, 'every day and the season are as they were');
+  assert.deepEqual(archives(), had, 'the archive entry is gone');
+  await wait(0);
+  assert.equal(await run(`blobGet('season_${id}')`), null, 'and so is the copy');
+  assert.ok(!run(`COPIES.includes('season_${id}')`));
+});
+
+test("a finished season's days come back later, and what was written since is kept", async () => {
+  const d0 = run(`addDays(todayISO(), -2)`), d1 = run(`todayISO()`);
+  run(`mutDay('${d0}', x => { x.weight = 81; x.sleep = 7; }); mutDay('${d1}', x => { x.meals = [{id: 'a1', name: 'Oats', kcal: 350, p: 12, f: 6, c: 60}]; x.steps = 4000; x.tasks.push({id: 'tz', title: 'Stretch', cat: 'custom', done: true}); })`);
+  const had = archives();
+  run(`SH = {confirmEnd: true}`);
+  await run(`A.seasonEnd({dataset: {}, innerHTML: '', textContent: ''})`);
+  const id = archives().find(k => !had.includes(k)).slice(8), season = run(`JSON.stringify(S.docs['app/season'])`);
+  run(`mutDay('${d1}', x => { x.meals.push({id: 'a2', name: 'Soup', kcal: 300, p: 10, f: 5, c: 40}); x.steps = 6000; })`);
+  run(`SH = {title: 'Season', body: seasonBody}`);
+  assert.match(run(`seasonBody()`), new RegExp(`data-act="seasonBack" data-id="${id}"`), 'the archive offers the days back');
+  await run(`A.seasonBack({dataset: {id: '${id}'}, innerHTML: '', textContent: ''})`);
+  assert.equal(run(`S.docs['days/${d0}'].weight`), 81);
+  assert.equal(run(`S.docs['days/${d0}'].sleep`), 7);
+  assert.equal(run(`getDay('${d1}').steps`), 6000, 'a value written since stays');
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay('${d1}').meals.map(m => m.id).sort())`)), ['a1', 'a2'], 'meals from both are there');
+  assert.equal(run(`getDay('${d1}').tasks.find(t => t.id === 'tz')?.done`), true);
+  assert.equal(run(`JSON.stringify(S.docs['app/season'])`), season, 'the new season goes on');
+  assert.ok(run(`!!S.docs['seasons/${id}']`), 'the archive entry stays');
+  assert.equal(await run(`blobGet('season_${id}')`), null, 'the copy is used up');
+  assert.doesNotMatch(run(`seasonBody()`), /data-act="seasonBack"/);
+  run(`SH = null`);
+});
+
+test("if the copy of the days can't be kept, finishing a season clears nothing", async () => {
+  run(`mutDay(todayISO(), x => { x.weight = 78; })`);
+  const before = dayState(), n = archives().length;
+  run(`globalThis.toasts = []; globalThis.toast0 = toast; toast = m => toasts.push(m); MEMB.set = () => { throw new Error('full'); }; SH = {confirmEnd: true}`);
+  try { await run(`A.seasonEnd({dataset: {}, innerHTML: '', textContent: ''})`); }
+  finally { run(`delete MEMB.set; toast = toast0; SH = null`); }
+  assert.equal(dayState(), before);
+  assert.equal(archives().length, n);
+  assert.ok(run(`toasts.some(t => /nothing was cleared/.test(t))`), run(`toasts.join(' | ')`));
 });

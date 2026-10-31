@@ -308,7 +308,7 @@ function onFirstLoad(){
   if (!hadPlan) save('app/plan', clone(DEFAULT_PLAN));
   if (!S.docs['app/content']) save('app/content', clone(DEFAULT_CONTENT));
   try { if (!localStorage.getItem('kai_lang')){ const was = S.docs['app/profile'] ? (meta().planLang || 'ru') : LANG; localStorage.setItem('kai_lang', was); if (was !== LANG) return location.reload(); } } catch {} // installs from before the language switch are Russian
-  if (!S.docs['app/profile']) save('app/profile', {name:'', activity:1.45, currency:'', goal:'keep', units: navigator.language === 'en-US' ? 'us' : 'metric'});
+  if (!S.docs['app/profile']) save('app/profile', {name:'', activity:1.45, currency: guessCurrency(), goal:'keep', units: navigator.language === 'en-US' ? 'us' : 'metric'});
   else if (!('currency' in S.docs['app/profile'])) save('app/profile', {...S.docs['app/profile'], currency:'с.'}); // installs from before v5
   if (!S.docs['app/season']) save('app/season', {title:tr('Сезон 1'), start: todayISO(), length: 90, goals:[]});
   if (!S.docs['app/ai']) save('app/ai', clone(DEFAULT_AI));
@@ -3931,7 +3931,7 @@ function obBody(){
     <div class="btnrow"><button class="btn ghost" data-act="obBack">${tr("Назад")}</button><button class="btn" data-act="obDone">${tr("Готово")}</button></div>`;
 }
 const obRead = () => { const o = SH.ob; [['obN', 'name'], ['obW', 'wake'], ['obS', 'sleep'], ['obC', 'cur'], ['obA', 'about']].forEach(([id, k]) => { if ($('#' + id)) o[k] = val(id); }); };
-A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: '', about: '', where: 'home'}; return obBody(); });
+A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: profile().currency || guessCurrency(), about: '', where: 'home'}; return obBody(); });
 A.obWhere = el => { SH.ob.where = el.dataset.v; drawSheet(); };
 A.obRole = el => { obRead(); SH.ob.role = el.dataset.v; drawSheet(); };
 A.obGoal = el => { const o = SH.ob, v = el.dataset.v; o.goals = o.goals.includes(v) ? o.goals.filter(x => x !== v) : [...o.goals, v]; drawSheet(); };
@@ -5016,6 +5016,17 @@ document.addEventListener('pointerdown', e => {
   const r = g.getBoundingClientRect();
   g.style.setProperty('--px', (e.clientX - r.left) + 'px'); g.style.setProperty('--py', (e.clientY - r.top) + 'px');
 }, {passive: true});
+
+/* ============ a first currency from the phone's region ============ */
+/* only a starting guess, shown in onboarding and More where it can be changed */
+function guessCurrency(){
+  const EURO = 'DE FR ES IT NL BE AT PT FI GR IE SK SI LT LV EE LU MT CY HR'.split(' ');
+  const BY = {US:'$', CA:'$', AU:'$', NZ:'$', SG:'$', HK:'$', MX:'$', GB:'£', RU:'₽', BY:'Br', KZ:'₸', UZ:'сум', KG:'сом', TJ:'с.', UA:'₴', TR:'₺', IN:'₹', JP:'¥', CN:'¥', KR:'₩', MY:'RM', ID:'Rp', TH:'฿', VN:'₫', PH:'₱', BR:'R$', CH:'CHF', PL:'zł', CZ:'Kč', SE:'kr', NO:'kr', DK:'kr', IL:'₪', NG:'₦', ZA:'R', GE:'₾', AM:'֏', AZ:'₼', AE:'AED', SA:'SAR', PK:'Rs', BD:'৳', EG:'E£'};
+  try {
+    const l = new Intl.Locale(navigator.language || 'en'), r = l.region || l.maximize().region;
+    return EURO.includes(r) ? '€' : BY[r] || '';
+  } catch { return ''; }
+}
 
 /* ============ init ============ */
 async function init(){

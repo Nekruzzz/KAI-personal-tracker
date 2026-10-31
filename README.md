@@ -2,6 +2,8 @@
 
 An AI-powered life tracker. Type or say anything: KAI logs it, updates your schedule and warns you about conflicts, and your effort becomes visible and fun to watch.
 
+Everyday messages (sleep, steps, walks, weight, spending, gym sets, food with an amount, to-dos, events and exams) are understood on the phone even without AI, in English and Russian. AI handles the rest, and nothing changes until you confirm.
+
 Available in English and Russian. It runs as an installable web app or an iPhone app, and stores data on the device.
 
 ## Run it locally
@@ -14,7 +16,7 @@ Then open http://localhost:8123.
 
 ## Project layout
 
-- `kai/`: the app, with no build step. The app itself is `app.js`, the English text is in `i18n-en.js`, and `config.js` connects it to the server.
+- `kai/`: the app, with no build step. The app itself is `app.js`, the English text is in `i18n-en.js`, `config.js` connects it to the server, and `fonts/` holds the Manrope font (SIL Open Font License), so the app loads nothing from other sites.
 - `server/`: sign-in, cloud sync and AI without personal keys. See [server/README.md](server/README.md) for setup, including the kit that measures AI accuracy and cost.
 - `native/`: the iPhone app, which wraps `kai/` with Capacitor. See [native/README.md](native/README.md).
 - `docs/`: the App Store listing draft.

@@ -3226,6 +3226,18 @@ const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMin
 const smartTasks = () => S.docs['app/tasks']?.items || [];
 const saveTasks = items => save('app/tasks', {items});
 const WD_RU = [['понедельник[а-яё]*', 1], ['вторник[а-яё]*', 2], ['сред(?:а|у|ы|е|ой)', 3], ['четверг[а-яё]*', 4], ['пятниц(?:а|у|ы|е|ей)', 5], ['суббот(?:а|у|ы|е|ой)', 6], ['воскресень(?:е|я|ю)', 7], ['monday', 1], ['tuesday', 2], ['wednesday', 3], ['thursday', 4], ['friday', 5], ['saturday', 6], ['sunday', 7]];
+/* "25 января", "January 20", "20 Jan": this year, or next year once the day has passed */
+const MONTHS_RU = ['январ', 'феврал', 'март', 'апрел', 'ма[яй]', 'июн', 'июл', 'август', 'сентябр', 'октябр', 'ноябр', 'декабр'];
+const MONTHS_EN = ['jan(?:uary)?', 'feb(?:ruary)?', 'mar(?:ch)?', 'apr(?:il)?', 'may', 'june?', 'july?', 'aug(?:ust)?', 'sep(?:t(?:ember)?)?', 'oct(?:ober)?', 'nov(?:ember)?', 'dec(?:ember)?'];
+const MONTH_ALT = [...MONTHS_RU.map(m => '(' + m + ')[а-яё]*'), ...MONTHS_EN.map(m => '(' + m + ')\\.?(?![a-z])')].join('|'); // English names whole, so "market" isn't March
+const MONTH_DATE = new RegExp('(?:^|\\s)(?:(?:до|к|на|by|on|until)\\s+)?(?:(\\d{1,2})\\s+(?:' + MONTH_ALT + ')|(?:' + MONTH_ALT + ')\\s+(\\d{1,2})(?:st|nd|rd|th)?)(?![\\d:])', 'i');
+function monthDate(m){
+  const g = m.slice(1), day = +(g[0] || g[g.length - 1]), mi = g.slice(1, -1).findIndex(x => x) % 12;
+  const today = todayISO(), y = +today.slice(0, 4);
+  let k = `${y}-${pad(mi + 1)}-${pad(day)}`;
+  if (k < today) k = `${y + 1}-${pad(mi + 1)}-${pad(day)}`;
+  return k;
+}
 function parseQuick(raw, defDue){
   let t = ' ' + String(raw).trim() + ' ', due = null, time = null, pri = 2, parsed = false;
   const today = todayISO();
@@ -3238,6 +3250,7 @@ function parseQuick(raw, defDue){
   if (/послезавтра(?![а-яё])|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра(?![а-яё])|\bday after tomorrow\b/ig, ' '); }
   else if (/завтра(?![а-яё])|\btomorrow\b/i.test(t)){ due = addDays(today, 1); t = t.replace(/завтра(?![а-яё])|\btomorrow\b/ig, ' '); } // not "завтрак", breakfast
   else if (/сегодня|\btoday\b/i.test(t)){ due = today; t = t.replace(/сегодня|\btoday\b/ig, ' '); }
+  else if ((m = t.match(MONTH_DATE))){ due = monthDate(m); t = t.replace(m[0], ' '); }
   else for (const [w, n] of WD_RU){
     const re = new RegExp('(?:^|\\s)(?:(?:в|во|до|к|на|on|by|next)\\s+)?' + w + '(?![а-яёa-z])', 'i');
     if (re.test(t)){ due = addDays(today, ((n - dow(today) + 7) % 7) || 7); t = t.replace(re, ' '); break; }
@@ -4562,7 +4575,8 @@ function localTellParse(text, date){
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
         const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
-        if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: t.time || null, until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
+        const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
+        if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
         else if (t.time || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null});
         else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;

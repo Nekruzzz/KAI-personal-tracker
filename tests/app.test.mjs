@@ -899,8 +899,19 @@ test('without AI, gym sets and checking off today\'s tasks are understood too', 
 test('the on-phone reader leaves ordinary sentences alone', () => {
   const lines = t => JSON.parse(run(`JSON.stringify(tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()))`));
   for (const t of ['I have 2 kids', 'watched 3 episodes of a show', 'my exam score was 85', 'bus 42 was late', 'the gym was crowded', 'Had some soup', 'got an A on the test today', 'Friday is my favourite day', 'read 20 pages',
-    'у меня 2 кота', 'посмотрел 3 серии', 'получил 5 за контрольную', 'автобус 42 опоздал', 'мне 21 год', 'в 10 классе', 'пятница мой любимый день', 'курсовую сдать до 25 января'])
+    'у меня 2 кота', 'посмотрел 3 серии', 'получил 5 за контрольную', 'автобус 42 опоздал', 'мне 21 год', 'в 10 классе', 'пятница мой любимый день'])
     assert.deepEqual(lines(t), [], t);
   assert.match(lines('call me at 5').join(), /17:00/, 'a bare 5 is the afternoon');
   assert.match(lines('bought a new phone for 300').join(), /Electronics/);
+});
+
+test('dates with a month name: this year, or next year once the day has passed', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`)).due;
+  const y = +run(`todayISO().slice(0, 4)`), today = run(`todayISO()`);
+  const expect = (m, d) => { const k = `${y}-${m}-${d}`; return k < today ? `${y + 1}-${m}-${d}` : k; };
+  assert.equal(q('essay due January 20'), expect('01', '20'));
+  assert.equal(q('сдать курсовую до 25 января'), expect('01', '25'));
+  assert.equal(q('trip on 3 Mar'), expect('03', '03'));
+  assert.equal(q('8 марта поздравить маму'), expect('03', '08'));
+  assert.equal(q('the market 5 minutes away'), null, 'a word that starts like a month is not a date');
 });

@@ -1370,8 +1370,9 @@ function hFood(){
   // 7 days
   const pts = [...Array(7)].map((_,i)=>addDays(todayISO(), i-6)).map(k=>({x:DOW[dow(k)], y: eaten(S.docs['days/'+k]||{meals:[]}).kcal, p: eaten(S.docs['days/'+k]||{meals:[]}).p}));
   if (!pts.some(p => p.y)) h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card">${emptyState('activity', tr('Графики калорий и белка появятся, когда запишешь первую еду.'))}</section>`;
-  else h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Калории по дням")}</div>${barChart(pts, {target:t.ok?t.kcal:null, unit:tr('ккал'), c:'c1', label:tr('Калории за 7 дней')})}
-    <div class="hint" style="margin:14px 0 6px">${tr("Белок по дням, г")}</div>${barChart(pts.map(p=>({x:p.x,y:p.p})), {target:t.ok?t.p:null, unit:tr('г'), c:'c1', label:tr('Белок за 7 дней')})}</section>`;
+  else { const pro = S.sub.fw === 'p'; // one chart with a switch, instead of two stacked
+    h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:10px"><div class="seg" role="tablist">${[['kcal', tr('Калории')], ['p', tr('Белок')]].map(([v, l]) => `<button class="${(pro ? 'p' : 'kcal') === v ? 'on' : ''}" role="tab" aria-selected="${(pro ? 'p' : 'kcal') === v}" data-act="sub" data-k="fw" data-v="${v}">${l}</button>`).join('')}</div>
+    ${pro ? barChart(pts.map(p=>({x:p.x,y:p.p})), {target:t.ok?t.p:null, unit:tr('г'), c:'c1', label:tr('Белок за 7 дней')}) : barChart(pts, {target:t.ok?t.kcal:null, unit:tr('ккал'), c:'c1', label:tr('Калории за 7 дней')})}</section>`; }
   h += adaptiveCard();
   // menu
   const m = pl.menu;
@@ -2137,7 +2138,7 @@ function refocus(k){
 }
 
 A.tab = el => { if (S.tab !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.tab = el.dataset.v; window.scrollTo(0,0); render(); };
-A.sub = el => { if (S.sub[el.dataset.k] !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.sub[el.dataset.k] = el.dataset.v; if (el.dataset.k==='health' || el.dataset.k==='content') window.scrollTo(0,0); S.tab = el.dataset.k; render(); };
+A.sub = el => { if (S.sub[el.dataset.k] !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.sub[el.dataset.k] = el.dataset.v; if (el.dataset.k==='health' || el.dataset.k==='content') window.scrollTo(0,0); if (['health', 'content', 'money'].includes(el.dataset.k)) S.tab = el.dataset.k; render(); /* other keys (prog, fw) switch a card, not the tab */ };
 A.closeSheet = closeSheet; A.scrim = closeSheet;
 A.toggleOpen = el => { const k = el.dataset.k; S.open[k] = !S.open[k]; if (SH && el.closest('.sheet')) drawSheet(); else render(); };
 A.openTask = el => { const k = 't_'+el.dataset.id; S.open[k] = !S.open[k]; render(); };

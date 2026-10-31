@@ -427,7 +427,6 @@ function streak(){
   return s;
 }
 function eaten(d){ return (d.meals||[]).reduce((a,m)=>({kcal:a.kcal+(+m.kcal||0), p:a.p+(+m.p||0), f:a.f+(+m.f||0), c:a.c+(+m.c||0)}), {kcal:0,p:0,f:0,c:0}); }
-function lastValue(field){ const ks = dayKeys().reverse(); for (const k of ks){ const v = S.docs['days/'+k]?.[field]; if (v != null && v !== '') return {date:k, v}; } return null; }
 
 /* ============ charts ============ */
 function donut(segs, size=120, sw=14, center=''){
@@ -1874,7 +1873,7 @@ function adaptiveCard(){
     ${t.adjusted ? `<div class="hint">${tr("Сейчас норма изменена вручную:")} ${t.kcal} ${tr("ккал вместо расчётных")} ${t.base}. <button class="link" data-act="resetKcal">${tr("Вернуть расчётную")}</button></div>` : ''}</section>`;
 }
 A.applyKcal = el => { haptic('medium'); const p = clone(profile()); p.override = {...(p.override||{}), kcal:+el.dataset.v, kcalDate:todayISO()}; save('app/profile', p); toast(tr('Новая норма: ')+el.dataset.v+tr(' ккал')); };
-A.resetKcal = () => { const p = clone(profile()); if (p.override) delete p.override.kcal; save('app/profile', p); toast(tr('Норма рассчитана заново')); };
+A.resetKcal = () => withUndo(['app/profile'], () => { const p = clone(profile()); if (p.override) delete p.override.kcal; save('app/profile', p); }, tr('Норма рассчитана заново'));
 
 /* ============ care: numbers about food and weight can hurt, so the app steps back when they might ============ */
 const HELP_URL = 'https://findahelpline.com';
@@ -2332,11 +2331,11 @@ A.undoApply = () => {
   hideToast(); haptic('selection'); toast(tr('Отменено, всё как было'));
   if (SH) drawSheet();
 };
-/* a delete is one tap, so it can be taken back for a few seconds */
-function withUndo(paths, fn){
+/* a delete or a reset is one tap, so it can be taken back for a few seconds */
+function withUndo(paths, fn, msg){
   const snap = paths.map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   fn(); UNDO = snap;
-  toast(tr('Удалено'), {ms: 6000, action: {label: tr('Вернуть'), act: 'undoApply'}});
+  toast(msg || tr('Удалено'), {ms: 6000, action: {label: tr('Вернуть'), act: 'undoApply'}});
 }
 
 /* ============ FOOD ============ */
@@ -2486,7 +2485,7 @@ function seasonBody(){
     <button class="btn block" data-act="seasonSave">${tr("Сохранить")}</button></section>
   <section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Завершить сезон")}</b><div class="hint">${tr("Итоги сохранятся в архив, дневник дней очистится, и начнётся новый сезон с сегодняшнего дня. Деньги, контент и база знаний останутся. Копия дней останется на этом телефоне, и их можно будет вернуть из архива.")}</div>
     <button class="btn danger" data-act="seasonEnd" id="snEnd">${tr("Завершить и начать новый")}</button></section>
-  ${Object.keys(S.docs).some(k=>k.startsWith('seasons/'))?`<section class="card"><b>${tr("Архив")}</b>${Object.entries(S.docs).filter(([k])=>k.startsWith('seasons/')).map(([k,v])=>`<div class="row"><div class="mid"><div class="t">${esc(v.title)}</div><div class="s">${fmtShort(v.start)} — ${fmtShort(v.end)} ${tr("· выполнение")} ${v.avg}${tr("% · тренировок")} ${v.gym}${v.w0&&v.w1?` ${tr("· вес")} ${W(v.w0)} → ${W(v.w1)} ${kgU()}`:''}</div></div>${COPIES?.includes('season_'+k.slice(8))?`<button class="link" data-act="seasonBack" data-id="${esc(k.slice(8))}">${tr("Вернуть дни")}</button>`:''}</div>`).join('')}</section>`:''}`;
+  ${Object.keys(S.docs).some(k=>k.startsWith('seasons/'))?`<section class="card"><b>${tr("Архив")}</b>${Object.entries(S.docs).filter(([k])=>k.startsWith('seasons/')).map(([k,v])=>`<div class="row"><div class="mid"><div class="t">${esc(v.title)}</div><div class="s">${fmtShort(v.start)} — ${fmtShort(v.end)} ${tr("· выполнение")} ${v.avg}${tr("% · тренировок")} ${v.gym}${v.w0&&v.w1?` ${tr("· вес")} ${W(v.w0)} → ${W(v.w1)} ${kgU()}`:''}</div></div>${COPIES?.includes('season_'+k.slice(8))?`<button class="link" data-act="seasonBack" data-id="${esc(k.slice(8))}" aria-label="${esc(tr('Вернуть дни') + ': ' + v.title)}">${tr("Вернуть дни")}</button>`:''}</div>`).join('')}</section>`:''}`;
 }
 A.seasonSave = () => { save('app/season', {...season(), title:val('snT'), start:val('snS')||season().start, length:toNum(val('snL'))||90, goals:val('snG').split('\n').map(x=>x.trim()).filter(Boolean)}); closeSheet(); toast(tr('Сезон сохранён')); };
 A.seasonEnd = async el => {
@@ -3222,7 +3221,7 @@ A.clsAdd2 = () => {
   const title = val('clN'); if (!title) return toast(tr('Впиши предмет'));
   const pl = clone(plan()); const time = val('clT') || '09:00', end = val('clE'); pl.classes = [...(pl.classes || []), {day: +val('clD'), time, title, ...(end && end > time ? {end} : {})}]; save('app/plan', pl); toast(tr('Пара добавлена'));
 };
-A.clsDel2 = el => { const pl = clone(plan()); pl.classes.splice(+el.dataset.i, 1); save('app/plan', pl); };
+A.clsDel2 = el => withUndo(['app/plan'], () => { const pl = clone(plan()); pl.classes.splice(+el.dataset.i, 1); save('app/plan', pl); });
 A.aiSettingsOpen = () => { A.aiSheet(); SH.aiTab = 'set'; drawSheet(); };
 A.profile = () => { closeSheetQuiet(); S.tab = 'more'; S.animIn = true; window.scrollTo(0, 0); render(); };
 
@@ -3516,7 +3515,7 @@ A.tlExtend = el => {
   toast(tr('Продлено на ') + m + tr(' мин, следующие блоки подвинулись')); schedToast(dropped);
 };
 A.tlLock = el => mutDay(todayISO(), d => { d.lock = d.lock || {}; if (d.lock[el.dataset.id]) delete d.lock[el.dataset.id]; else d.lock[el.dataset.id] = true; });
-A.tlResetDay = () => { haptic('medium'); mutDay(todayISO(), d => { Object.keys(d.auto || {}).forEach(id => { if (d.tl) delete d.tl[id]; }); d.shift = {}; d.ext = {}; d.trim = {}; d.auto = {}; }); toast(tr('Расписание дня сброшено')); };
+A.tlResetDay = () => { haptic('medium'); withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { Object.keys(d.auto || {}).forEach(id => { if (d.tl) delete d.tl[id]; }); d.shift = {}; d.ext = {}; d.trim = {}; d.auto = {}; }), tr('Расписание дня сброшено')); };
 A.walkAdd = el => { const m = +el.dataset.m; haptic('light'); mutDay(todayISO(), d => { d.walkExtra = m ? (d.walkExtra || 0) + m : 0; }); if (m) toast('+' + m + tr(' мин прогулки')); };
 function walkedOn(date){
   const d = S.docs['days/' + date]; if (!d) return 0;
@@ -4937,7 +4936,7 @@ function copyTitle(k){
 async function showCopies(){
   const el = $('#copyList'); if (!el) return;
   const keys = COPIES || await loadCopies();
-  el.innerHTML = keys.length ? `<b>${tr('Копии на этом телефоне')}</b><div class="hint">${tr('KAI сохраняет их сам перед большими изменениями. Сохранённый файл открывается кнопкой «Загрузить копию».')}</div><div class="list">${keys.map(k => `<div class="row"><div class="mid"><div class="t">${esc(copyTitle(k))}</div></div><button class="link" data-act="copySave" data-k="${esc(k)}">${tr('В файл')}</button></div>`).join('')}</div>` : '';
+  el.innerHTML = keys.length ? `<b>${tr('Копии на этом телефоне')}</b><div class="hint">${tr('KAI сохраняет их сам перед большими изменениями. Сохранённый файл открывается кнопкой «Загрузить копию».')}</div><div class="list">${keys.map(k => `<div class="row"><div class="mid"><div class="t">${esc(copyTitle(k))}</div></div><button class="link" data-act="copySave" data-k="${esc(k)}" aria-label="${esc(tr('В файл') + ': ' + copyTitle(k))}">${tr('В файл')}</button></div>`).join('')}</div>` : '';
 }
 A.copySave = async el => {
   const k = el.dataset.k, b = await blobGet(k).catch(() => null);

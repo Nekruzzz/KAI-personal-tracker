@@ -1304,3 +1304,19 @@ test('restoring a backup can be undone, and what it replaced is kept as a copy',
     assert.equal(run(`toasts.filter(t => /Wrong file/.test(t)).length`), 3, run(`toasts.join(' | ')`));
   } finally { run(`toast = toast0`); }
 });
+
+test('deleting a class and the two resets (day schedule, calorie target) can be undone', () => {
+  run(`save('app/plan', {...clone(plan()), classes: [{day: 1, time: '09:00', title: 'Math'}, {day: 2, time: '10:00', title: 'Art'}]}); A.clsDel2({dataset: {i: '0'}})`);
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(plan().classes.map(c => c.title))`)), ['Art']);
+  run(`A.undoApply()`);
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(plan().classes.map(c => c.title))`)), ['Math', 'Art']);
+  setProfile({age: 30, height: 175, weight: 80, goal: 'keep'});
+  run(`save('app/profile', {...clone(profile()), override: {kcal: 2600}}); A.resetKcal()`);
+  assert.equal(run(`profile().override?.kcal`), undefined);
+  run(`A.undoApply()`);
+  assert.equal(run(`profile().override.kcal`), 2600);
+  run(`mutDay(todayISO(), d => { d.shift = {walk: 30}; }); A.tlResetDay()`);
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay(todayISO()).shift)`)), {});
+  run(`A.undoApply()`);
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay(todayISO()).shift)`)), {walk: 30});
+});

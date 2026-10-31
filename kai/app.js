@@ -3233,14 +3233,17 @@ function parseQuick(raw, defDue){
   let m = t.match(/(^|[^\d])([01]?\d|2[0-3])[:.]([0-5]\d)(?!\d)/);
   if (m){ time = pad(+m[2]) + ':' + m[3]; t = t.replace(m[0], m[1] + ' '); parsed = true; }
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})\s*(?:час[а-яё]*|ч)(?![а-яё])/i)) && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; }
+  else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 7 && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day
   else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
-  if (/послезавтра|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра|\bday after tomorrow\b/ig, ' '); }
-  else if (/завтра|\btomorrow\b/i.test(t)){ due = addDays(today, 1); t = t.replace(/завтра|\btomorrow\b/ig, ' '); }
+  if (/послезавтра(?![а-яё])|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра(?![а-яё])|\bday after tomorrow\b/ig, ' '); }
+  else if (/завтра(?![а-яё])|\btomorrow\b/i.test(t)){ due = addDays(today, 1); t = t.replace(/завтра(?![а-яё])|\btomorrow\b/ig, ' '); } // not "завтрак", breakfast
   else if (/сегодня|\btoday\b/i.test(t)){ due = today; t = t.replace(/сегодня|\btoday\b/ig, ' '); }
   else for (const [w, n] of WD_RU){
     const re = new RegExp('(?:^|\\s)(?:(?:в|во|до|к|на|on|by|next)\\s+)?' + w + '(?![а-яёa-z])', 'i');
     if (re.test(t)){ due = addDays(today, ((n - dow(today) + 7) % 7) || 7); t = t.replace(re, ' '); break; }
   }
+  // "на следующей неделе" / "next week" pushes a weekday that would fall this week to the next one
+  if (/(?:на\s+)?следующей\s+неделе|\bnext\s+week\b/i.test(t)){ if (due && dayDiff(today, due) < 7 && dow(due) > dow(today)) due = addDays(due, 7); t = t.replace(/(?:на\s+)?следующей\s+неделе|\bnext\s+week\b/ig, ' '); }
   if (due) parsed = true;
   if (parsed){ t = t.replace(/^\s*(?:в|во|к|на|до|at|on|by)\s+/i, ' ').replace(/\s+(?:в|к|на|до|at|on|by)\s*$/i, ' '); }
   if (time && !due) due = time <= nowHM() ? addDays(today, 1) : today;
@@ -4519,11 +4522,14 @@ const toN = x => +String(x).replace(',', '.');
 const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*)';
 const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
 const MONEY_CAT = [[/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/связь|интернет|телефон|phone|internet/i, 'Связь и интернет']];
+const LOCAL_SKIP = /перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл/i;
+const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован/i;
 function localTellParse(text, date){
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
   const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
-  const parts = spelled.split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim()).filter(Boolean);
+  const parts = spelled.replace(/(\d)\s*k\s+steps/ig, '$1000 steps').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
+    .reduce((a, x) => { if (a.length && /^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x)) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c of parts){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
@@ -4542,11 +4548,15 @@ function localTellParse(text, date){
     } else if ((m = c.match(new RegExp('(?:получил[аи]?|заработал[аи]?|зарплат[а-яё]*|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
     const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
     if (!hit && !future){ const meal = localMeal(c); if (meal){ (r.meals = r.meals || []).push(meal); hit = true; } }
+    // changing or cancelling what is already planned, and things already done, are for the AI: guessing could duplicate or delete
+    if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
     if (!hit){
-      const t = parseQuick(c);
-      if (t && t.due){
-        const exam = /экзамен|зач[её]т|контрольн|exam|test\b|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
-        if (exam || deadline) r.events.push({title: t.title, date: t.due, from: t.time || null, until: null, kind: exam ? 'exam' : 'deadline', note: ''});
+      const range = c.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
+      const t = parseQuick(range ? c.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : c);
+      if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
+        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
+        const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
+        if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: t.time || null, until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
         else r.new_tasks.push({title: t.title, date: t.due, time: t.time || null});
         hit = true;
       }

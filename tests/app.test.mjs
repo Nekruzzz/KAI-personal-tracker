@@ -871,3 +871,11 @@ test('without AI, a food with an amount is found in the built-in table, in eithe
   assert.equal((todo.meals || []).length, 0, 'a plan for tomorrow is not a meal');
   assert.equal(todo.new_tasks.length, 1);
 });
+
+test('quick add: "завтрак" is breakfast, not tomorrow; "next week" moves a weekday on', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
+  assert.equal(q('приготовить завтрак').due, null);
+  assert.equal(q('позвонить завтра').due, run(`addDays(todayISO(), 1)`));
+  const plain = q('call on Friday').due, next = q('call on Friday next week').due;
+  assert.ok(run(`dayDiff('${plain}', '${next}')`) === 7 || plain === next && run(`dayDiff(todayISO(), '${plain}')`) >= 7);
+});

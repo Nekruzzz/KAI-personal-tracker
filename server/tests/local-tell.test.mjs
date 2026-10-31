@@ -12,7 +12,7 @@ test('the on-phone reader is right whenever it proposes something, and never tou
   const apps = {en: await loadApp('en'), ru: await loadApp('ru')};
   let passed = 0;
   for (const c of cases) {
-    const out = JSON.parse(apps[c.lang](`(() => { const {r} = localTellParse(${JSON.stringify(c.text)}, todayISO()); return JSON.stringify({r, n: tellLines(r, todayISO()).length}); })()`));
+    const out = JSON.parse(apps[c.lang](`(() => { const {r} = localTellParse(${JSON.stringify(c.text)}, todayISO()); r.warnings = previewWarnings(r).map(w => w.text); return JSON.stringify({r, n: tellLines(r, todayISO()).length}); })()`)); // the confirm screen shows the phone's own conflict checks
     out.r.reply = c.lang === 'ru' ? 'Разобрал на телефоне' : 'Read on the phone';
     const g = grade(out.r, c.expect, c.lang);
     if (g.pass) passed++;
@@ -21,5 +21,5 @@ test('the on-phone reader is right whenever it proposes something, and never tou
     // the only accepted miss: part of a meal logged, the rest left to the AI
     assert.ok(g.fails.every(f => /^meals_/.test(f)), `${c.id} proposed something wrong: ${g.fails.join(', ')}`);
   }
-  assert.ok(passed >= 25, `passes ${passed} of ${cases.length}`);
+  assert.ok(passed >= 28, `passes ${passed} of ${cases.length}`);
 });

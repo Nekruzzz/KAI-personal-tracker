@@ -101,6 +101,21 @@ There are no ads, no third-party analytics and no tracking.
 
 The same answers are in the app's privacy manifest, `native/ios/App/App/PrivacyInfo.xcprivacy`. If one changes, change the other. The manifest also says why the app reads file dates (the Filesystem plugin, reason C617.1) and stored settings (the Apple sign-in plugin, reason CA92.1). Without that, App Store Connect refuses the upload (ITMS-91053).
 
+## Accessibility labels (App Store Connect → Accessibility)
+
+Apple lets the App Store page list the accessibility features an app supports. Only claim what you've checked on a real iPhone.
+
+| Feature | Claim? | Why |
+|---|---|---|
+| Dark Interface | Yes | A full dark theme; the web app follows the phone's setting, and the iPhone app is dark. |
+| Sufficient Contrast | Yes | Every piece of text was measured at 4.5:1 or better (3:1 for large text) over the real rendered glass, in both themes. Increase Contrast makes surfaces solid with visible edges. |
+| Reduced Motion | Yes | Reduce Motion stops the animations, the sliding capsules and the receding tab bar. |
+| VoiceOver | After a device check | Icon buttons, rings and charts have spoken labels, sheets announce their title, focus returns where it was, and an automated check (axe) finds no problems. Go through the main tasks with VoiceOver on an iPhone before claiming it. |
+| Voice Control | After a device check | Visible labels match the spoken names, so "Tap Day" works; check it on an iPhone. |
+| Larger Text | No | Text follows the iPhone's size up to 120% (the "Text size" setting in More); beyond that, screens would need reworking. |
+| Differentiate Without Color | Not yet | Most states have words or icons, but some charts rely on colour. |
+| Captions, Audio Descriptions | Not applicable | KAI has no video or audio. |
+
 ## Age rating
 
 The app has health and weight features and free-form AI. Answer Apple's questionnaire honestly, and read the current age-rating categories before choosing, since many users may be students. The terms draft sets a minimum age of 13; ask the lawyer whether that fits your countries.

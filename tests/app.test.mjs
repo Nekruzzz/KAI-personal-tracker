@@ -1416,3 +1416,14 @@ test('after Sign in with Apple, the one-time code goes to the server so the acco
     assert.equal(run(`AUTH.id`), 'u1', 'a failed hand-over changes nothing');
   } finally { run(`authCall = ac0; apiFetch = af1; delete window.Capacitor; Object.assign(CFG, cfg4); CFG.supabaseUrl = ''; CFG.supabaseKey = ''; AUTH = auth5; lsSet('kai_auth', null); syncSave(null); clearTimeout(syncTimer)`); }
 });
+
+test('text size: up to 120%, never so large that a small screen clips, and "as on the phone" by default', () => {
+  const scale = (pref, width) => run(`(() => { const g = globalThis; g.screen = {width: ${width}}; ${pref ? `localStorage.setItem('kai_text', '${pref}')` : `localStorage.removeItem('kai_text')`}; try { return textScale(); } finally { delete g.screen; localStorage.removeItem('kai_text'); } })()`);
+  assert.equal(scale('120', 390), 1.2);
+  assert.equal(scale('110', 390), 1.1);
+  assert.equal(scale('150', 390), 1.2, 'capped');
+  assert.equal(scale('120', 320), 1, 'an iPhone SE keeps 100%');
+  assert.equal(scale('120', 375), 1.2);
+  assert.equal(scale(null, 390), 1, 'follows the phone, which here has no text size to report');
+  assert.equal(run(`textPref()`), 'system');
+});

@@ -3191,7 +3191,7 @@ function viewMore(){
   h += acc('modules', 'sliders', tr('Модули'), MODULES.filter(x => !modOn(x[0])).length ? tr('Выключено: ') + MODULES.filter(x => !modOn(x[0])).map(x => x[1]).join(', ') : tr('Всё включено'), modulesRows() + `<div class="hint">${tr("Выключенный модуль прячется, но его данные не удаляются.")}</div>` + (modOn('content') ? `<div class="field"><label for="pfWT">${tr("Цель роликов в неделю")}</label><input class="in" id="pfWT" inputmode="numeric" data-ch="wt" value="${content().weeklyTarget || 4}"></div>` : ''));
   h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
   h += acc('fx', 'zap', tr('Отклик'), (fx.haptics ? tr('Вибрация вкл') : tr('Вибрация выкл')) + ' · ' + (fx.sound ? tr('звуки вкл') : tr('звуки выкл')), [['haptics', tr('Вибрация при действиях'), tr('На iPhone нужна iOS 18 или новее')], ['sound', tr('Звуки'), tr('Короткий звук при отметке и наградах')]].map(([k, l, hh]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${hh}</div></div><input type="checkbox" switch class="sw" data-ch="fxToggle" data-k="${k}" aria-label="${l}" ${fx[k] ? 'checked' : ''}></label>`).join(''));
-  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Язык')}</b>${langSeg()}<b id="themeL">${tr('Оформление')}</b>${themeSeg()}</section>`;
+  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Язык')}</b>${langSeg()}<b id="themeL">${tr('Оформление')}</b>${themeSeg()}<b id="textL">${tr('Размер текста')}</b>${textSeg()}</section>`;
   h += acc('data', 'shield', tr('Данные и копия'), cloudKept() && lastB == null ? tr('В облачной копии аккаунта') : lastB == null ? tr('Копии ещё нет') : lastB === 0 ? tr('Копия сегодня') : `${tr("Копия")} ${lastB} ${plural(lastB, tr('день'), tr('дня'), tr('дней'))} ${tr("назад")}`, `<div class="hint">${cloudKept() ? tr('Записи хранятся в этом телефоне и в облачной копии аккаунта. Файл с копией нужен, только если хочешь держать данные и у себя.') : tr("Всё хранится в этом телефоне. Раз в неделю сохраняй копию в «Файлы» или iCloud: если iOS очистит память, данные можно вернуть.")}</div><div id="storeInfo" class="hint"></div>
     <div class="btnrow"><button class="btn" data-act="exportData">${tr("Сохранить копию")}</button><label class="btn ghost">${tr("Загрузить копию")}<input type="file" accept="application/json,.json" hidden data-ch="importData"></label></div>
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
@@ -5102,6 +5102,28 @@ function pillGlide(k, v, from){
 /* Apple asks that its sign-in token be revoked when the account is deleted, so the server keeps one for that.
    Handed over once after signing in; signing in never waits for it or depends on it. */
 function keepAppleToken(body){ Promise.resolve().then(() => apiFetch('/functions/v1/apple-token', {method: 'POST', body: JSON.stringify(body)})).catch(() => {}); }
+
+/* ============ text size ============ */
+/* "As on the phone" follows the iPhone's text size where the browser exposes it (Safari and the iPhone app do), up to 120%:
+   beyond that, screens start to clip. People can also pick a size here. */
+const textPref = () => { try { return localStorage.getItem('kai_text') || 'system'; } catch { return 'system'; } };
+function systemTextScale(){
+  try {
+    const el = document.createElement('span'); el.style.font = '-apple-system-body'; el.style.position = 'absolute'; el.style.visibility = 'hidden'; el.textContent = 'x';
+    document.documentElement.append(el); const px = parseFloat(getComputedStyle(el).fontSize); el.remove();
+    return el.style.font ? px / 17 : 1; // other browsers don't know the font: no change
+  } catch { return 1; }
+}
+function textScale(){
+  const p = textPref(), z = p === 'system' ? systemTextScale() : +p / 100;
+  let w = 390; try { w = screen.width || innerWidth || 390; } catch { w = innerWidth || 390; }
+  const cap = Math.min(1.2, Math.max(1, Math.floor(w / 310 * 20) / 20)); // at least 310 points of layout stay: an iPhone SE keeps 100%
+  return Math.min(cap, Math.max(1, Math.round((z || 1) * 20) / 20));
+}
+function applyTextSize(){ const z = textScale(); try { document.documentElement.style.zoom = z === 1 ? '' : String(z); } catch {} return z; }
+const textSeg = () => `<div class="seg" role="group" aria-labelledby="textL">${[['system', tr('Как на телефоне')], ['100', '100%'], ['110', '110%'], ['120', '120%']].map(([v, l]) => `<button class="${textPref() === v ? 'on' : ''}" aria-pressed="${textPref() === v}" data-act="setText" data-v="${v}">${l}</button>`).join('')}</div>`;
+A.setText = el => { try { if (el.dataset.v === 'system') localStorage.removeItem('kai_text'); else localStorage.setItem('kai_text', el.dataset.v); } catch {} applyTextSize(); haptic('selection'); render(); };
+applyTextSize();
 
 /* ============ init ============ */
 async function init(){

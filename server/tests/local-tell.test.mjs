@@ -21,5 +21,5 @@ test('the on-phone reader is right whenever it proposes something, and never tou
     // the only accepted miss: part of a meal logged, the rest left to the AI
     assert.ok(g.fails.every(f => /^meals_/.test(f)), `${c.id} proposed something wrong: ${g.fails.join(', ')}`);
   }
-  assert.ok(passed >= 29, `passes ${passed} of ${cases.length}`);
+  assert.ok(passed >= 32, `passes ${passed} of ${cases.length}`);
 });

@@ -4579,7 +4579,7 @@ function localTellParse(text, date){
       if (amount > 0){ r.money.push({type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1], note: note || c}); hit = true; }
     } else if ((m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
     const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
-    if (!hit && !future){ const meal = localMeal(c); if (meal){ (r.meals = r.meals || []).push(meal); hit = true; } }
+    if (!hit && !future){ const ms = c.split(/\s+(?:with|plus|с|со)\s+/i).map(localMeal).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
     if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
@@ -4601,8 +4601,10 @@ function localTellParse(text, date){
     }
     if (!hit) left.push(c);
   }
+  if ((r.meals || []).length > 1) r.meals = [joinMeals(r.meals)]; // one message, one meal in the diary, as the AI does
   return {r, left};
 }
+const joinMeals = ms => ({name: ms.map(m => m.name).join(' + '), ...Object.fromEntries(['kcal', 'p', 'f', 'c'].map(k => [k, Math.round(ms.reduce((a, m) => a + (+m[k] || 0), 0) * (k === 'kcal' ? 1 : 10)) / (k === 'kcal' ? 1 : 10)]))});
 /* "200 g chicken", "2 яйца": a food from the built-in table with an amount; cooked unless the message says raw or dry */
 const stem = w => w.toLowerCase().replace(/ё/g, 'е').slice(0, 5);
 // English: one word starts the other (egg ~ eggs, not soup ~ sour). Russian: only the ending may differ (яйца ~ яйцо, not курсовую ~ куриное)
@@ -4612,7 +4614,20 @@ const sameWord = (a, b) => {
   return /[a-z]/.test(a) ? i === Math.min(a.length, b.length) : i >= Math.min(a.length, b.length) - 1;
 };
 const RAW_RE = /сыр(?:ой|ая|ое|ые)|сух(?:ой|ая|ие|ое)|raw|dry|uncooked/i, COOKED_RE = /варён|варен|cooked|boiled/i;
+// everyday portions in grams, for "a cup of rice", "горсть орехов", "стакан кефира"
+const PORTIONS = [[/cups?|стакан[а-яё]*|кружк[а-яё]*|mugs?/i, 200], [/glass(?:es)?/i, 250], [/bowls?|тарелк[а-яё]*|миск[а-яё]*/i, 300], [/slices?|ломтик[а-яё]*|кус(?:ок|ка|очек|очка|ки)/i, 30], [/handfuls?|горст[а-яё]*/i, 30], [/tablespoons?|tbsp|столов[а-яё]* ложк[а-яё]*|ложк[а-яё]*/i, 15], [/teaspoons?|tsp|чайн[а-яё]* ложк[а-яё]*/i, 5], [/scoops?|мерн[а-яё]* ложк[а-яё]*/i, 30], [/servings?|portions?|порци[а-яё]*/i, 200]];
+const ALIAS = {toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи'};
+function portionOf(c){
+  for (const [re, gr] of PORTIONS){
+    const m = c.match(new RegExp('(?:(\\d{1,2}|a|an|one|two|three|один|одна|одну|два|две|три)\\s+)?(?:' + re.source + ')\\s+(?:of\\s+)?([a-zа-яё]{3,})', 'i'));
+    if (m){ const n = /^\d+$/.test(m[1] || '') ? +m[1] : ({two: 2, three: 3, 'два': 2, 'две': 2, 'три': 3})[(m[1] || '').toLowerCase()] || 1; return {grams: n * gr, n, piece: gr === 30 && /slice|ломтик|кус/i.test(m[0]), word: m[m.length - 1]}; }
+  }
+  return null;
+}
 function localMeal(c){
+  const por = !/\d+\s*(?:г|гр|g|grams?)(?![a-zа-яё])/i.test(c) && portionOf(c);
+  if (por) c = `${por.grams} g ${ALIAS[por.word.toLowerCase()] || por.word}`; // "a slice of toast" is 30 g of bread
+  else c = c.replace(/[a-zа-яё]+/gi, w => ALIAS[w.toLowerCase()] || w);
   const g = c.match(/(\d+(?:[.,]\d+)?)\s*(?:г|гр|грамм[а-яё]*|g|grams?)(?![a-zа-яё])/i);
   const WORD_N = {a: 1, an: 1, one: 1, two: 2, three: 3, 'один': 1, 'одна': 1, 'одно': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'трёх': 3, 'трех': 3};
   const dn = !g && c.match(/(?:^|\s)(\d{1,2})\s+([a-zа-яё]{3,})/i), wn = !g && !dn && c.match(/(?:^|\s)(a|an|one|two|three|один|одна|одно|одну|два|две|три|трёх|трех)\s+([a-zа-яё]{3,})/i);
@@ -4632,7 +4647,7 @@ function localMeal(c){
   });
   if (!best) return null;
   const [name, kcal, pr, fat, carb, unit] = best.p;
-  const grams = g ? toN(g[1]) : unit ? +n[1] * unit[1] : null; // a count needs a piece weight in the table
+  const grams = por && por.piece && unit ? por.n * unit[1] : g ? toN(g[1]) : unit ? +n[1] * unit[1] : null; // a count needs a piece weight in the table; "a slice of pizza" uses the pizza's
   if (!grams || grams > 3000) return null;
   const k = grams / 100, r1 = x => Math.round(x * k * 10) / 10;
   return {name: `${name}, ${Math.round(grams)} ${tr('г')}`, kcal: Math.round(kcal * k), p: r1(pr), f: r1(fat), c: r1(carb)};

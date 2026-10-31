@@ -456,7 +456,7 @@ window.I18N_EN = {
 "ИИ в телефоне":"On-phone AI",
 "ИИ в телефоне (без интернета)":"On-phone AI (offline)",
 "ИИ в телефоне готов":"On-phone AI is ready",
-"ИИ ещё не подключён. Без него разбор дня, фото еды и скриншотов не работает. Это занимает минуту.":"AI isn't connected yet. Without it, message, food photo and screenshot analysis won't work. It takes a minute.",
+"ИИ ещё не подключён. Без него не работают фото еды и скриншоты, а сообщения я понимаю только простые. Подключение занимает минуту.":"AI isn't connected yet. Without it, food photos and screenshots don't work, and I only understand simple messages. Connecting takes a minute.",
 "ИИ здесь — это Claude":"The AI here is Claude",
 "ИИ на компьютере":"AI on your computer",
 "ИИ на компьютере (Ollama или LM Studio)":"AI on your computer (Ollama or LM Studio)",
@@ -1888,4 +1888,5 @@ window.I18N_EN = {
 "Разобрано на телефоне":"Read on this phone",
 "Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.":"Without AI I understand sleep, steps, walks, weight, spending, gym sets, checking off tasks, dated to-dos, and food with grams or pieces. For everything else, connect AI.",
 "Завтра в 18:30 позвонить маме":"Call mom tomorrow at 18:30",
+"Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.":"Counted from the food table, without AI. Check the grams and confirm.",
 };

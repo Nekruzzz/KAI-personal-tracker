@@ -4823,6 +4823,27 @@ function suppsGoneNote(){
 }
 A.suppsNoteOk = () => setMeta({suppsNoteSeen: true});
 
+/* ============ sheets follow the finger: pull down from the grab bar or title to close, like iOS ============ */
+let DRAG = null;
+document.addEventListener('pointerdown', e => {
+  const sh = e.target.closest?.('.sheet'); if (!sh || !SH) return;
+  if (!e.target.closest('.grab, .sh-h') || e.target.closest('button, input, textarea, select, a')) return; // scrolling and taps inside work as usual
+  DRAG = {sh, y0: e.clientY, t0: performance.now(), dy: 0, id: e.pointerId};
+}, {passive: true});
+document.addEventListener('pointermove', e => {
+  if (!DRAG || e.pointerId !== DRAG.id) return;
+  DRAG.dy = Math.max(0, e.clientY - DRAG.y0);
+  DRAG.sh.style.transition = 'none'; DRAG.sh.style.transform = `translateY(${DRAG.dy}px)`;
+}, {passive: true});
+const dragEnd = () => {
+  if (!DRAG) return;
+  const {sh, dy, t0} = DRAG; DRAG = null;
+  const fast = dy / Math.max(1, performance.now() - t0) > 0.6;
+  sh.style.transition = reduceMotion() ? 'none' : 'transform .2s ease';
+  if (dy > 110 || (fast && dy > 30)){ haptic('light'); closeSheet(); } else sh.style.transform = '';
+};
+document.addEventListener('pointerup', dragEnd); document.addEventListener('pointercancel', dragEnd);
+
 /* ============ init ============ */
 async function init(){
   render();

@@ -1053,3 +1053,10 @@ test('in the iPhone app with KAI\'s own AI, "paste your own key" is hidden unles
     assert.match(run(`aiSettings()`), /Claude/, 'the web keeps the option');
   } finally { run(`delete window.Capacitor; Object.assign(CFG, cfg1); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('Health screens say plainly that Health data is in the cloud copy once signed in, and only then', () => {
+  assert.equal(run(`healthCloudNote()`), '');
+  run(`globalThis.cfg2 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'`);
+  try { assert.match(run(`healthCloudNote()`), /cloud copy on KAI's server, not in iCloud/); }
+  finally { run(`Object.assign(CFG, cfg2)`); }
+});

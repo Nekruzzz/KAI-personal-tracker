@@ -4504,7 +4504,7 @@ A.healthOff = () => { setMeta({healthOn: false}); toast(tr('Здоровье о�
 const healthRow = () => {
   if (!isNative() || !plug('Health')) return '';
   const on = meta().healthOn;
-  return acc('apple', 'steps', tr('Здоровье iPhone'), on ? tr('Подключено: шаги, сон, тренировки') : tr('Не подключено'), `<div class="hint">${tr('KAI только читает шаги, сон и тренировки. Записи, которые ты сделал сам, не меняются. Эти данные идут в твоё расписание и прогресс, а ИИ получает их только в разборах, которые ты запустил сам.')}</div>${on ? `<button class="btn ghost" data-act="healthOff">${tr('Отключить')}</button>` : `<button class="btn" data-act="healthConnect">${tr('Подключить')}</button>`}`);
+  return acc('apple', 'steps', tr('Здоровье iPhone'), on ? tr('Подключено: шаги, сон, тренировки') : tr('Не подключено'), `<div class="hint">${tr('KAI только читает шаги, сон и тренировки. Записи, которые ты сделал сам, не меняются. Эти данные идут в твоё расписание и прогресс, а ИИ получает их только в разборах, которые ты запустил сам.')}${healthCloudNote()}</div>${on ? `<button class="btn ghost" data-act="healthOff">${tr('Отключить')}</button>` : `<button class="btn" data-act="healthConnect">${tr('Подключить')}</button>`}`);
 };
 
 /* ---- Sign in with Apple: Apple checks a hash of the nonce, the server checks the nonce itself ---- */
@@ -4754,7 +4754,7 @@ function permBody(){
   const row = (icon, title, why, done, act, denied) => `<section class="card permc"><div style="display:flex;gap:12px;align-items:center"><span class="ic">${ic(icon)}</span><b style="flex:1">${title}</b>${done ? `<span class="tag good">${tr('Включено')}</span>` : ''}</div><div class="hint">${why}</div>${denied ? `<div class="note">${denied}</div>` : done ? '' : `<button class="btn" data-act="${act}">${tr('Разрешить')}</button>`}</section>`;
   return `<div class="hint">${tr('KAI спросит разрешение только на то, что нужно. Это можно изменить позже в настройках iPhone.')}</div>
     ${row('bell', tr('Напоминания'), tr('Об экзаменах, тренировках и конфликтах в планах. Работают без интернета, даже когда приложение закрыто.'), !!m.remindAsked, 'notifOn', SH.notifDenied ? tr('Уведомления выключены в настройках iPhone. Открой Настройки → KAI → Уведомления и включи их.') : '')}
-    ${H ? row('heart', tr('Здоровье iPhone'), tr('KAI только читает шаги, сон и тренировки. Записи, которые ты сделал сам, не меняются.'), !!m.healthOn, 'permHealth', '') : ''}
+    ${H ? row('heart', tr('Здоровье iPhone'), tr('KAI только читает шаги, сон и тренировки. Записи, которые ты сделал сам, не меняются.') + healthCloudNote(), !!m.healthOn, 'permHealth', '') : ''}
     <button class="btn ghost block" data-act="closeSheet">${m.remindAsked || m.healthOn ? tr('Готово') : tr('Позже')}</button>`;
 }
 A.permSheet = () => openSheet(tr('Разрешения'), permBody);
@@ -4809,6 +4809,9 @@ function usageBody(){
   return h;
 }
 A.usageSheet = () => { openSheet(tr('Расход ИИ'), usageBody); loadAccountUsage(); };
+
+// Apple asks apps to say plainly where Health data goes (App Review 5.1.3)
+const healthCloudNote = () => cloudOn() ? ' ' + tr('Если ты вошёл в аккаунт, эти данные хранятся и в твоей облачной копии на сервере KAI, а не в iCloud.') : '';
 
 /* ============ appearance: follows the phone by default; light or dark can be fixed per device ============ */
 const themePref = () => { try { const t = localStorage.getItem('kai_theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch { return 'system'; } };

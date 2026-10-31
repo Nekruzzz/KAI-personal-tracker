@@ -3233,8 +3233,8 @@ function parseQuick(raw, defDue){
   let m = t.match(/(^|[^\d])([01]?\d|2[0-3])[:.]([0-5]\d)(?!\d)/);
   if (m){ time = pad(+m[2]) + ':' + m[3]; t = t.replace(m[0], m[1] + ' '); parsed = true; }
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})\s*(?:час[а-яё]*|ч)(?![а-яё])/i)) && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; }
-  else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 7 && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day
-  else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
+  else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 1 && +m[1] < 24){ const h = +m[1] <= 6 ? +m[1] + 12 : +m[1]; time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day; "в 5" is the afternoon
+  else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; if (!m[2] && h >= 1 && h <= 6) h += 12; /* "at 5" means the afternoon */ if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
   if (/послезавтра(?![а-яё])|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра(?![а-яё])|\bday after tomorrow\b/ig, ' '); }
   else if (/завтра(?![а-яё])|\btomorrow\b/i.test(t)){ due = addDays(today, 1); t = t.replace(/завтра(?![а-яё])|\btomorrow\b/ig, ' '); } // not "завтрак", breakfast
   else if (/сегодня|\btoday\b/i.test(t)){ due = today; t = t.replace(/сегодня|\btoday\b/ig, ' '); }
@@ -4521,8 +4521,9 @@ const NUM = '(\\d+(?:[.,]\\d+)?)';
 const toN = x => +String(x).replace(',', '.');
 const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*)';
 const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
-const MONEY_CAT = [[/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/связь|интернет|телефон|phone|internet/i, 'Связь и интернет']];
-const LOCAL_SKIP = /перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл/i;
+const MONEY_CAT = [[/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
+const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
+const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл/i;
 const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован/i;
 function localTellParse(text, date){
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
@@ -4549,7 +4550,7 @@ function localTellParse(text, date){
     if ((m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?)\\s+)?(?:за|на|for|on)?\\s*' + NUM + '\\s*(?:\\$|€|£|₽|руб[а-яё.]*|rm|usd|eur)?\\s*(?:(?:на|за|on|for)\\s+(.+))?$', 'i')))){
       const amount = toN(m[2]), note = (m[3] || m[1] || '').trim();
       if (amount > 0){ r.money.push({type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1], note: note || c}); hit = true; }
-    } else if ((m = c.match(new RegExp('(?:получил[аи]?|заработал[аи]?|зарплат[а-яё]*|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
+    } else if ((m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
     const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
     if (!hit && !future){ const meal = localMeal(c); if (meal){ (r.meals = r.meals || []).push(meal); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
@@ -4562,7 +4563,8 @@ function localTellParse(text, date){
         const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: t.time || null, until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
-        else r.new_tasks.push({title: t.title, date: t.due, time: t.time || null});
+        else if (t.time || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null});
+        else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;
       }
     }
@@ -4571,26 +4573,35 @@ function localTellParse(text, date){
   return {r, left};
 }
 /* "200 g chicken", "2 яйца": a food from the built-in table with an amount; cooked unless the message says raw or dry */
-const stem = w => w.toLowerCase().replace(/ё/g, 'е').slice(0, 4);
-// word stems match when they share a beginning and differ at most in the last letter: яйца ~ яйцо, eggs ~ egg
-const sameWord = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i >= 3 && i >= Math.min(a.length, b.length) - 1; };
+const stem = w => w.toLowerCase().replace(/ё/g, 'е').slice(0, 5);
+// English: one word starts the other (egg ~ eggs, not soup ~ sour). Russian: only the ending may differ (яйца ~ яйцо, not курсовую ~ куриное)
+const sameWord = (a, b) => {
+  let i = 0; while (i < a.length && a[i] === b[i]) i++;
+  if (i < 3) return false;
+  return /[a-z]/.test(a) ? i === Math.min(a.length, b.length) : i >= Math.min(a.length, b.length) - 1;
+};
 const RAW_RE = /сыр(?:ой|ая|ое|ые)|сух(?:ой|ая|ие|ое)|raw|dry|uncooked/i, COOKED_RE = /варён|варен|cooked|boiled/i;
 function localMeal(c){
   const g = c.match(/(\d+(?:[.,]\d+)?)\s*(?:г|гр|грамм[а-яё]*|g|grams?)(?![a-zа-яё])/i);
-  const n = !g && c.match(/(?:^|\s)(\d{1,2})\s+[a-zа-яё]/i);
+  const WORD_N = {a: 1, an: 1, one: 1, two: 2, three: 3, 'один': 1, 'одна': 1, 'одно': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'трёх': 3, 'трех': 3};
+  const dn = !g && c.match(/(?:^|\s)(\d{1,2})\s+([a-zа-яё]{3,})/i), wn = !g && !dn && c.match(/(?:^|\s)(a|an|one|two|three|один|одна|одно|одну|два|две|три|трёх|трех)\s+([a-zа-яё]{3,})/i);
+  // "съел банан": Russian has no "a", so eating words count as one piece
+  const n = dn ? dn : wn ? [0, WORD_N[wn[1].toLowerCase()]] : !g && /(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?)(?![a-zа-яё])/i.test(c) ? [0, 1] : null;
   if (!g && !n) return null;
-  const words = (c.match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and'].includes(w));
+  // with a count, the food is the word right after it: "2 eggs", not "by 25 January"
+  const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and'].includes(w));
   let best = null;
   PRODUCTS.forEach((p, i) => {
     const names = (p[0] + ' ' + (PRODUCTS_ALT[i] || '')).split(/[^a-zа-яё]+/i).filter(x => x.length >= 3).map(stem);
     const score = words.filter(w => names.some(nm => sameWord(w, nm))).length; if (!score) return;
     const raw = RAW_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || '')), cooked = COOKED_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || ''));
     const pref = RAW_RE.test(c) ? (raw ? 1 : 0) : (cooked ? 1 : raw ? -1 : 0); // people mostly log what they ate, cooked
-    if (!best || score > best.score || (score === best.score && pref > best.pref)) best = {p, score, pref};
+    const fits = g || p[5] ? 1 : 0; // a count needs a piece weight, so foods that have one win
+    if (!best || score > best.score || (score === best.score && (fits > best.fits || fits === best.fits && pref > best.pref))) best = {p, score, pref, fits};
   });
   if (!best) return null;
   const [name, kcal, pr, fat, carb, unit] = best.p;
-  const grams = g ? toN(g[1]) : unit ? +n[1] * unit[1] : null;
+  const grams = g ? toN(g[1]) : unit ? +n[1] * unit[1] : null; // a count needs a piece weight in the table
   if (!grams || grams > 3000) return null;
   const k = grams / 100, r1 = x => Math.round(x * k * 10) / 10;
   return {name: `${name}, ${Math.round(grams)} ${tr('г')}`, kcal: Math.round(kcal * k), p: r1(pr), f: r1(fat), c: r1(carb)};

@@ -3223,6 +3223,7 @@ function viewMore(){
     <div class="btnrow"><button class="btn" data-act="exportData">${tr("Сохранить копию")}</button><label class="btn ghost">${tr("Загрузить копию")}<input type="file" accept="application/json,.json" hidden data-ch="importData"></label></div>
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
     <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>
+    <button class="btn ghost" data-act="moneyCsv">${tr("Деньги таблицей (CSV)")}</button>
     <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>
     <button class="btn danger" data-act="wipeLocal">${ic('trash')}${tr("Удалить все данные на этом телефоне")}</button>`);
   if (!cloudOn()) h += accountCard(); // without a server it is privacy and legal links: last
@@ -4879,6 +4880,18 @@ function openFromLink(){
   S.tab = 'day'; render();
   if (h === 'tell' && meta().welcomed) A.tell();
 }
+
+/* ============ money as a spreadsheet: every entry, oldest first, opens in Numbers, Excel or Google Sheets ============ */
+function moneyCSV(){
+  const q = v => { const x = String(v ?? ''); return /[",;\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  const rows = Object.keys(S.docs).filter(k => k.startsWith('money/')).sort().flatMap(k => S.docs[k].tx || []).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return [[tr('Дата'), tr('Тип'), tr('Сумма'), tr('Категория'), tr('Заметка')], ...rows.map(t => [t.date, t.type === 'in' ? tr('Доход') : tr('Расход'), t.amount, tr(t.cat || 'Другое'), t.note || ''])].map(r => r.map(q).join(',')).join('\r\n');
+}
+A.moneyCsv = async () => {
+  if (!Object.keys(S.docs).some(k => k.startsWith('money/') && (S.docs[k].tx || []).length)) return toast(tr('Операций пока нет'));
+  const ok = await shareOrDownload(`kai-money-${todayISO()}.csv`, new Blob(['\ufeff' + moneyCSV()], {type: 'text/csv'})); // the mark lets Excel read Cyrillic
+  if (ok) toast(tr('Таблица готова'));
+};
 
 /* ============ delete everything on this phone (the cloud copy is separate, under Account) ============ */
 A.wipeLocal = async el => {

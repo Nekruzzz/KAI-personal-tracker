@@ -876,6 +876,9 @@ test('quick add: "завтрак" is breakfast, not tomorrow; "next week" moves 
   const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
   assert.equal(q('приготовить завтрак').due, null);
   assert.equal(q('позвонить завтра').due, run(`addDays(todayISO(), 1)`));
-  const plain = q('call on Friday').due, next = q('call on Friday next week').due;
-  assert.ok(run(`dayDiff('${plain}', '${next}')`) === 7 || plain === next && run(`dayDiff(todayISO(), '${plain}')`) >= 7);
+  const mon = run(`addDays(todayISO(), 1 - dow(todayISO()))`);
+  for (const day of ['Monday', 'Wednesday', 'Friday']) {
+    const next = q(`call on ${day} next week`).due;
+    assert.ok(next >= run(`addDays('${mon}', 7)`) && next < run(`addDays('${mon}', 14)`), `${day} next week: ${next}`);
+  }
 });

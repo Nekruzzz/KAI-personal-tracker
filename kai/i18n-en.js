@@ -1921,4 +1921,5 @@ window.I18N_EN = {
 "нужен ИИ":"needs AI",
 "ИИ работает через твой аккаунт, ключи не нужны.":"AI works through your account, no keys needed.",
 "Войди, чтобы пользоваться ИИ без ключей.":"Sign in to use AI without keys.",
+"Если ты вошёл в аккаунт, эти данные хранятся и в твоей облачной копии на сервере KAI, а не в iCloud.":"If you are signed in, this data is also kept in your cloud copy on KAI's server, not in iCloud.",
 };

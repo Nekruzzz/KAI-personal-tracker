@@ -1278,3 +1278,29 @@ test("if the copy of the days can't be kept, finishing a season clears nothing",
   assert.equal(archives().length, n);
   assert.ok(run(`toasts.some(t => /nothing was cleared/.test(t))`), run(`toasts.join(' | ')`));
 });
+
+test('restoring a backup can be undone, and what it replaced is kept as a copy', async () => {
+  const d = run(`addDays(todayISO(), -4)`);
+  run(`mutDay('${d}', x => { x.weight = 77; x.steps = 9000; })`);
+  const before = run(`JSON.stringify(S.docs['days/${d}'])`);
+  const file = {app: 'kai', version: 1, docs: {[`days/${d}`]: {date: d, tasks: [], meals: [], weight: 70, steps: 100}, 'money/2031-01': {tx: [{id: 'imp', date: '2031-01-02', type: 'out', amount: 5, cat: 'Другое', note: ''}]}}};
+  const pick = text => run(`CH.importData({files: [{text: async () => ${JSON.stringify(text)}}], value: 'x'})`);
+  run(`globalThis.toasts = []; globalThis.toast0 = toast; toast = (m, o) => toasts.push(m + (o?.action ? ' [' + o.action.label + ']' : ''))`);
+  try {
+    await pick(JSON.stringify(file));
+    assert.equal(run(`S.docs['days/${d}'].weight`), 70, 'the file wins');
+    assert.ok(run(`toasts.some(t => /Entries loaded: 2 \\[Undo\\]/.test(t))`), run(`toasts.join(' | ')`));
+    const k = [...await run(`blobKeys()`)].filter(x => x.startsWith('preimport_')).sort().pop(); // the newest
+    assert.ok(k, 'a copy of what it replaced');
+    const kept = JSON.parse(await run(`blobGet('${k}').then(b => b.text())`)).docs;
+    assert.deepEqual(Object.keys(kept), [`days/${d}`], 'only the record it replaced');
+    assert.equal(kept[`days/${d}`].weight, 77);
+    assert.match(run(`copyTitle('${k}')`), /^Before restoring a backup, /);
+    run(`A.undoApply()`);
+    assert.equal(run(`JSON.stringify(S.docs['days/${d}'])`), before);
+    assert.equal(run(`S.docs['money/2031-01']`), undefined, 'records only in the file are gone again');
+    run(`toasts.length = 0`);
+    await pick('not json'); await pick('[1, 2]'); await pick('{"docs": {"days/x": 5}}');
+    assert.equal(run(`toasts.filter(t => /Wrong file/.test(t)).length`), 3, run(`toasts.join(' | ')`));
+  } finally { run(`toast = toast0`); }
+});

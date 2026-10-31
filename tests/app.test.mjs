@@ -995,3 +995,13 @@ test('without AI, sleep from bedtime and wake time', () => {
   assert.equal(r('лёг в 23, встал в 7 и потратил 5 на кофе').money[0].amount, 5, 'the rest of the message is still read');
   assert.equal(r('went to bed at 1, woke up at 9').sleep_h, 8);
 });
+
+test('without AI, "I\'m sick" and a day rating are understood, "sick of" is not', () => {
+  const r = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.equal(r("I'm sick today").sick, true);
+  assert.equal(r('кажется, заболел').sick, true);
+  assert.equal(r("I'm sick of rain").sick, undefined);
+  assert.equal(r('day was 4/5').rating, 4);
+  assert.equal(r('оценка дня 3').rating, 3);
+  assert.equal(r('read 3 books').rating, undefined);
+});

@@ -4571,6 +4571,8 @@ function localTellParse(text, date){
   for (const c of parts){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
+    if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
+    if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
     if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
     if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|прогулк[а-яё]*|ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
     else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }

@@ -29,7 +29,7 @@ Also, from the owner's later messages:
 - **Screen Time blocking:** not built; `docs/screen-time-blocking.md` explains what Apple requires and how it would fit.
 - **Speed:** the Day and Workouts screens worked out every logged day's routine on each redraw. That result is now cached per day and plan: with two years of data, the Day screen went from about 21 ms to 12 ms on a desktop browser.
 - **Less clutter:** the "Which AI" choice appears only when two or more AIs are set up.
-- **Feature review:** `docs/feature-review.md` lists features a new person may not need (the content tools, the on-computer and on-phone AI, the face log) and places where progress is shown several times. Nothing was removed.
+- **Feature review:** `docs/feature-review.md` lists features a new person may not need and what was switched off or folded at the owner's request. Nothing was deleted: switched-off features keep their saved data and come back with a one-line change.
 - **Bug fix:** when the same document was saved twice quickly, the database's copy of the first save could briefly replace the newer one in memory, and code running in that moment could act on old data. Found because a new install's program reverted; fixed by not letting snapshots overwrite documents with writes still in flight.
 
 More fixes from the screen-by-screen review:
@@ -85,3 +85,4 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 7. **Screen Time blocking** needs the Family Controls entitlement from Apple first. See `docs/screen-time-blocking.md`.
 8. **Features to cut or hide:** see `docs/feature-review.md`. Supplements and the face log are switched off as asked. The content tools and the on-computer and on-phone AI are still there, waiting for your call.
 9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.
+10. **Commit history note.** One commit ("Test the quick-add date fixes", the first of two with that name) went in with a test that was wrong for Saturdays; the next commit fixes it. Squashing the branch on merge hides both.

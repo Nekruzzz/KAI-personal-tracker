@@ -60,13 +60,13 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Delete all data on this phone** (More → Data and backup): two taps. It signs out first, so the cloud copy isn't touched, and it keeps the language.
 - **Food "Describe" without AI** counts foods with an amount from the built-in table, with the same confirm step.
 - **Robustness:** a browser script tapped every button on every tab, in the sheets they open, and in every open settings section, in both languages: about 450 taps and no errors.
-- **Quick add** also learned dates with month names, and reads a bare "at 5" or "в 5" as 17:00.
+- **Quick add** (and the on-phone reader) learned dates with month names, a bare "at 5" or "в 5" as 17:00, "tonight", "tomorrow morning", "в субботу утром", "at noon", "in 2 hours" and "через 2 часа". It also fixes a bug: "9:30pm" was saved as 09:30 with "pm" left in the title.
 - **Home-screen shortcuts** for the installed web app: "Tell KAI" and "Today".
 - **Health:** sleep is a section of Body, so the three tabs fit on a phone; the weight chart caption is one short line.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 88 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 89 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

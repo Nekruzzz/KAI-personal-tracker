@@ -1938,4 +1938,6 @@ window.I18N_EN = {
 "задач сделано за неделю":"tasks done this week",
 "Размер текста":"Text size",
 "Как на телефоне":"As on the phone",
+"Читаю на телефоне: простые сообщения.":"Reading on the phone: simple messages.",
+"Войти для ИИ":"Sign in for AI",
 };

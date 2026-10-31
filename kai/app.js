@@ -3193,7 +3193,9 @@ function viewMore(){
   h += acc('data', 'shield', tr('Данные и копия'), lastB == null ? tr('Копии ещё нет') : lastB === 0 ? tr('Копия сегодня') : `${tr("Копия")} ${lastB} ${plural(lastB, tr('день'), tr('дня'), tr('дней'))} ${tr("назад")}`, `<div class="hint">${tr("Всё хранится в этом телефоне. Раз в неделю сохраняй копию в «Файлы» или iCloud: если iOS очистит память, данные можно вернуть.")}</div><div id="storeInfo" class="hint"></div>
     <div class="btnrow"><button class="btn" data-act="exportData">${tr("Сохранить копию")}</button><label class="btn ghost">${tr("Загрузить копию")}<input type="file" accept="application/json,.json" hidden data-ch="importData"></label></div>
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
-    <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>`);
+    <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>
+    <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>
+    <button class="btn danger" data-act="wipeLocal">${ic('trash')}${tr("Удалить все данные на этом телефоне")}</button>`);
   return h;
 }
 function modulesRows(){
@@ -4765,6 +4767,21 @@ function openFromLink(){
   S.tab = 'day'; render();
   if (h === 'tell' && meta().welcomed) A.tell();
 }
+
+/* ============ delete everything on this phone (the cloud copy is separate, under Account) ============ */
+A.wipeLocal = async el => {
+  if (!el.dataset.sure){ el.dataset.sure = '1'; el.textContent = tr('Точно? Нажми ещё раз, это не отменить'); return; }
+  busy(el, true);
+  // signed out first, so the deletions below are not sent to the cloud copy
+  clearSession(); syncSave(null);
+  try {
+    for (const k of Object.keys(S.docs)) remove(k);
+    await Promise.all(Object.values(chains));
+    for (const k of await blobKeys()) await blobDel(k);
+  } catch {}
+  try { Object.keys(localStorage).filter(k => k.startsWith('kai_') && k !== 'kai_lang').forEach(k => localStorage.removeItem(k)); } catch {}
+  location.reload();
+};
 
 /* ============ init ============ */
 async function init(){

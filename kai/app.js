@@ -3536,6 +3536,8 @@ function nowCard(){
   const cur = bl.find(b => b.kind !== 'sleep' && b.kind !== 'wake' && b.s <= nowM && nowM < endOf(b) && st(b) !== 'skip');
   const next = bl.find(b => b.s > nowM && st(b) !== 'skip');
   if (!cur && !next) return `<section class="card nowc"><div class="nc-l">${tr("Сейчас")}</div><div class="t">${tr("День закончен")}</div><div class="s">${tr("Отдыхай. Завтра всё сначала.")}</div></section>`;
+  // the small hours before wake-up are for sleep, not a "free slot"
+  if (!cur && next?.kind === 'wake' && nowM < next.s - 60) return `<section class="card nowc"><div class="nc-l">${tr("Ночь")}</div><div class="nc-row"><span class="tic" style="--tc:var(--c7)">${ic('moon')}</span><div class="mid"><div class="t">${tr("Время сна")}</div><div class="s">${tr("Подъём в")} ${hmStr(next.s)} · ${tr("через")} ${inMin(next.s - nowM)}</div></div></div></section>`;
   const [icn, col] = KIND[(cur || next).kind] || KIND.free;
   return `<section class="card nowc">
     ${cur ? `<div class="nc-l">${tr("Сейчас")}</div><div class="nc-row"><span class="tic" style="--tc:var(--${col})">${ic(icn)}</span><div class="mid"><div class="t">${esc(cur.title)}</div><div class="s">${tr("до")} ${hmStr(endOf(cur))} ${tr("· ещё")} ${inMin(endOf(cur) - nowM)}</div></div><button class="chk ${st(cur) === 'done' ? 'on' : ''}" data-act="tlToggle" data-id="${esc(cur.id)}" aria-pressed="${st(cur) === 'done'}" aria-label="${tr("Отметить:")} ${esc(cur.title)}">${ic('check')}</button></div>

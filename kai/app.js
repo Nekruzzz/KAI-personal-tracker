@@ -3086,7 +3086,7 @@ function aiConnectBody(){
   <div id="acOut"></div>
   <div class="hint">${tr("Нужен именно ключ API, а не подписка Claude Pro или ChatGPT Plus: подписка в приложениях не работает. Платишь только за запросы, лимит расходов можно поставить в кабинете сервиса. Ключ хранится только в этом телефоне и не попадает в резервные копии.")}</div>`;
 }
-A.aiConnect = () => { if (cloudOn() && !signedIn()) return A.accountSheet(); if (!meta().welcomed) setMeta({welcomed: true}); openSheet(tr('Подключить ИИ'), aiConnectBody); SH.svc = 'claude'; };
+A.aiConnect = () => { if (cloudOn() && !signedIn()) return A.accountSheet(); if (!ownKeysAllowed()) return A.aiSheet(); if (!meta().welcomed) setMeta({welcomed: true}); openSheet(tr('Подключить ИИ'), aiConnectBody); SH.svc = 'claude'; };
 A.svcPick = el => { SH.svc = el.dataset.v; drawSheet(); };
 A.aiPaste = async el => {
   try {
@@ -3145,7 +3145,10 @@ async function callOpenAI(prompt, imgs, json){
   const d = await r.json();
   return d.choices?.[0]?.message?.content || '';
 }
+/* in the iPhone app with KAI's own AI, paying another company for a key could read as buying features outside in-app purchase (App Review 3.1.1); the web keeps it */
+const ownKeysAllowed = () => !(isNative() && cloudOn()) || !!CFG.ownKeys;
 function aiSettings(){
+  if (!ownKeysAllowed()) return `<section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr('ИИ от KAI')}</b><div class="hint">${signedIn() ? tr('ИИ работает через твой аккаунт, ключи не нужны.') : tr('Войди, чтобы пользоваться ИИ без ключей.')}</div>${signedIn() ? `<button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>` : `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>`}</section>`;
   if (S.inClaude) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("ИИ здесь — это Claude")}</b><div class="hint">${tr("Внутри приложения Claude запросы идут через твой аккаунт Claude: ключ API не нужен. При первом запросе Claude попросит разрешение.")}</div></section>`;
   const c = aiCfg(), st = aiStatus();
   const row = p => { const ok = provConfigured(p); return `<div class="row"><span class="ic">${ic(PROV[p].icon)}</span><div class="mid"><div class="t">${PROV[p].name}</div><div class="s">${ok ? (st.p === p ? tr('основной') : tr('подключён')) : tr('не подключён')}</div></div>${ok ? `<span class="tag good">${st.p === p ? tr('по умолчанию') : tr('запасной')}</span>` : ''}</div>`; };

@@ -5,4 +5,5 @@ window.KAI_CONFIG = {
   supabaseKey: '', // the publishable key
   providers: [], // add 'apple' and 'google' once they are set up in Supabase
   plans: false, // show the plans screen; leave off until payments are real, since App Review rejects placeholder prices
+  ownKeys: false, // iPhone app with the server connected: also offer "paste your own Claude or ChatGPT key" (off: App Review may read it as buying features outside in-app purchase)
 };

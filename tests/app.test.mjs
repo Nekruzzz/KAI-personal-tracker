@@ -1041,3 +1041,15 @@ test('"What can I write?" examples all work without AI, in both languages; the A
   assert.match(run(`tellHelpHTML()`), /needs AI/);
   run(`SH = null`);
 });
+
+test('in the iPhone app with KAI\'s own AI, "paste your own key" is hidden unless the owner allows it; the web keeps it', () => {
+  run(`globalThis.cfg1 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; window.Capacitor = {isNativePlatform: () => true, Plugins: {}}`);
+  try {
+    assert.doesNotMatch(run(`aiSettings()`), /Connect Claude or ChatGPT|paste an API key/);
+    assert.match(run(`aiSettings()`), /KAI's AI/);
+    run(`CFG.ownKeys = true`);
+    assert.match(run(`aiSettings()`), /Claude/);
+    run(`CFG.ownKeys = false; delete window.Capacitor`);
+    assert.match(run(`aiSettings()`), /Claude/, 'the web keeps the option');
+  } finally { run(`delete window.Capacitor; Object.assign(CFG, cfg1); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

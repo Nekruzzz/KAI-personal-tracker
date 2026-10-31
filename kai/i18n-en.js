@@ -1919,4 +1919,6 @@ window.I18N_EN = {
 "На обед суп и салат":"Soup and salad for lunch",
 "С ИИ":"With AI",
 "нужен ИИ":"needs AI",
+"ИИ работает через твой аккаунт, ключи не нужны.":"AI works through your account, no keys needed.",
+"Войди, чтобы пользоваться ИИ без ключей.":"Sign in to use AI without keys.",
 };

@@ -987,3 +987,11 @@ test('an AI food answer is added once even with a double tap, and can be undone'
   assert.equal(run(`S.docs['inbox/f1'].done`), false);
   run(`remove('inbox/f1')`);
 });
+
+test('without AI, sleep from bedtime and wake time', () => {
+  const r = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.equal(r('went to bed at 23:30, woke up at 7').sleep_h, 7.5);
+  assert.equal(r('лёг в 23, встал в 7 и потратил 5 на кофе').sleep_h, 8);
+  assert.equal(r('лёг в 23, встал в 7 и потратил 5 на кофе').money[0].amount, 5, 'the rest of the message is still read');
+  assert.equal(r('went to bed at 1, woke up at 9').sleep_h, 8);
+});

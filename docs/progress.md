@@ -74,6 +74,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
 - **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
 - **A first currency from the phone's region** ($, €, £, ₽ and others), filled in during onboarding and changeable; before, money showed as bare numbers until someone typed a symbol.
+- **App updates:** the installed web app shows an Update button when a new version is ready, and one left open for days checks again when it comes back to the screen.
 - **No backup nag while the account's cloud copy is up to date:** the weekly reminder said data would be lost if iOS cleared storage, which isn't true once records sync.
 - **Unreachable code removed:** an old profile sheet that a later line had replaced (about 8 KB), with its 17 translations.
 - **Automatic copies are reachable.** The copy kept before the first cloud sync was announced in a message but couldn't be opened anywhere. Data and backup now lists the copies on the phone, and each can be saved as a file that "Restore a backup" accepts. Without the phone's storage (a private Safari tab), photos waiting for the AI and these copies now last until the app closes instead of being lost at once.
@@ -84,6 +85,8 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Privacy manifest:** App Store Connect refuses uploads (ITMS-91053) when code reads file dates or stored settings without saying why. The Filesystem and Apple sign-in plugins do both and ship no manifest. `PrivacyInfo.xcprivacy` now gives the reasons, says there's no tracking, and mirrors the App Privacy answers. GitHub's iPhone build compiles it.
 - **Permission prompts in Russian:** camera, photos, saving to Photos and Health, in `ru.lproj/InfoPlist.strings`.
 - **Sign-in buttons:** the Apple button has the Apple logo in the title's colour (black on light, white on dark), and the Google button has the four-colour G, as both companies' button guidelines ask.
+- **Sign in with Apple and account deletion:** Apple requires that deleting an account also revokes the person's Apple token. After signing in with Apple, the server now keeps a refresh token (in a table only it can read), and deleting the account revokes it with Apple first. It needs a Sign in with Apple key in the server's secrets (see `server/README.md`); without one, everything works as before. Tested with a throwaway key and a stand-in for Apple.
+- **Reviewer notes** list what's native (guideline 4.2) and what to try without signing in.
 - `node tools/check-release.js` and the tests now check all of the above.
 
 ## Liquid Glass, redone (iOS 26)
@@ -99,13 +102,17 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 - **Accessibility:** Reduce Transparency gives solid surfaces with no blur or colour; Increase Contrast gives solid surfaces with visible edges; Reduce Motion stops the sliding and receding. Every text element was measured over the real rendered glass, in both themes, on four tabs and two scroll positions, by sampling the pixels behind it: all at 4.5:1 or better (3:1 for large text).
 - **Speed:** scrolling stays at 60 fps with the CPU slowed four times.
 - **Text on glass:** toasts and the rest timer use a thicker glass, so content scrolling beneath never competes with their words.
+- **Section switchers glide:** switching Food / Workouts / Body (and the money and content switchers), the selected capsule glides to the new choice with a little spring, while only the content below fades in.
+- **Touch:** settings rows highlight while pressed, and whole-card buttons press in slightly.
+- **Shapes:** buttons, pills and toasts are capsules at one line and rounded rectangles when their text wraps (two buttons in the knowledge base had become ovals).
+- **The weekly summary image** has the new look (glass tiles over soft colour, a strip of the week's days), and with no time logged it leads with the tasks done instead of "0 min".
 
 **To see it**, run this branch, not `main`: `python3 -m http.server 8123 --directory kai` and open http://localhost:8123, or build the iPhone app from this branch. An installed web app may need one extra reload to drop its cached copy.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 109 tests, all pass (36 at the start).
-- In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
+- `node --test tests/app.test.mjs`: 112 tests, all pass (36 at the start).
+- In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
 - `node tools/check-i18n.js kai`: `missing: 0`.
@@ -131,3 +138,4 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 10. **Commit history note.** One commit ("Test the quick-add date fixes", the first of two with that name) went in with a test that was wrong for Saturdays; the next commit fixes it. Squashing the branch on merge hides both.
 11. **Calorie floor for losing weight** is now 1,200 kcal (it was the person's BMR, which can be lower for small people). That matches the AI's safety rules. If you'd rather use separate floors (for example 1,200 for women and 1,500 for men), it's `KCAL_FLOOR` in `kai/app.js`.
 12. **Should finishing a season clear the day diary at all?** It's how the feature was designed, so it still does, now with a copy and a way back. Keeping the days and only starting a new season count would keep the weight trend and records whole. Your call.
+13. **Sign in with Apple key on the server.** Before submitting, create a Sign in with Apple key in the Apple developer account and set `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_BUNDLE_ID` (and `APPLE_WEB_CLIENT_ID` if Apple sign-in is offered on the web) as Supabase secrets, then deploy `apple-token`. The steps are in `server/README.md`.

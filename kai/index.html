@@ -611,35 +611,35 @@ details.manual .field{margin-bottom:10px}
 @property --hue3{syntax:"<color>";inherits:true;initial-value:transparent}
 :root{
   --mat:rgba(30,30,34,.72);--mat-line:rgba(255,255,255,.07);--mat-drop:0 0 #0000;
-  --lg-tint:rgba(48,48,54,.42);--lg-tint-strong:rgba(40,40,46,.7);--lg-press:rgba(76,76,84,.55);
+  --lg-tint:rgba(48,48,54,.36);--lg-tint-strong:rgba(40,40,46,.7);--lg-press:rgba(76,76,84,.55);
   --lg-hi:rgba(255,255,255,.34);--lg-lo:rgba(255,255,255,.10);--lg-line:rgba(255,255,255,.10);--lg-glow:rgba(255,255,255,.06);
   --lg-sheen:rgba(255,255,255,.10);--lg-touch:rgba(255,255,255,.26);
   --lg-drop:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
   --lg-sel:rgba(255,255,255,.15);--lg-sel-hi:rgba(255,255,255,.3);
-  --edge-c:rgba(0,0,0,.66);--edge-c0:rgba(0,0,0,0);
+  --edge-c:rgba(0,0,0,.66);--edge-c0:rgba(0,0,0,0);--edge-bc:rgba(0,0,0,.42);
   --fill-1:rgba(120,120,128,.26);--fill-hi:rgba(255,255,255,.10);
 }
 @media (prefers-color-scheme:light){:root:not([data-theme=dark]){
   --mat:rgba(255,255,255,.7);--mat-line:rgba(255,255,255,.85);--mat-drop:0 1px 2px rgba(20,30,50,.04),0 8px 24px rgba(20,30,50,.06);
-  --lg-tint:rgba(255,255,255,.46);--lg-tint-strong:rgba(255,255,255,.78);--lg-press:rgba(255,255,255,.66);
+  --lg-tint:rgba(255,255,255,.32);--lg-tint-strong:rgba(255,255,255,.78);--lg-press:rgba(255,255,255,.66);
   --lg-hi:rgba(255,255,255,.98);--lg-lo:rgba(255,255,255,.6);--lg-line:rgba(255,255,255,.6);--lg-glow:rgba(255,255,255,.4);
-  --lg-sheen:rgba(255,255,255,.55);--lg-touch:rgba(255,255,255,.85);
+  --lg-sheen:rgba(255,255,255,.42);--lg-touch:rgba(255,255,255,.85);
   --lg-drop:0 12px 32px rgba(30,40,60,.16),0 2px 6px rgba(30,40,60,.08);
   --lg-sel:rgba(255,255,255,.9);--lg-sel-hi:#fff;
-  --edge-c:rgba(242,242,247,.82);--edge-c0:rgba(242,242,247,0);
-  --fill-1:rgba(120,120,128,.13);--fill-hi:rgba(255,255,255,.75);}}
+  --edge-c:rgba(242,242,247,.82);--edge-c0:rgba(242,242,247,0);--edge-bc:rgba(242,242,247,.4);
+  --fill-1:rgba(120,120,128,.13);--fill-hi:rgba(255,255,255,.75);--nav-ink:#575a61;}}
 :root[data-theme=light]{
   --mat:rgba(255,255,255,.7);--mat-line:rgba(255,255,255,.85);--mat-drop:0 1px 2px rgba(20,30,50,.04),0 8px 24px rgba(20,30,50,.06);
-  --lg-tint:rgba(255,255,255,.46);--lg-tint-strong:rgba(255,255,255,.78);--lg-press:rgba(255,255,255,.66);
+  --lg-tint:rgba(255,255,255,.32);--lg-tint-strong:rgba(255,255,255,.78);--lg-press:rgba(255,255,255,.66);
   --lg-hi:rgba(255,255,255,.98);--lg-lo:rgba(255,255,255,.6);--lg-line:rgba(255,255,255,.6);--lg-glow:rgba(255,255,255,.4);
-  --lg-sheen:rgba(255,255,255,.55);--lg-touch:rgba(255,255,255,.85);
+  --lg-sheen:rgba(255,255,255,.42);--lg-touch:rgba(255,255,255,.85);
   --lg-drop:0 12px 32px rgba(30,40,60,.16),0 2px 6px rgba(30,40,60,.08);
   --lg-sel:rgba(255,255,255,.9);--lg-sel-hi:#fff;
-  --edge-c:rgba(242,242,247,.82);--edge-c0:rgba(242,242,247,0);
-  --fill-1:rgba(120,120,128,.13);--fill-hi:rgba(255,255,255,.75);}
+  --edge-c:rgba(242,242,247,.82);--edge-c0:rgba(242,242,247,0);--edge-bc:rgba(242,242,247,.4);
+  --fill-1:rgba(120,120,128,.13);--fill-hi:rgba(255,255,255,.75);--nav-ink:#575a61;}
 
 /* the page: soft colour that changes with the section */
-body{--hue1:rgba(46,189,107,.30);--hue2:rgba(57,135,229,.24);--hue3:rgba(144,133,233,.22);transition:--hue1 .9s ease,--hue2 .9s ease,--hue3 .9s ease}
+body{--hue1:rgba(46,189,107,.34);--hue2:rgba(57,135,229,.28);--hue3:rgba(144,133,233,.26);transition:--hue1 .9s ease,--hue2 .9s ease,--hue3 .9s ease}
 body[data-tab=health]{--hue1:rgba(255,95,126,.27);--hue2:rgba(46,189,107,.22);--hue3:rgba(255,162,76,.22)}
 body[data-tab=money]{--hue1:rgba(245,184,46,.27);--hue2:rgba(37,181,168,.22);--hue3:rgba(144,133,233,.18)}
 body[data-tab=more],body[data-tab=content]{--hue1:rgba(122,108,240,.28);--hue2:rgba(58,142,230,.22);--hue3:rgba(196,107,224,.18)}
@@ -655,11 +655,11 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;bac
   background:linear-gradient(180deg,var(--lg-sheen),rgba(255,255,255,0) 60%),var(--lgt,var(--lg-tint));
   -webkit-backdrop-filter:blur(14px) saturate(190%);backdrop-filter:blur(14px) saturate(190%);
   border:0;
-  box-shadow:inset 0 1px 0 var(--lg-hi),inset 0 -1px 0 var(--lg-lo),inset 0 0 0 1px var(--lg-line),inset 0 0 20px var(--lg-glow),var(--lg-drop)}
+  box-shadow:inset 0 1px 0 var(--lg-hi),inset 0 -1px 0 var(--lg-lo),inset 0 0 0 1px var(--lg-line),inset 0 0 20px var(--lg-glow),inset 0 -10px 16px -12px var(--lg-hi),var(--lg-drop)}
 .lg{position:relative;transition:transform .45s cubic-bezier(.3,1.5,.4,1)}
 /* the rim is brightest where light would hit: top left, then bottom right */
-.lg::after,.nav::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
-  background:linear-gradient(150deg,var(--lg-hi),rgba(255,255,255,0) 30%,rgba(255,255,255,0) 70%,var(--lg-lo));
+.lg::after,.nav::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:linear-gradient(150deg,var(--lg-hi),rgba(255,255,255,.08) 28%,rgba(255,255,255,0) 50%,rgba(255,255,255,.08) 72%,var(--lg-hi));
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 /* a touch lights the glass up from the finger and lets it swell a little, like iOS */
 .lg:active{transform:scale(1.07);background:radial-gradient(circle at var(--px,50%) var(--py,50%),var(--lg-touch),rgba(255,255,255,0) 70%),linear-gradient(180deg,var(--lg-sheen),rgba(255,255,255,0) 60%),var(--lg-press)}
@@ -683,7 +683,7 @@ body.scrolled .htitle{opacity:1}
 .edge{position:fixed;left:0;right:0;z-index:19;pointer-events:none}
 .edge-t{top:0;height:calc(env(safe-area-inset-top,0px) + 118px);background:linear-gradient(180deg,var(--edge-c) 30%,var(--edge-c0));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);-webkit-mask-image:linear-gradient(180deg,#000 45%,transparent);mask-image:linear-gradient(180deg,#000 45%,transparent);opacity:0;transition:opacity .3s}
 body.scrolled .edge-t{opacity:1}
-.edge-b{bottom:0;height:calc(env(safe-area-inset-bottom,0px) + 92px);background:linear-gradient(0deg,var(--edge-c) 20%,var(--edge-c0))}
+.edge-b{bottom:0;height:calc(env(safe-area-inset-bottom,0px) + 84px);background:linear-gradient(0deg,var(--edge-bc) 25%,var(--edge-c0))}
 .view > .pills:first-child{top:calc(env(safe-area-inset-top,0px) + 64px);background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
 
 /* the tab bar: a floating glass capsule; the selected tab sits in a lighter capsule that slides like a drop */
@@ -710,7 +710,7 @@ body.nav-min .nav .mic span.b{width:44px;height:44px}
 :root:not([data-theme=light]) body[data-tab=health]{--hue1:rgba(255,95,126,.36);--hue2:rgba(46,189,107,.30);--hue3:rgba(255,162,76,.28)}
 :root:not([data-theme=light]) body[data-tab=money]{--hue1:rgba(245,184,46,.34);--hue2:rgba(37,181,168,.32);--hue3:rgba(144,133,233,.26)}
 :root:not([data-theme=light]) body:is([data-tab=more],[data-tab=content]){--hue1:rgba(122,108,240,.38);--hue2:rgba(58,142,230,.32);--hue3:rgba(196,107,224,.28)}
-@media (prefers-color-scheme:light){:root:not([data-theme=dark]) body{--hue1:rgba(46,189,107,.30);--hue2:rgba(57,135,229,.24);--hue3:rgba(144,133,233,.22)}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) body{--hue1:rgba(46,189,107,.34);--hue2:rgba(57,135,229,.28);--hue3:rgba(144,133,233,.26)}
   :root:not([data-theme=dark]) body[data-tab=health]{--hue1:rgba(255,95,126,.27);--hue2:rgba(46,189,107,.22);--hue3:rgba(255,162,76,.22)}
   :root:not([data-theme=dark]) body[data-tab=money]{--hue1:rgba(245,184,46,.27);--hue2:rgba(37,181,168,.22);--hue3:rgba(144,133,233,.18)}
   :root:not([data-theme=dark]) body:is([data-tab=more],[data-tab=content]){--hue1:rgba(122,108,240,.28);--hue2:rgba(58,142,230,.22);--hue3:rgba(196,107,224,.18)}}

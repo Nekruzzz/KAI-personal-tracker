@@ -538,7 +538,6 @@ window.I18N_EN = {
 "Лечь вовремя, 7+ часов сна":"Go to bed on time, 7+ hours of sleep",
 "Лечь до 23:00, 7+ часов сна":"Bed by 23:00, 7+ hours of sleep",
 "Лечь до 23:30, 7+ часов сна":"Bed by 23:30, 7+ hours of sleep",
-"Линия — среднее за 7 дней, точки — каждое взвешивание. Смотри на линию: вес скачет от воды и соли.":"The line is the 7-day average, the dots are each weigh-in. Watch the line: weight jumps around with water and salt.",
 "Ложусь в":"I go to bed at",
 "Локально жир с лица не сжигается: он уходит вместе с общим процентом жира. Быстрее всего на припухлость влияют соль и еда поздно вечером, недосып и алкоголь. Если припухлость с одной стороны, болит или держится неделями — покажись врачу.":"You can't burn fat from your face alone: it goes as your overall body fat drops. Puffiness responds fastest to salt and late-night food, lack of sleep and alcohol. If it's on one side, hurts or lasts for weeks, see a doctor.",
 "Локти неподвижны, внизу полностью выпрямляй руки.":"Keep your elbows still and fully straighten your arms at the bottom.",
@@ -1881,4 +1880,7 @@ window.I18N_EN = {
 "Весь день: ещё {n}":"Rest of the day: {n} more",
 "Одним сообщением: что сделал, что съел, что потратил или что изменить в планах. Я покажу, прежде чем что-то менять.":"In one message: what you did, ate or spent, or what to change in your plans. I'll show you before changing anything.",
 "Меню на завтра из простых продуктов под твою норму":"Tomorrow's menu from simple foods, matched to your targets",
+"в среднем {h} ч · цель 7–9":"average {h} h · goal 7–9",
+"цель 7–9 ч":"goal 7–9 h",
+"Линия — среднее за 7 дней, точки — взвешивания":"Line: 7-day average. Dots: weigh-ins",
 };

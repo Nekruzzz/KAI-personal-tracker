@@ -1933,4 +1933,6 @@ window.I18N_EN = {
 "Все эти дни уже на месте":"All these days are already here",
 "Перед загрузкой копии из файла, {d}":"Before restoring a backup, {d}",
 "Файл загрузился не полностью. Проверь данные или верни как было.":"The file only partly loaded. Check your data, or undo.",
+"В облачной копии аккаунта":"In your account's cloud copy",
+"Записи хранятся в этом телефоне и в облачной копии аккаунта. Файл с копией нужен, только если хочешь держать данные и у себя.":"Your records are on this phone and in your account's cloud copy. A backup file is only needed if you also want a copy of your own.",
 };

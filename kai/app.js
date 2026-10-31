@@ -4558,7 +4558,13 @@ function localTellParse(text, date){
   const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
   // gym sets first, before the text is split at commas: "squats 60 kg for 8, 8 and 7", "отжимания 3х10"
   const sets = [];
-  const rest = localSets(spelled, date, sets);
+  let rest = localSets(spelled, date, sets);
+  // "went to bed at 23:30, woke up at 7" / "лёг в 23, встал в 7": the hours in between
+  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\D{1,40}?(?:woke(?: up)?|got up|until|till|встал[аи]?|проснул[аи]?сь|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?/i);
+  if (bed){
+    const h = ((+bed[3] * 60 + +(bed[4] || 0)) - (+bed[1] * 60 + +(bed[2] || 0)) + 1440) % 1440 / 60;
+    if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(bed[0], ' '); }
+  }
   if (sets.length) r.sets = sets;
   const parts = rest.replace(/(\d)\s*k\s+steps/ig, '$1000 steps').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
     .reduce((a, x) => { if (a.length && /^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x)) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before

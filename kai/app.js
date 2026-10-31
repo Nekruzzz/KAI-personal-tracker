@@ -4736,6 +4736,15 @@ A.setTheme = el => { try { if (el.dataset.v === 'system') localStorage.removeIte
 try { matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => { applyTheme(); render(); }); } catch {}
 applyTheme();
 
+/* ============ links into the app: home-screen shortcuts open a screen directly (#tell, #day) ============ */
+function openFromLink(){
+  const h = location.hash.slice(1); if (!['tell', 'day'].includes(h)) return;
+  if (!S.ready) return setTimeout(openFromLink, 200);
+  history.replaceState(null, '', location.pathname + location.search);
+  S.tab = 'day'; render();
+  if (h === 'tell' && meta().welcomed) A.tell();
+}
+
 /* ============ init ============ */
 async function init(){
   render();
@@ -4757,5 +4766,6 @@ async function init(){
     navigator.serviceWorker.register('./sw.js').then(reg => { reg.addEventListener('updatefound', () => { const w = reg.installing; w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) toast(tr('Обновление скачано: перезапусти приложение')); }); }); }).catch(()=>{});
   }
   render();
+  openFromLink();
 }
 init();

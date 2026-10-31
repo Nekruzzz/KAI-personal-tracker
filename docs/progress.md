@@ -49,6 +49,8 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **More screen order:** everyday settings first (profile, workouts, schedule, daily tasks, reminders), one-time ones last (language, appearance, privacy). Sign-in stays near the top once a server is connected.
 - **Startup:** with a year of data and the CPU slowed four times, content appears in about 0.2 s.
 - **Food charts:** one week chart with a Calories/Protein switch instead of two stacked charts. This also fixed a bug where the Progress period switch (Today / 7 days / 30 days) un-highlighted the Day tab.
+- **"What can I write?"** in Tell KAI: example phrases by topic, all of which work without AI (a test checks every one, in both languages), and a tap adds one to the message. Gym sets and task check-offs now match in either language too.
+- **Own API key in the iPhone app:** hidden once KAI's own AI server is connected (App Review 3.1.1); the web keeps it, and `ownKeys: true` in `kai/config.js` brings it back.
 - **Pull to close:** sheets close by pulling down from the grab bar or title, like iOS; a short pull springs back.
 - **Day notes in the to-do field:** typing "slept 7 hours" into Tasks now goes to Tell KAI instead of becoming a to-do called "Slept 7 hours".
 - **People who used supplements** get a one-time note on Day saying the section was removed and their list is saved.
@@ -61,7 +63,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 84 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 86 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -83,6 +85,6 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 5. **Plus price and limits:** 10 and 100 requests a day come from the `tiers` table. The price is a placeholder until you decide it.
 6. **Google sign-in inside the iPhone app** needs a URL scheme and Supabase redirect settings, and has to be tried on a device. On the web it already works once added to `providers` in `kai/config.js`.
 7. **Screen Time blocking** needs the Family Controls entitlement from Apple first. See `docs/screen-time-blocking.md`.
-8. **Features to cut or hide:** see `docs/feature-review.md`. Supplements and the face log are switched off as asked. The content tools and the on-computer and on-phone AI are still there, waiting for your call.
+8. **Features to cut or hide:** see `docs/feature-review.md`. Supplements and the face log are switched off as asked. The content tools and the on-computer and on-phone AI are still there, waiting for your call. The own-key option is now hidden in the iPhone app once the server is connected (reversible with `ownKeys`).
 9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.
 10. **Commit history note.** One commit ("Test the quick-add date fixes", the first of two with that name) went in with a test that was wrong for Saturdays; the next commit fixes it. Squashing the branch on merge hides both.

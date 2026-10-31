@@ -76,7 +76,7 @@ Before submitting, run `node tools/check-release.js`: it lists the draft notices
 
 ## Review risks to decide on
 
-- **Your own AI key (guideline 3.1.1).** The AI settings send people to Anthropic's or OpenAI's site to get a paid API key. A reviewer may read that as buying digital features outside in-app purchase. Once KAI's own AI is live, consider hiding the own-key option in the iPhone app and keeping it on the web.
+- **Your own AI key (guideline 3.1.1).** The AI settings send people to Anthropic's or OpenAI's site to get a paid API key, which a reviewer may read as buying digital features outside in-app purchase. Done: once the server is connected, the iPhone app hides this option and offers KAI's own AI instead; the web keeps it. To show it in the iPhone app anyway, set `ownKeys: true` in `kai/config.js`.
 - **Apple Health data in the cloud (guideline 5.1.3).** Steps, sleep and workouts read from Apple Health end up in day entries, and those sync to the server when signed in. Apple allows this with clear consent but forbids storing Health data in iCloud. The privacy policy should say plainly that this data syncs to KAI's server, and the Health permission step should mention it.
 - **Calories and weight (guideline 1.4.1).** The safety rules and the not-medical-advice notes are in place. Keep them visible in screenshots and review notes.
 

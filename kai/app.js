@@ -1708,6 +1708,8 @@ const PRODUCTS = [
   [tr('Пиво'), 43, 0.5, 0, 3.6],
   [tr('Вино'), 83, 0.1, 0, 2.6],
 ];
+// each food's name in the other language too, so "rice" and "рис" both find it
+const PRODUCTS_ALT = (() => { const en = window.I18N_EN || {}, ru = {}; Object.entries(en).forEach(([k, v]) => { ru[v] = ru[v] || k; }); return PRODUCTS.map(p => LANG === 'ru' ? en[p[0]] || '' : ru[p[0]] || ''); })();
 
 /* ---- supplements with solid evidence, usable without AI ---- */
 const SUPP_PRESETS = [
@@ -3044,7 +3046,7 @@ function aiStatus(){
 function connectNudge(forTell){
   if (aiStatus().ok) return '';
   // Tell KAI half-works without AI, so it says what does
-  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы и дела с датой. Для еды и всего остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
+  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
   if (cloudOn()) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
   return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него разбор дня, фото еды и скриншотов не работает. Это занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;
 }
@@ -4538,6 +4540,8 @@ function localTellParse(text, date){
       const amount = toN(m[2]), note = (m[3] || m[1] || '').trim();
       if (amount > 0){ r.money.push({type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1], note: note || c}); hit = true; }
     } else if ((m = c.match(new RegExp('(?:получил[аи]?|заработал[аи]?|зарплат[а-яё]*|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
+    const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
+    if (!hit && !future){ const meal = localMeal(c); if (meal){ (r.meals = r.meals || []).push(meal); hit = true; } }
     if (!hit){
       const t = parseQuick(c);
       if (t && t.due){
@@ -4551,10 +4555,35 @@ function localTellParse(text, date){
   }
   return {r, left};
 }
+/* "200 g chicken", "2 яйца": a food from the built-in table with an amount; cooked unless the message says raw or dry */
+const stem = w => w.toLowerCase().replace(/ё/g, 'е').slice(0, 4);
+// word stems match when they share a beginning and differ at most in the last letter: яйца ~ яйцо, eggs ~ egg
+const sameWord = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i >= 3 && i >= Math.min(a.length, b.length) - 1; };
+const RAW_RE = /сыр(?:ой|ая|ое|ые)|сух(?:ой|ая|ие|ое)|raw|dry|uncooked/i, COOKED_RE = /варён|варен|cooked|boiled/i;
+function localMeal(c){
+  const g = c.match(/(\d+(?:[.,]\d+)?)\s*(?:г|гр|грамм[а-яё]*|g|grams?)(?![a-zа-яё])/i);
+  const n = !g && c.match(/(?:^|\s)(\d{1,2})\s+[a-zа-яё]/i);
+  if (!g && !n) return null;
+  const words = (c.match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and'].includes(w));
+  let best = null;
+  PRODUCTS.forEach((p, i) => {
+    const names = (p[0] + ' ' + (PRODUCTS_ALT[i] || '')).split(/[^a-zа-яё]+/i).filter(x => x.length >= 3).map(stem);
+    const score = words.filter(w => names.some(nm => sameWord(w, nm))).length; if (!score) return;
+    const raw = RAW_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || '')), cooked = COOKED_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || ''));
+    const pref = RAW_RE.test(c) ? (raw ? 1 : 0) : (cooked ? 1 : raw ? -1 : 0); // people mostly log what they ate, cooked
+    if (!best || score > best.score || (score === best.score && pref > best.pref)) best = {p, score, pref};
+  });
+  if (!best) return null;
+  const [name, kcal, pr, fat, carb, unit] = best.p;
+  const grams = g ? toN(g[1]) : unit ? +n[1] * unit[1] : null;
+  if (!grams || grams > 3000) return null;
+  const k = grams / 100, r1 = x => Math.round(x * k * 10) / 10;
+  return {name: `${name}, ${Math.round(grams)} ${tr('г')}`, kcal: Math.round(kcal * k), p: r1(pr), f: r1(fat), c: r1(carb)};
+}
 function tellLocal(text, date){
   const {r, left} = localTellParse(text, date);
   if (!tellLines(r, date).length) return false;
-  r.reply = tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.') + (left.length ? ' ' + tr('Еду и остальное без ИИ не понимаю: еду можно добавить в «Питание → Продукты».') : '');
+  r.reply = tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.') + (left.length ? ' ' + tr('Часть сообщения без ИИ не понял: еду проще записать с граммами, например «150 г риса».') : '');
   const id = uid(), it = {id, kind: 'tell', result: r, meta: {date, text, local: true}, provider: 'local', label: tr('Разбор · ') + fmtShort(date), date, created: new Date().toISOString(), done: false};
   save('inbox/' + id, it);
   SH.jobId = id; SH.outId = 'tellOut';

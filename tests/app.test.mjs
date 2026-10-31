@@ -853,3 +853,21 @@ test('every first-run example works without AI, in both languages', () => {
   for (const t of [...JSON.parse(run(`JSON.stringify(TELL_EXAMPLES())`)), ...ru])
     assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0`), t);
 });
+
+test('without AI, a food with an amount is found in the built-in table, in either language', () => {
+  const meal = t => JSON.parse(run(`JSON.stringify(localMeal(${JSON.stringify(t)}))`));
+  const rice = meal('150 g rice');
+  assert.match(rice.name, /^Rice, cooked/i, 'cooked unless the message says raw or dry');
+  assert.ok(rice.kcal > 100 && rice.kcal < 250, String(rice.kcal));
+  const ru = meal('съел 200 г куриной грудки');
+  assert.match(ru.name, /Chicken breast/i);
+  assert.equal(meal('2 eggs').kcal, Math.round(157 * 1.1), "pieces use the table's piece weight");
+  assert.equal(meal('had a nice day'), null);
+  assert.match(meal('2 яйца').name, /egg/i, 'Russian word endings');
+  assert.match(meal('100 г курицы').name, /Chicken/i);
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('150 g rice and slept 7 hours', todayISO()).r)`));
+  assert.equal(r.meals.length, 1); assert.equal(r.sleep_h, 7);
+  const todo = JSON.parse(run(`JSON.stringify(localTellParse('buy 2 bananas tomorrow', todayISO()).r)`));
+  assert.equal((todo.meals || []).length, 0, 'a plan for tomorrow is not a meal');
+  assert.equal(todo.new_tasks.length, 1);
+});

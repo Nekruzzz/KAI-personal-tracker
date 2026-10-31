@@ -3046,7 +3046,7 @@ function aiStatus(){
 function connectNudge(forTell){
   if (aiStatus().ok) return '';
   // Tell KAI half-works without AI, so it says what does
-  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
+  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
   if (cloudOn()) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
   return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него разбор дня, фото еды и скриншотов не работает. Это занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;
 }
@@ -4528,7 +4528,11 @@ function localTellParse(text, date){
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
   const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
-  const parts = spelled.replace(/(\d)\s*k\s+steps/ig, '$1000 steps').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
+  // gym sets first, before the text is split at commas: "squats 60 kg for 8, 8 and 7", "отжимания 3х10"
+  const sets = [];
+  const rest = localSets(spelled, date, sets);
+  if (sets.length) r.sets = sets;
+  const parts = rest.replace(/(\d)\s*k\s+steps/ig, '$1000 steps').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
     .reduce((a, x) => { if (a.length && /^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x)) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c of parts){
     let m, hit = false;
@@ -4548,7 +4552,8 @@ function localTellParse(text, date){
     } else if ((m = c.match(new RegExp('(?:получил[аи]?|заработал[аи]?|зарплат[а-яё]*|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
     const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
     if (!hit && !future){ const meal = localMeal(c); if (meal){ (r.meals = r.meals || []).push(meal); hit = true; } }
-    // changing or cancelling what is already planned, and things already done, are for the AI: guessing could duplicate or delete
+    if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
+    // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
     if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
     if (!hit){
       const range = c.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
@@ -4589,6 +4594,32 @@ function localMeal(c){
   if (!grams || grams > 3000) return null;
   const k = grams / 100, r1 = x => Math.round(x * k * 10) / 10;
   return {name: `${name}, ${Math.round(grams)} ${tr('г')}`, kcal: Math.round(kcal * k), p: r1(pr), f: r1(fat), c: r1(carb)};
+}
+const SKIP_WORDS = new Set(['did', 'done', 'today', 'сегодня', 'сделал', 'сделала', 'выполнил', 'finished', 'the', 'my', 'мои', 'свои', 'get', 'didn', 'успел', 'exercises', 'упражнения']);
+const wordsOf = t => (String(t).match(/[a-zа-яё]{3,}/gi) || []).filter(w => !SKIP_WORDS.has(w.toLowerCase())).map(stem);
+/* "did my posture exercises", "gym done", "не успел сделать осанку": a task of that day, checked or unchecked */
+function localDone(c, date){
+  const neg = /didn.?t|did not|не сделал|не успел|пропустил|skipped/i.test(c);
+  if (!neg && !/(?:^|\s)(?:did|done|finished|completed|сделал[аи]?|выполнил[аи]?|сходил[аи]? в зал|был[аи]? в зале|worked out)(?![a-zа-яё])/i.test(c)) return null;
+  const tasks = getDay(date).tasks || [];
+  if (/\bgym\b|в зал|в зале|worked out|тренировк/i.test(c) && tasks.some(t => t.id === 'gym')) return {key: neg ? 'tasks_undone' : 'tasks_done', id: 'gym'};
+  const ws = wordsOf(c), hit = tasks.find(t => wordsOf(t.title).some(a => ws.some(b => sameWord(a, b))));
+  return hit ? {key: neg ? 'tasks_undone' : 'tasks_done', id: hit.id} : null;
+}
+/* sets for exercises in the plan, today's workout first; returns the text with them taken out */
+function localSets(text, date, out){
+  const today = (plan().workouts[workoutFor(date)]?.ex || []), all = [...today, ...Object.values(plan().workouts).flatMap(w => w.ex)];
+  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.find(e => wordsOf(e.name).some(a => ws.some(b => sameWord(a, b)))) : null; };
+  const kg = (n, u) => { const v = toN(n); return (u ? /lb|фунт/i.test(u) : isUS()) ? Math.round(v / LB * 10) / 10 : v; };
+  return text.replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*)?\s*(?:for|на|по)\s*(\d{1,2}(?:\s*(?:,|and|и|\/)\s*\d{1,2})*)/gi, (m, name, w, u, reps) => {
+    const ex = findEx(name); if (!ex) return m;
+    reps.split(/\s*(?:,|and|и|\/)\s*/).filter(Boolean).forEach(rp => out.push({ex: ex.id, w: kg(w, u), r: +rp}));
+    return ' ';
+  }).replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d)\s*[x×х]\s*(\d{1,3})(?![\d.,])/gi, (m, name, n, rp) => {
+    const ex = findEx(name); if (!ex) return m;
+    for (let i = 0; i < +n; i++) out.push({ex: ex.id, w: 0, r: +rp});
+    return ' ';
+  });
 }
 function tellLocal(text, date){
   const {r, left} = localTellParse(text, date);

@@ -1886,6 +1886,6 @@ window.I18N_EN = {
 "Разобрал на телефоне, без ИИ. Проверь и подтверди.":"Read on your phone, without AI. Check it and confirm.",
 "Часть сообщения без ИИ не понял: еду проще записать с граммами, например «150 г риса».":"Part of the message needs AI. For food, add an amount, such as “150 g rice”.",
 "Разобрано на телефоне":"Read on this phone",
-"Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.":"Without AI I understand sleep, steps, walks, weight, spending, dated to-dos, and food with grams or pieces. For everything else, connect AI.",
+"Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.":"Without AI I understand sleep, steps, walks, weight, spending, gym sets, checking off tasks, dated to-dos, and food with grams or pieces. For everything else, connect AI.",
 "Завтра в 18:30 позвонить маме":"Call mom tomorrow at 18:30",
 };

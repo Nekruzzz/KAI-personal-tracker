@@ -16,10 +16,10 @@ test('the on-phone reader is right whenever it proposes something, and never tou
     out.r.reply = c.lang === 'ru' ? 'Разобрал на телефоне' : 'Read on the phone';
     const g = grade(out.r, c.expect, c.lang);
     if (g.pass) passed++;
-    for (const k of ['update_events', 'cancel_events', 'move_workouts', 'tasks_done', 'tasks_undone']) assert.ok(!(out.r[k] || []).length, `${c.id}: ${k} is left to the AI`);
+    for (const k of ['update_events', 'cancel_events', 'move_workouts']) assert.ok(!(out.r[k] || []).length, `${c.id}: ${k} is left to the AI`);
     if (!out.n || g.pass) continue;
     // the only accepted miss: part of a meal logged, the rest left to the AI
     assert.ok(g.fails.every(f => /^meals_/.test(f)), `${c.id} proposed something wrong: ${g.fails.join(', ')}`);
   }
-  assert.ok(passed >= 20, `passes ${passed} of ${cases.length}`);
+  assert.ok(passed >= 25, `passes ${passed} of ${cases.length}`);
 });

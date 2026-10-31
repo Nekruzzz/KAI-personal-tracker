@@ -882,3 +882,15 @@ test('quick add: "завтрак" is breakfast, not tomorrow; "next week" moves 
     assert.ok(next >= run(`addDays('${mon}', 7)`) && next < run(`addDays('${mon}', 14)`), `${day} next week: ${next}`);
   }
 });
+
+test('without AI, gym sets and checking off today\'s tasks are understood too', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  run(`(() => { const pl = clone(plan()); pl.dailyTasks = [{id: 'posture', title: 'Осанка, 5 минут', cat: 'posture'}]; save('app/plan', pl); })()`);
+  const s = p('squats 60 kg for 8, 8 and 7');
+  assert.equal(s.sets.length, 3);
+  assert.deepEqual(s.sets.map(x => x.r), [8, 8, 7]);
+  assert.equal(s.sets[0].w, 60);
+  assert.deepEqual(p('did my posture exercises').tasks_done, ['posture']);
+  assert.deepEqual(p("didn't get to the posture exercises").tasks_undone, ['posture']);
+  assert.equal(p('push-ups against a table 3x10').sets?.length || 0, 3);
+});

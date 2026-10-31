@@ -1926,4 +1926,6 @@ window.I18N_EN = {
 "Подъём в":"Wake-up at",
 "Не понял без ИИ:":"Not understood without AI:",
 "Еду проще записать с граммами, например «150 г риса».":"Food is easiest with an amount, such as “150 g rice”.",
+"Рост, вес или возраст в профиле выглядят как опечатка (рост нужен в сантиметрах). Пока они не исправлены, норму не считаю.":"Height, weight or age in your profile look like a typo (height goes in centimeters). Until they are fixed, I won't work out a target.",
+"Проверить профиль":"Check profile",
 };

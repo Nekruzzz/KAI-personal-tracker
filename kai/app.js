@@ -4343,22 +4343,48 @@ function recapStats(){
 function recapCanvas(st){
   const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d'), font = (w, px) => `${w} ${px}px Manrope, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
-  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#123a3f'); g.addColorStop(.45, '#0b2226'); g.addColorStop(1, '#000'); c.fillStyle = g; c.fillRect(0, 0, W, H);
-  const hours = m => m >= 60 ? num(m / 60, 1) + ' ' + tr('ч') : Math.round(m) + ' ' + tr('мин');
+  /* the app's look: a dark page with soft colour, and glass tiles that catch the light at their edges */
+  c.fillStyle = '#050607'; c.fillRect(0, 0, W, H);
+  const blob = (x, y, r, col) => { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(5,6,7,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H); };
+  blob(60, 40, 780, 'rgba(46,189,107,.42)'); blob(1080, 330, 660, 'rgba(57,135,229,.34)'); blob(1000, 1340, 780, 'rgba(144,133,233,.32)'); blob(0, 1060, 560, 'rgba(57,135,229,.2)');
+  const rr = (x, y, w, h, r) => { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); };
+  const glass = (x, y, w, h, r) => {
+    rr(x, y, w, h, r); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill();
+    const sheen = c.createLinearGradient(0, y, 0, y + h * .55); sheen.addColorStop(0, 'rgba(255,255,255,.10)'); sheen.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = sheen; rr(x, y, w, h, r); c.fill();
+    const rim = c.createLinearGradient(x, y, x + w, y + h); rim.addColorStop(0, 'rgba(255,255,255,.5)'); rim.addColorStop(.3, 'rgba(255,255,255,.06)'); rim.addColorStop(.7, 'rgba(255,255,255,.04)'); rim.addColorStop(1, 'rgba(255,255,255,.25)');
+    c.strokeStyle = rim; c.lineWidth = 2; rr(x + 1, y + 1, w - 2, h - 2, r - 1); c.stroke();
+  };
+  const soft = 'rgba(255,255,255,.72)', {head, headLabel, tiles} = recapPlan(st);
   c.fillStyle = '#fff'; c.font = font(800, 56); c.fillText('KAI', 80, 120);
-  c.fillStyle = '#a2a6aa'; c.font = font(600, 36); c.fillText(`${fmtShort(st.days[0])} – ${fmtShort(st.days[6])}`, 80, 180);
-  c.fillStyle = '#fff'; c.font = font(800, 150); c.fillText(hours(st.total), 80, 370);
-  c.fillStyle = '#a2a6aa'; c.font = font(600, 40); c.fillText(tr('вложено за неделю'), 80, 435);
-  const tiles = [[hours(st.walk), tr('ходьба'), '#199e70'], [hours(st.gym), tr('зал'), '#3987e5'], [hours(st.study), tr('учёба'), '#c98500'], [st.active + ' / 7', tr('активных дней'), '#e8a33d'], [String(st.tasks), tr('задач сделано'), '#2ebd6b'], [String(st.streak), tr('дней подряд'), '#ef5b56']];
+  c.fillStyle = soft; c.font = font(600, 36); c.fillText(`${fmtShort(st.days[0])} – ${fmtShort(st.days[6])}`, 80, 180);
+  c.fillStyle = '#fff'; c.font = font(800, 150); c.fillText(head, 80, 370);
+  c.fillStyle = soft; c.font = font(600, 40); c.fillText(headLabel, 80, 435);
   tiles.forEach(([v, l, col], i) => {
-    const x = 80 + (i % 2) * 470, y = 510 + Math.floor(i / 2) * 230;
-    c.fillStyle = 'rgba(255,255,255,.08)'; c.beginPath(); if (c.roundRect) c.roundRect(x, y, 450, 205, 32); else c.rect(x, y, 450, 205); c.fill();
-    c.fillStyle = col; c.fillRect(x + 36, y + 40, 56, 8);
-    c.fillStyle = '#fff'; c.font = font(800, 68); c.fillText(v, x + 36, y + 120);
-    c.fillStyle = '#a2a6aa'; c.font = font(600, 32); c.fillText(l, x + 36, y + 170);
+    const x = 80 + (i % 2) * 470, y = 510 + Math.floor(i / 2) * 210;
+    glass(x, y, 450, 190, 36);
+    c.fillStyle = col; rr(x + 36, y + 36, 56, 8, 4); c.fill();
+    c.fillStyle = '#fff'; c.font = font(800, 68); c.fillText(v, x + 36, y + 112);
+    c.fillStyle = soft; c.font = font(600, 32); c.fillText(l, x + 36, y + 160);
   });
-  c.fillStyle = '#fff'; c.font = font(700, 40); c.fillText(`${tr('Уровень')} ${st.level}`, 80, 1270);
+  /* the week at a glance: a filled day is an active one, counted the same way as "active days" */
+  const on = k => { const t = timeOn(k), dd = S.docs['days/' + k]; return t.walk + t.gym + t.study > 0 || (!!dd && dayScore(dd) >= .7); };
+  st.days.forEach((k, i) => {
+    const cx = 130 + i * (820 / 6), cy = 1215, lit = on(k);
+    if (lit){ const g = c.createLinearGradient(cx, cy - 50, cx, cy + 50); g.addColorStop(0, '#5fd48a'); g.addColorStop(1, '#1f9d55'); c.fillStyle = g; c.beginPath(); c.arc(cx, cy, 50, 0, Math.PI * 2); c.fill(); c.strokeStyle = 'rgba(255,255,255,.45)'; c.lineWidth = 2; c.stroke(); }
+    else glass(cx - 50, cy - 50, 100, 100, 50);
+    c.fillStyle = lit ? '#04140a' : soft; c.font = font(700, 30); c.textAlign = 'center'; c.fillText(DOW[dow(k)], cx, cy + 11); c.textAlign = 'left';
+  });
+  c.fillStyle = '#fff'; c.font = font(700, 40); c.textAlign = 'right'; c.fillText(`${tr('Уровень')} ${st.level}`, W - 80, 120); c.textAlign = 'left';
   return cv;
+}
+/* what the summary shows: the time put in as the headline, or the tasks done when no time was logged (never a
+   discouraging "0 min"), and only the tiles that have something in them */
+function recapPlan(st){
+  const hours = m => m >= 60 ? num(m / 60, 1) + ' ' + tr('ч') : Math.round(m) + ' ' + tr('мин'), timed = st.total >= 1;
+  return {
+    head: timed ? hours(st.total) : String(st.tasks), headLabel: timed ? tr('вложено за неделю') : tr('задач сделано за неделю'),
+    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)),
+  };
 }
 A.recap = () => {
   const st = recapStats();

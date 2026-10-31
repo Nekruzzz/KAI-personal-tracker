@@ -1010,3 +1010,12 @@ test('a day note typed into the to-do field goes to Tell KAI instead of becoming
   for (const t of ['slept 7 hours', 'spent 12 on lunch', '150 g rice', 'гулял 40 минут']) assert.equal(run(`isDayNote(${JSON.stringify(t)})`), true, t);
   for (const t of ['call mom tomorrow at 18:30', 'buy milk', 'exam on Friday at 10', 'надо оплатить интернет']) assert.equal(run(`isDayNote(${JSON.stringify(t)})`), false, t);
 });
+
+test('people who had supplements are told once where they went', () => {
+  run(`save('app/plan', {...clone(plan()), supps: [{name: 'Vitamin D3'}]}); setMeta({suppsNoteSeen: false})`);
+  assert.match(run(`viewDay()`), /supplements section has been removed/);
+  run(`A.suppsNoteOk()`);
+  assert.doesNotMatch(run(`viewDay()`), /supplements section has been removed/);
+  run(`save('app/plan', {...clone(plan()), supps: []}); setMeta({suppsNoteSeen: false})`);
+  assert.doesNotMatch(run(`viewDay()`), /supplements section has been removed/, 'nobody else sees it');
+});

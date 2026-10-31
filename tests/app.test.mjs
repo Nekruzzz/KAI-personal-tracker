@@ -1133,3 +1133,23 @@ test('a typo in the profile never becomes a calorie target; height in meters is 
   setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'});
   assert.equal(run(`targets().ok`), true);
 });
+
+test('losing weight never sets a target under 1200 kcal, even for small people, and even with an override', () => {
+  setProfile({age: 60, height: 150, weight: 45, sex: 'f', goal: 'lose', activity: 1.2, units: 'metric'});
+  assert.equal(run(`targets().kcal`), 1200);
+  run(`save('app/profile', {...profile(), override: {kcal: 900}})`);
+  assert.equal(run(`targets().kcal`), 1200, 'an old or adaptive override cannot go lower either');
+  setProfile({age: 60, height: 150, weight: 45, sex: 'f', goal: 'keep', activity: 1.2, units: 'metric'});
+  assert.ok(run(`targets().kcal`) < 1200, 'keeping weight still uses the real maintenance figure');
+  setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'});
+});
+
+test('at the calorie floor, slow weight loss brings advice to move more, never a lower target', () => {
+  setProfile({age: 60, height: 150, weight: 45, sex: 'f', goal: 'lose', activity: 1.2, units: 'metric'});
+  run(`globalThis.wt0 = weightTrend; weightTrend = () => ({rate: -0.1, perWeek: -0.05})`);
+  try {
+    const a = JSON.parse(run(`JSON.stringify(adaptiveAdvice())`));
+    assert.equal(a.kcal, undefined, 'no button to lower the target');
+    assert.match(a.text, /lowest KAI suggests/);
+  } finally { run(`weightTrend = wt0`); setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'}); }
+});

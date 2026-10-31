@@ -800,3 +800,15 @@ test('sleep is a section of Body, so the health tabs fit on a phone, and old lin
   assert.doesNotMatch(h, /data-v="sleep"/);
   assert.match(h, /Slept last night/);
 });
+
+test('the font ships with the app: no request to Google, and the offline shell includes it', () => {
+  const html = readFileSync(new URL('../kai/index.html', import.meta.url), 'utf8');
+  const sw = readFileSync(new URL('../kai/sw.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/);
+  for (const f of ['manrope-latin.woff2', 'manrope-cyrillic.woff2']) {
+    assert.match(html, new RegExp('fonts/' + f));
+    assert.match(sw, new RegExp('./fonts/' + f));
+    assert.ok(readFileSync(new URL('../kai/fonts/' + f, import.meta.url)).length > 1000);
+  }
+  assert.match(readFileSync(new URL('../kai/fonts/OFL.txt', import.meta.url), 'utf8'), /SIL Open Font License/);
+});

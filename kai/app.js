@@ -345,6 +345,7 @@ const lIn = v => v && isUS() ? +(v * IN).toFixed(2) : v;
 const heightShow = cm => { if (!cm || !isUS()) return cm ?? ''; const t = Math.round(cm / IN); return Math.floor(t / 12) + "'" + (t % 12); };
 const heightIn = text => { const x = String(text).trim(), m = x.match(/^(\d)\s*['’\s]\s*(\d{1,2})?\s*["”]?$/), cm = toNum(x); return !isUS() ? (cm >= 1 && cm <= 2.5 ? Math.round(cm * 100) : cm) /* "1.75" means meters */ : m ? +(((+m[1]) * 12 + (+m[2] || 0)) * IN).toFixed(1) : lIn(toNum(x)); };
 const goalOf = p => ['lose', 'keep', 'gain'].includes(p.goal) ? p.goal : 'lose'; // a profile with no goal dates from when fat loss was the only plan
+const KCAL_FLOOR = 1200;
 function targets(){
   const p = profile();
   const w = toNum(p.weight), h = toNum(p.height), a = toNum(p.age);
@@ -360,7 +361,8 @@ function targets(){
   const deficit = aim === 'lose' ? Math.min(500, Math.round(w * 0.005 * 7700 / 7)) : 0, surplus = aim === 'gain' ? 250 : 0;
   const base = Math.round((tdee - deficit + surplus)/10)*10;
   const ov = p.override || {};
-  const kcal = care ? Math.max(base, ov.kcal || 0) : Math.max(Math.round(bmr/10)*10, ov.kcal || base);
+  // losing weight never goes under 1200 kcal, the same line the AI is held to (SAFETY_RULES), even for small people whose BMR is lower
+  const kcal = care ? Math.max(base, ov.kcal || 0) : Math.max(Math.round(bmr/10)*10, ov.kcal || base, aim === 'lose' ? KCAL_FLOOR : 0);
   const prot = ov.p || Math.round(w * (aim === 'lose' ? 2.0 : 1.6)), fat = ov.f || Math.round(w * 0.8);
   const carbs = Math.max(80, Math.round((kcal - prot*4 - fat*9)/4));
   return {ok:true, kcal, base, p: prot, f: fat, c: carbs, steps: ov.steps||8000, sleep:7.5, tdee:Math.round(tdee), bmr:Math.round(bmr), deficit, surplus, goal, aim, care, adjusted: !!ov.kcal && kcal === ov.kcal};
@@ -1853,7 +1855,9 @@ function adaptiveAdvice(){
   const rateTxt = `${tr("Вес меняется на")} ${trend.rate>0?'+':''}${num(trend.rate,2)}${tr("% в неделю (")}${trend.perWeek>0?'+':''}${num(W(trend.perWeek),2)} ${kgU()}${tr("). Цель: −0,5…−0,7%.")}`;
   if (trend.rate > -0.25){
     if (logged < 8) return {state:'log', rate:trend.rate, text: rateTxt + ` ${tr("Вес почти не снижается, но еда записана только за")} ${logged} ${tr("из 14 дней. Сначала 1–2 недели записывай всё, что ешь: часто лишние калории прячутся в перекусах и масле.")}`};
-    const k = Math.max(t.bmr, t.kcal - 150);
+    const k = Math.max(t.bmr, KCAL_FLOOR, t.kcal - 150);
+    // already at the floor: eating less is not the answer
+    if (k >= t.kcal) return {state:'slow', rate:trend.rate, text: rateTxt + ` ${tr("Норма уже на нижней границе, ниже KAI не советует. Больше движения и сна помогут сильнее, а если вес стоит долго, стоит обсудить это с врачом.")}`};
     return {state:'slow', rate:trend.rate, kcal:k, text: rateTxt + ` ${tr("Снижение слишком медленное. Убери примерно 150 ккал в день, белок не трогай.")}`};
   }
   if (trend.rate < -1.0 && since >= 14){ const k = t.kcal + 150; return {state:'fast', rate:trend.rate, kcal:k, text: rateTxt + tr(' Худеешь слишком быстро: растёт риск терять мышцы. Добавь около 150 ккал в день, лучше из углеводов.')}; }

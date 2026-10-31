@@ -50,6 +50,9 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Startup:** with a year of data and the CPU slowed four times, content appears in about 0.2 s.
 - **Food charts:** one week chart with a Calories/Protein switch instead of two stacked charts. This also fixed a bug where the Progress period switch (Today / 7 days / 30 days) un-highlighted the Day tab.
 - **"What can I write?"** in Tell KAI: example phrases by topic, all of which work without AI (a test checks every one, in both languages), and a tap adds one to the message. Gym sets and task check-offs now match in either language too.
+- **Safety: calorie targets.** A height typed in meters ("1.75") gave a target of 860 kcal; implausible profile values now give no target and ask the person to check their profile, and a height between 1 and 2.5 is read as meters. A small adult choosing "lose" could get a target under 1,200 kcal (930 for a 150 cm, 45 kg, 60-year-old), below the line the AI is held to; losing weight now never goes under 1,200 kcal, and the slow-progress advice suggests moving more instead of eating less once someone is at that floor.
+- **Typed numbers:** in English, "9,500" was saved as 9.5 (the comma read as a decimal point). Now it's 9500, "1 200" is 1200, and "80,5" still works.
+- **Now card at night:** before wake-up time it says it's time to sleep, instead of "Free slot".
 - **Money reading fixed and widened:** "потратил 1 200 руб" was read as 200; thousands with a space are now one number. "$12", "€20", "15 dollars", "300р", "got paid 1 500" and "lunch 12" (the example the Money screen itself gives) now work.
 - **Health and the cloud:** once a server is connected, the Health permission step and Health setting say Health data is in the cloud copy, not iCloud (App Review 5.1.3).
 - **Privacy policy draft updated** to match the app: on-phone reading when no AI is connected, Health in the cloud copy, and deleting everything on the phone from More.
@@ -66,7 +69,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 89 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 95 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -91,3 +94,4 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 8. **Features to cut or hide:** see `docs/feature-review.md`. Supplements and the face log are switched off as asked. The content tools and the on-computer and on-phone AI are still there, waiting for your call. The own-key option is now hidden in the iPhone app once the server is connected (reversible with `ownKeys`).
 9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.
 10. **Commit history note.** One commit ("Test the quick-add date fixes", the first of two with that name) went in with a test that was wrong for Saturdays; the next commit fixes it. Squashing the branch on merge hides both.
+11. **Calorie floor for losing weight** is now 1,200 kcal (it was the person's BMR, which can be lower for small people). That matches the AI's safety rules. If you'd rather use separate floors (for example 1,200 for women and 1,500 for men), it's `KCAL_FLOOR` in `kai/app.js`.

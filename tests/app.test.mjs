@@ -1118,3 +1118,18 @@ test('typed numbers: thousands with a space or (in English) a comma, and a decim
   assert.equal(run(`toNum('')`), null);
   assert.equal(run(`toNum(42)`), 42);
 });
+
+test('a typo in the profile never becomes a calorie target; height in meters is understood', () => {
+  for (const [h, w, a] of [[17, 70, 25], [175, 7, 25], [175, 70, 250], [2500, 70, 25]]) {
+    setProfile({age: a, height: h, weight: w, goal: 'keep', units: 'metric'});
+    const t = JSON.parse(run(`JSON.stringify(targets())`));
+    assert.equal(t.ok, false, `${h}/${w}/${a}`);
+    assert.equal(t.kcal, null);
+  }
+  assert.match(run(`hFood()`), /look like a typo/);
+  run(`save('app/profile', {...profile(), units: 'metric'})`);
+  assert.equal(run(`heightIn('1.75')`), 175, 'meters become centimeters');
+  assert.equal(run(`heightIn('175')`), 175);
+  setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'});
+  assert.equal(run(`targets().ok`), true);
+});

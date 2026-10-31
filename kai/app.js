@@ -343,12 +343,14 @@ const wIn = v => v && isUS() ? +(v / LB).toFixed(3) : v;
 const L = cm => cm == null || cm === '' || !isUS() ? cm : +(cm / IN).toFixed(1);
 const lIn = v => v && isUS() ? +(v * IN).toFixed(2) : v;
 const heightShow = cm => { if (!cm || !isUS()) return cm ?? ''; const t = Math.round(cm / IN); return Math.floor(t / 12) + "'" + (t % 12); };
-const heightIn = text => { const x = String(text).trim(), m = x.match(/^(\d)\s*['’\s]\s*(\d{1,2})?\s*["”]?$/); return !isUS() ? toNum(x) : m ? +(((+m[1]) * 12 + (+m[2] || 0)) * IN).toFixed(1) : lIn(toNum(x)); };
+const heightIn = text => { const x = String(text).trim(), m = x.match(/^(\d)\s*['’\s]\s*(\d{1,2})?\s*["”]?$/), cm = toNum(x); return !isUS() ? (cm >= 1 && cm <= 2.5 ? Math.round(cm * 100) : cm) /* "1.75" means meters */ : m ? +(((+m[1]) * 12 + (+m[2] || 0)) * IN).toFixed(1) : lIn(toNum(x)); };
 const goalOf = p => ['lose', 'keep', 'gain'].includes(p.goal) ? p.goal : 'lose'; // a profile with no goal dates from when fat loss was the only plan
 function targets(){
   const p = profile();
   const w = toNum(p.weight), h = toNum(p.height), a = toNum(p.age);
   if (!w || !h || !a) return {ok:false, kcal:null, p:null, f:null, c:null, steps:8000, sleep:7.5};
+  // a typo (height 17, age 250) must not turn into a target: no numbers until the profile looks like a person
+  if (h < 100 || h > 250 || w < 25 || w > 300 || a < 10 || a > 100) return {ok:false, implausible:true, kcal:null, p:null, f:null, c:null, steps:8000, sleep:7.5};
   // with no sex given, the midpoint of the two formulas; profiles from before the goal setting keep the value they were planned with
   const bmr = 10*w + 6.25*h - 5*a + (p.sex === 'f' ? -161 : p.sex === 'm' || !p.goal ? 5 : -78);
   const tdee = bmr * (toNum(p.activity) || 1.45);
@@ -1362,7 +1364,7 @@ function viewHealth(){
 function hFood(){
   const d = getDay(todayISO()), e = eaten(d), t = targets(), pl = plan();
   let h = '';
-  if (!t.ok) h += `<div class="banner">${ic('alert')}<div>${tr("Норма КБЖУ считается из роста, веса и возраста. Заполни профиль, и я рассчитаю её под твою цель.")}<div class="btnrow"><button class="btn" data-act="profile">${tr("Заполнить профиль")}</button></div></div></div>`;
+  if (!t.ok) h += `<div class="banner">${ic('alert')}<div>${t.implausible ? tr("Рост, вес или возраст в профиле выглядят как опечатка (рост нужен в сантиметрах). Пока они не исправлены, норму не считаю.") : tr("Норма КБЖУ считается из роста, веса и возраста. Заполни профиль, и я рассчитаю её под твою цель.")}<div class="btnrow"><button class="btn" data-act="profile">${t.implausible ? tr("Проверить профиль") : tr("Заполнить профиль")}</button></div></div></div>`;
   const target = t.kcal || 2200;
   const segs = [{v:e.p*4, c:'c1', label:tr('Белки')},{v:e.f*9, c:'c4', label:tr('Жиры')},{v:e.c*4, c:'c3', label:tr('Углеводы')},{v:Math.max(0,target-e.kcal), c:'track', label:tr('Осталось')}];
   h += `<section class="card"><div class="hero-row"><div class="grow"><div class="hero-num">${num(e.kcal)}</div><div class="hero-sub">${tr("из")} ${t.ok?num(t.kcal):'—'} ${tr("ккал сегодня")}</div></div>

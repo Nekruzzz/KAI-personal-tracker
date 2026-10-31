@@ -976,3 +976,14 @@ test('without AI, everyday portions count too, and one message is one meal', () 
   assert.ok(r('ate 2 slices of pizza').meals[0].kcal > 400, 'a pizza slice is a pizza slice, not 30 g');
   assert.match(r('перекусил бананом и горстью орехов').meals[0].name, /banana.*walnut/i);
 });
+
+test('an AI food answer is added once even with a double tap, and can be undone', () => {
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.meals = []; }); save('inbox/f1', {id: 'f1', kind: 'food', meta: {date: '${d}', mult: 1}, done: false, created: new Date().toISOString(), result: {name: 'Soup', kcal: 300, p: 10, f: 5, c: 40}}); SH = null`);
+  run(`A.foodAdd({dataset: {id: 'f1'}}); A.foodAdd({dataset: {id: 'f1'}})`);
+  assert.equal(run(`getDay('${d}').meals.length`), 1);
+  run(`A.undoApply()`);
+  assert.equal(run(`getDay('${d}').meals.length`), 0);
+  assert.equal(run(`S.docs['inbox/f1'].done`), false);
+  run(`remove('inbox/f1')`);
+});

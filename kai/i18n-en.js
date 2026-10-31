@@ -1893,4 +1893,6 @@ window.I18N_EN = {
 "Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».":"Deleting erases everything KAI keeps on this phone. If you signed in, the cloud copy stays; you delete that under Account.",
 "Удалить все данные на этом телефоне":"Delete all data on this phone",
 "Раздел БАДов убран, чтобы приложение было проще. Твой список сохранён и вернётся, если раздел включат снова.":"The supplements section has been removed to keep the app simple. Your list is saved and will come back if the section returns.",
+"Калории":"Calories",
+"Белок":"Protein",
 };

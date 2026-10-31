@@ -1019,3 +1019,14 @@ test('people who had supplements are told once where they went', () => {
   run(`save('app/plan', {...clone(plan()), supps: []}); setMeta({suppsNoteSeen: false})`);
   assert.doesNotMatch(run(`viewDay()`), /supplements section has been removed/, 'nobody else sees it');
 });
+
+test('switches inside a card change the card, not the tab', () => {
+  run(`S.tab = 'day'; A.sub({dataset: {k: 'prog', v: 'month'}})`);
+  assert.equal(run(`S.tab`), 'day');
+  assert.equal(run(`S.sub.prog`), 'month');
+  run(`S.tab = 'health'; S.sub.health = 'food'; A.sub({dataset: {k: 'fw', v: 'p'}})`);
+  assert.equal(run(`S.tab`), 'health');
+  run(`A.sub({dataset: {k: 'health', v: 'train'}})`);
+  assert.equal(run(`S.tab`), 'health');
+  run(`S.sub.prog = 'week'; S.sub.fw = 'kcal'; S.tab = 'day'`);
+});

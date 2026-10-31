@@ -2167,7 +2167,7 @@ A.goFood = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='food'; windo
 A.goSupps = () => { S.tab='health'; S.sub.health='supps'; window.scrollTo(0,0); render(); };
 function closeSheetQuiet(){ if (SH){ SH = null; drawSheet(); } }
 A.sick = () => { haptic('medium'); mutDay(todayISO(), d => { d.status = d.status==='sick' ? 'ok' : 'sick'; }); toast(getDay(todayISO()).status==='sick' ? tr('Отметил: болеешь. Серия не сгорит.') : tr('Рад, что ты здоров')); };
-A.delTask = el => { mutDay(todayISO(), d => { d.tasks = d.tasks.filter(t=>t.id!==el.dataset.id); }); };
+A.delTask = el => withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { d.tasks = d.tasks.filter(t=>t.id!==el.dataset.id); }));
 A.dismissY = () => mutDay(addDays(todayISO(),-1), d => { d.carried = true; });
 A.carry = el => {
   const w = el.dataset.w;
@@ -2214,7 +2214,7 @@ A.finishW = el => {
 A.sleepQ = el => mutDay(todayISO(), d => { d.sleepQ = +el.dataset.v; });
 A.suppTake = el => { if (!getDay(todayISO()).supps?.[el.dataset.n]){ haptic('light'); burstAt(el, {n:10}); } else haptic('selection'); mutDay(todayISO(), d => { d.supps = d.supps||{}; d.supps[el.dataset.n] = !d.supps[el.dataset.n]; const all = (plan().supps||[]).every(s=>d.supps[s.name]); const t = d.tasks.find(x=>x.id==='supps'); if (t) t.done = all; }); };
 A.delSupp = el => { const p = clone(plan()); p.supps.splice(+el.dataset.i,1); save('app/plan', p); };
-A.delMeal = el => mutDay(todayISO(), d => { d.meals.splice(+el.dataset.i,1); });
+A.delMeal = el => withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { d.meals.splice(+el.dataset.i,1); }));
 A.mPrev = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m-2, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
 A.mNext = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
 A.psf = el => { S.sub.ps = el.dataset.v; render(); };
@@ -2326,7 +2326,14 @@ A.undoApply = () => {
   if (!UNDO) return;
   UNDO.forEach(([p, v]) => { if (v === undefined){ if (S.docs[p] !== undefined) remove(p); } else save(p, v); });
   UNDO = null; hideToast(); haptic('selection'); toast(tr('Отменено, всё как было'));
+  if (SH) drawSheet();
 };
+/* a delete is one tap, so it can be taken back for a few seconds */
+function withUndo(paths, fn){
+  const snap = paths.map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
+  fn(); UNDO = snap;
+  toast(tr('Удалено'), {ms: 6000, action: {label: tr('Вернуть'), act: 'undoApply'}});
+}
 
 /* ============ FOOD ============ */
 function foodSheet(mode){
@@ -2445,7 +2452,7 @@ function clsRow(c, i){ return `<div class="fgrid cls" data-i="${i}" style="grid-
 function readClasses(){ return $$('.cls').map(r=>({day:+$('[data-f=day]',r).value, time:$('[data-f=time]',r).value, title:$('[data-f=title]',r).value.trim()})).filter(c=>c.title); }
 A.clsAdd = () => { const list = $('#clsList'); list.insertAdjacentHTML('beforeend', clsRow({day:1,time:'08:00',title:''}, list.children.length)); };
 A.clsDel = el => el.closest('.cls').remove();
-A.dtDel = el => { const p = clone(plan()); p.dailyTasks.splice(+el.dataset.i,1); save('app/plan', p); drawSheet(); };
+A.dtDel = el => withUndo(['app/plan'], () => { const p = clone(plan()); p.dailyTasks.splice(+el.dataset.i,1); save('app/plan', p); drawSheet(); });
 A.dtAdd = () => { const t = val('dtNew'); if (!t) return; const p = clone(plan()); p.dailyTasks.push({id:uid(), title:t, cat:'custom'}); save('app/plan', p); drawSheet(); };
 A.profileSave = () => {
   const p = {...clone(profile()), name:val('pfN'), age:toNum(val('pfA')), height:toNum(val('pfH')), weight:toNum(val('pfW')), waist:toNum(val('pfWa')), activity:toNum(val('pfAc'))};
@@ -2585,7 +2592,7 @@ function analysisHTML(a){
   </section>`;
 }
 A.analysis = el => { const a = analyses().find(x=>x.id===el.dataset.id); if (!a) return; openSheet(`${PL[a.platform]?.name||''} · ${fmtShort(a.date)}`, analysisHTML(a) + `<button class="btn danger" data-act="anDel" data-id="${a.id}">${ic('trash')}${tr("Удалить разбор")}</button>`); };
-A.anDel = el => { remove('analyses/'+el.dataset.id); closeSheet(); };
+A.anDel = el => withUndo(['analyses/' + el.dataset.id], () => { remove('analyses/'+el.dataset.id); closeSheet(); });
 A.ideaToScript = el => { A.newScript(el); setTimeout(()=>{ $('#scT').value = el.dataset.t + (el.dataset.h ? tr('. Хук: ')+el.dataset.h : ''); SH.scP = [el.dataset.p]; $$('[data-act=scP]').forEach(b=>b.classList.toggle('on', b.dataset.v===el.dataset.p)); }); };
 A.newScript = () => {
   const pd = SH?.planDate || '';
@@ -2668,7 +2675,7 @@ A.txType = el => { SH.tx = {...SH.tx, type:el.dataset.v, amount:val('txA'), date
 A.txSave = () => { const a = toNum(val('txA')); if (!a) return toast(tr('Введи сумму')); const t = {id:SH.tx.id||uid(), type:SH.tx.type, amount:Math.abs(a), date:val('txD')||todayISO(), cat:val('txC'), note:val('txN')}; if (SH.tx.id) removeTx(SH.tx.id, SH.tx.date); addTx([t]); closeSheet(); toast(tr('Сохранено')); };
 function removeTx(id, date){ const m = (date||'').slice(0,7) || S.moneyMonth; const doc = clone(S.docs['money/'+m] || {tx:[]}); doc.tx = doc.tx.filter(x=>x.id!==id); save('money/'+m, doc); }
 A.txEdit = el => { const t = monthTx(S.moneyMonth).find(x=>x.id===el.dataset.id); if (!t) return; SH = null; openSheet(tr('Операция'), () => txForm(SH.tx) + `<div class="btnrow"><button class="btn" data-act="txSave">${tr("Сохранить")}</button><button class="btn danger" data-act="txDel">${ic('trash')}${tr("Удалить")}</button></div>`); SH.tx = {...t}; drawSheet(); };
-A.txDel = () => { removeTx(SH.tx.id, SH.tx.date); closeSheet(); };
+A.txDel = () => { const m = (SH.tx.date || '').slice(0, 7) || S.moneyMonth; withUndo(['money/' + m], () => { removeTx(SH.tx.id, SH.tx.date); closeSheet(); }); };
 A.txShot = () => {
   openSheet(tr('Скриншот из банка'), () => `<div class="hint">${tr("Загрузи скриншоты «Истории» или «Анализа финансов» из банка. ИИ перепишет операции, а ты отметишь, что добавить.")}</div>
     <label class="btn ghost block">${ic('image')}${tr("Выбрать скриншоты")}<input type="file" accept="image/*" multiple hidden data-ch="bkFiles"></label><div id="bkPrev" class="hint"></div>
@@ -2750,7 +2757,7 @@ A.kbAdd = async el => {
   SH.kbFiles = []; busy(el, false); drawSheet(); toast(tr('Сохранено в базу'));
 };
 A.kbOpen = el => { const k = kbItems().find(x=>x.id===el.dataset.id); if (!k) return; openSheet(k.title, `${k.summary?`<div class="note">${esc(k.summary)}</div>`:''}${k.url?`<a class="link" href="${esc(k.url)}" target="_blank" rel="noopener">${tr("Открыть ссылку")}</a>`:''}${k.tags?.length?`<div class="btnrow">${k.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}<div class="ai-out">${esc((k.text||'').slice(0,30000))}${(k.text||'').length>30000?'\n…':''}</div><div class="btnrow"><button class="btn ghost" data-act="kb">${tr("Назад")}</button><button class="btn danger" data-act="kbDel" data-id="${k.id}">${ic('trash')}${tr("Удалить")}</button></div>`); };
-A.kbDel = el => { remove('kb/'+el.dataset.id); A.kb(); };
+A.kbDel = el => withUndo(['kb/' + el.dataset.id], () => { remove('kb/'+el.dataset.id); A.kb(); });
 A.kbAsk = async () => {
   const q = val('kbQ'); if (!q) return toast(tr('Напиши вопрос'));
   const ranked = kbSearch(q).map(x=>x.k); const rest = kbItems().filter(k=>!ranked.includes(k));
@@ -3049,7 +3056,8 @@ A.evSave = () => {
   SH.evEdit = null; SH.evKind = null; drawSheet();
   if (fresh.length) toast(fresh[0].text, {icon:'alert', tone:'warn', ms:6000}); else toast(old ? tr('Сохранено') : tr('Событие добавлено'));
 };
-A.evDel = el => { const pl = clone(plan()); if (!pl.routine) return; pl.routine.events = (pl.routine.events || []).filter(e => e.id !== el.dataset.id); save('app/plan', pl); if (planTasks(el.dataset.id).length) saveTasks(smartTasks().filter(t => t.examId !== el.dataset.id || t.done)); if (SH) { if (SH.evEdit === el.dataset.id) SH.evEdit = null; drawSheet(); } };
+A.evDel = el => withUndo(['app/plan', 'app/tasks'], () => evDel0(el));
+const evDel0 = el => { const pl = clone(plan()); if (!pl.routine) return; pl.routine.events = (pl.routine.events || []).filter(e => e.id !== el.dataset.id); save('app/plan', pl); if (planTasks(el.dataset.id).length) saveTasks(smartTasks().filter(t => t.examId !== el.dataset.id || t.done)); if (SH) { if (SH.evEdit === el.dataset.id) SH.evEdit = null; drawSheet(); } };
 
 setInterval(() => { if (S.tab === 'day' && !document.hidden && !SH) scheduleRender(); }, 60000);
 
@@ -3369,7 +3377,7 @@ A.tkDone = el => {
   burstAt(el); haptic('light'); sound('pop');
   saveTasks(smartTasks().map(t => t.id === el.dataset.id ? {...t, done:true, doneAt: todayISO()} : t));
 };
-A.tkDel = el => saveTasks(smartTasks().filter(t => t.id !== el.dataset.id));
+A.tkDel = el => withUndo(['app/tasks'], () => saveTasks(smartTasks().filter(t => t.id !== el.dataset.id)));
 A.tkPri = el => saveTasks(smartTasks().map(t => t.id === el.dataset.id ? {...t, pri: t.pri === 1 ? 2 : 1} : t));
 function moveTask(t, w){
   const today = todayISO(), n = nowMin();

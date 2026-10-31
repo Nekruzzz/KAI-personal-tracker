@@ -29,5 +29,13 @@ for (const [key, why] of [
   ['NSPhotoLibraryAddUsageDescription', 'someone taps Save Image when sharing the weekly summary'],
 ]) if (!plist.includes(`<key>${key}</key>`)) blockers.push(`Info.plist: ${key} is missing, and iOS ends the app when ${why}`);
 
+// App Store Connect refuses an upload whose code reads file dates or stored settings without saying why (the Filesystem and Apple sign-in plugins do)
+const manifest = fs.existsSync(path.join(root, 'native/ios/App/App/PrivacyInfo.xcprivacy')) ? read('native/ios/App/App/PrivacyInfo.xcprivacy') : '';
+if (!manifest) blockers.push('native/ios/App/App/PrivacyInfo.xcprivacy is missing: the upload is refused (ITMS-91053)');
+else {
+  for (const c of ['NSPrivacyAccessedAPICategoryFileTimestamp', 'NSPrivacyAccessedAPICategoryUserDefaults']) if (!manifest.includes(c)) blockers.push(`PrivacyInfo.xcprivacy: ${c} is not declared, and the upload is refused`);
+  if (!read('native/ios/App/App.xcodeproj/project.pbxproj').includes('PrivacyInfo.xcprivacy in Resources')) blockers.push('PrivacyInfo.xcprivacy is not in the Xcode project, so it is not in the app');
+}
+
 console.log(blockers.length ? `Not ready, ${blockers.length} to fix:\n- ` + blockers.join('\n- ') : 'ready');
 process.exitCode = blockers.length ? 1 : 0;

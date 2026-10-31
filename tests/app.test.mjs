@@ -1352,3 +1352,12 @@ test('the iPhone app explains every private thing it touches, so iOS never ends 
   for (const k of ['NSHealthShareUsageDescription', 'NSCameraUsageDescription', 'NSPhotoLibraryUsageDescription', 'NSPhotoLibraryAddUsageDescription'])
     assert.match(plist, new RegExp(`<key>${k}</key>\\s*<string>[^<]{20,}</string>`), `${k} with a real explanation`);
 });
+
+test('the iPhone app ships a privacy manifest that says why it reads file dates and stored settings', () => {
+  const m = readFileSync(new URL('../native/ios/App/App/PrivacyInfo.xcprivacy', import.meta.url), 'utf8');
+  assert.match(m, /NSPrivacyAccessedAPICategoryFileTimestamp<\/string>\s*<key>NSPrivacyAccessedAPITypeReasons<\/key>\s*<array>\s*<string>C617\.1/);
+  assert.match(m, /NSPrivacyAccessedAPICategoryUserDefaults<\/string>\s*<key>NSPrivacyAccessedAPITypeReasons<\/key>\s*<array>\s*<string>CA92\.1/);
+  assert.match(m, /<key>NSPrivacyTracking<\/key>\s*<false\/>/, 'no tracking');
+  const proj = readFileSync(new URL('../native/ios/App/App.xcodeproj/project.pbxproj', import.meta.url), 'utf8');
+  assert.match(proj, /PrivacyInfo\.xcprivacy in Resources \*\/,/, 'copied into the app');
+});

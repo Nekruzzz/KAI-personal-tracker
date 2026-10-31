@@ -96,6 +96,8 @@ Have a lawyer check these against the final privacy policy. "Linked to you" appl
 
 There are no ads, no third-party analytics and no tracking.
 
+The same answers are in the app's privacy manifest, `native/ios/App/App/PrivacyInfo.xcprivacy`. If one changes, change the other. The manifest also says why the app reads file dates (the Filesystem plugin, reason C617.1) and stored settings (the Apple sign-in plugin, reason CA92.1). Without that, App Store Connect refuses the upload (ITMS-91053).
+
 ## Age rating
 
 The app has health and weight features and free-form AI. Answer Apple's questionnaire honestly, and read the current age-rating categories before choosing, since many users may be students. The terms draft sets a minimum age of 13; ask the lawyer whether that fits your countries.

@@ -71,11 +71,30 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Health:** sleep is a section of Body, so the three tabs fit on a phone; the weight chart caption is one short line.
 - **Undo for one-tap deletes:** to-dos, meals, money entries, events, daily tasks and knowledge base entries can be brought back from the toast for a few seconds.
 - **Finishing a season no longer loses history for good.** It used to clear every day (weights, meals, sets) after two taps, with no way back. Now the days are copied on the phone first, and if the copy can't be saved, nothing is cleared. The toast has Undo, and later the archive offers "Bring back the days": days written since keep their values and only get what they're missing. The archive's weights follow the pounds setting.
+- **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
+- **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
+- **No backup nag while the account's cloud copy is up to date:** the weekly reminder said data would be lost if iOS cleared storage, which isn't true once records sync.
+- **Unreachable code removed:** an old profile sheet that a later line had replaced (about 8 KB), with its 17 translations.
 - **Automatic copies are reachable.** The copy kept before the first cloud sync was announced in a message but couldn't be opened anywhere. Data and backup now lists the copies on the phone, and each can be saved as a file that "Restore a backup" accepts. Without the phone's storage (a private Safari tab), photos waiting for the AI and these copies now last until the app closes instead of being lost at once.
+
+## Liquid Glass, redone (iOS 26)
+
+The first glass pass sat on flat, single-colour backgrounds, so it read as plain white or grey bars. This pass follows Apple's Materials guidance and "Adopting Liquid Glass" ([HIG: Materials](https://developer.apple.com/design/human-interface-guidelines/materials)):
+
+- **Glass only on the floating layer:** tab bar, header buttons, sheets, toasts and the rest timer. Content sits on a lighter standard material (translucent cards), as Apple advises.
+- **Something for the glass to show:** the page has soft colour that changes per section (green for Day, rose for Health, amber for Money, violet for More), so the glass picks up colour as content scrolls beneath it.
+- **The glass itself:** blur plus extra colour from beneath, a rim that catches the light at the top left and bottom right, an inner glow where real glass bends light, and a soft shadow. A touch makes it swell slightly and light up from the finger. Safari can't do true refraction (the SVG displacement trick only works in Chrome), so the edges imitate it.
+- **Tab bar:** a floating capsule. The selected tab sits in a lighter glass capsule that slides to the next tab and stretches like a drop on the way. Scrolling down, the bar recedes to its icons; scrolling up brings the labels back.
+- **Header:** the profile is a glass capsule and AI a glass circle. Both float, and once the page moves the name tucks away, the section title appears in the middle, and content fades under a soft blurred edge.
+- **Sheets:** inset glass panels whose title bar frosts only when content scrolls under it. Buttons, pills and segmented controls are capsules with a lit top edge.
+- **Accessibility:** Reduce Transparency gives solid surfaces with no blur or colour; Increase Contrast gives solid surfaces with visible edges; Reduce Motion stops the sliding and receding. Every text element was measured over the real rendered glass, in both themes, on four tabs and two scroll positions, by sampling the pixels behind it: all at 4.5:1 or better (3:1 for large text).
+- **Speed:** scrolling stays at 60 fps with the CPU slowed four times.
+
+**To see it**, run this branch, not `main`: `python3 -m http.server 8123 --directory kai` and open http://localhost:8123, or build the iPhone app from this branch. An installed web app may need one extra reload to drop its cached copy.
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 102 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 105 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 37 tests, all pass (28 at the start), including new database, webhook and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

@@ -1883,4 +1883,9 @@ window.I18N_EN = {
 "в среднем {h} ч · цель 7–9":"average {h} h · goal 7–9",
 "цель 7–9 ч":"goal 7–9 h",
 "Линия — среднее за 7 дней, точки — взвешивания":"Line: 7-day average. Dots: weigh-ins",
+"Разобрал на телефоне, без ИИ. Проверь и подтверди.":"Read on your phone, without AI. Check it and confirm.",
+"Еду и остальное без ИИ не понимаю: еду можно добавить в «Питание → Продукты».":"Without AI I can't read food or the rest. You can add food under Food → Foods.",
+"Разобрано на телефоне":"Read on this phone",
+"Без ИИ я понимаю сон, шаги, прогулки, вес, расходы и дела с датой. Для еды и всего остального подключи ИИ.":"Without AI I understand sleep, steps, walks, weight, spending and to-dos with a date. For food and everything else, connect AI.",
+"Завтра в 18:30 позвонить маме":"Call mom tomorrow at 18:30",
 };

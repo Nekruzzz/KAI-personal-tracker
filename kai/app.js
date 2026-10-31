@@ -742,7 +742,7 @@ const JOB_APPLY = {
   kbExtract: it => { const k = S.docs['kb/'+it.meta.kbId]; if (!k) return; const r = it.result; save('kb/'+it.meta.kbId, {...k, title: k.title && k.title!=='Заметка' ? k.title : (r.title||k.title), text: r.text ? ((k.text?k.text+'\n\n':'') + r.text) : k.text, summary: r.summary||k.summary||'', tags: r.tags||k.tags||[], pending:false}); },
 };
 function jobView(it){
-  const r = it.result || {}, by = `<div class="hint">${tr("Ответил:")} ${esc(PROV[it.provider]?.name||tr('ИИ'))}${it.meta?.date && it.meta.date!==todayISO()?tr(' · запрос от ')+fmtShort(it.meta.date):''}</div>`;
+  const r = it.result || {}, by = `<div class="hint">${it.provider === 'local' ? tr('Разобрано на телефоне') : `${tr("Ответил:")} ${esc(PROV[it.provider]?.name||tr('ИИ'))}`}${it.meta?.date && it.meta.date!==todayISO()?tr(' · запрос от ')+fmtShort(it.meta.date):''}</div>`;
   if (it.applyError) return `<div class="note">${tr("Не получилось применить:")} ${esc(it.applyError)}</div>`;
   switch (it.kind){
     case 'tell': return tellView(it) + by;
@@ -2219,7 +2219,7 @@ CH.bodyPhoto = async el => {
 /* ============ TELL ============ */
 A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   <div class="hint">${tr("Одним сообщением: что сделал, что съел, что потратил или что изменить в планах. Я покажу, прежде чем что-то менять.")}</div>
-  ${connectNudge()}
+  ${connectNudge(true)}
   <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
   ${provPicker(false)}
   <button class="btn block" data-act="tellGo">${ic('send')}${tr("Разобрать")}</button>
@@ -2229,6 +2229,7 @@ A.tellGo = async () => {
   SH.tellText = text;
   if (carePause(text, 'tellOut', 'tellGo')) return;
   const date = todayISO();
+  if (!aiStatus().ok && tellLocal(text, date)) return; // no AI yet: the common things are understood on the phone
   const id = await submitJob('tell', {prompt: tellPrompt(text, date), meta:{date, text}, provider: SH.prov||'auto', label:tr('Разбор · ')+fmtShort(date)});
   queueNow(id, 'tellOut');
 };
@@ -3040,8 +3041,10 @@ function aiStatus(){
   const c = aiCfg(), p = c.order.find(x => provConfigured(x));
   return p ? {ok:true, p, text: PROV[p].short + tr(' · основной')} : {ok:false, text:tr('Не подключён')};
 }
-function connectNudge(){
+function connectNudge(forTell){
   if (aiStatus().ok) return '';
+  // Tell KAI half-works without AI, so it says what does
+  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы и дела с датой. Для еды и всего остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
   if (cloudOn()) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
   return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него разбор дня, фото еды и скриншотов не работает. Это занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;
 }
@@ -4490,7 +4493,8 @@ const trackedFrom = () => meta().startedOn || dayKeys()[0] || todayISO();
 const firstWeek = () => { const st = meta().startedOn; return !!st && dayDiff(st, todayISO()) < 7; };
 // someone who already sent a message, or has one waiting, has found KAI; old installs count by what they logged
 const hasTold = () => !!meta().toldOnce || Object.keys(S.docs).some(k => (k.startsWith('jobs/') || k.startsWith('inbox/')) && S.docs[k]?.kind === 'tell') || dayKeys().some(k => S.docs['days/' + k]?.log?.length);
-const TELL_EXAMPLES = () => [tr('Съел овсянку с бананом и выпил кофе'), tr('Гулял 40 минут, спал 7 часов'), tr('Потратил 12 на обед'), tr('В пятницу в 10:00 экзамен')];
+// without AI, only examples the phone can read itself, so the first tap always works
+const TELL_EXAMPLES = () => aiStatus().ok ? [tr('Съел овсянку с бананом и выпил кофе'), tr('Гулял 40 минут, спал 7 часов'), tr('Потратил 12 на обед'), tr('В пятницу в 10:00 экзамен')] : [tr('Гулял 40 минут, спал 7 часов'), tr('Потратил 12 на обед'), tr('В пятницу в 10:00 экзамен'), tr('Завтра в 18:30 позвонить маме')];
 function firstTellCard(){
   if (hasTold() || meta().firstTellOff) return '';
   return `<section class="card firstc" aria-labelledby="firstH"><h2 id="firstH">${tr('Расскажи KAI, как прошёл день')}</h2>
@@ -4506,6 +4510,57 @@ A.tellEx = el => {
 A.firstTellOff = () => setMeta({firstTellOff: true});
 const tellGo0 = A.tellGo;
 A.tellGo = async (...a) => { if (val('tellT') && !meta().toldOnce) setMeta({toldOnce: true}); return tellGo0(...a); };
+
+/* ============ Tell KAI without AI: the most common messages are read on the phone, in the same format the AI answers in ============ */
+const NUM = '(\\d+(?:[.,]\\d+)?)';
+const toN = x => +String(x).replace(',', '.');
+const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*)';
+const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
+const MONEY_CAT = [[/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/связь|интернет|телефон|phone|internet/i, 'Связь и интернет']];
+function localTellParse(text, date){
+  const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
+  // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
+  const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
+  const parts = spelled.split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim()).filter(Boolean);
+  for (const c of parts){
+    let m, hit = false;
+    if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
+    if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
+    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|прогулк[а-яё]*|ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|в зале|зал|workout|worked out|trained|gym)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
+    if ((m = c.match(new RegExp('(?:вес(?![а-яё])|вешу|взвесил[аи]?сь|weigh(?:t|ed|ing)?)\\D{0,8}?' + NUM + '\\s*(кг|kg|lbs?|pounds?|фунт[а-яё]*)?', 'i')))){
+      let w = toN(m[1]); const lb = m[2] ? /lb|pound|фунт/i.test(m[2]) : isUS();
+      if (lb) w = Math.round(w / LB * 10) / 10;
+      if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
+    }
+    if ((m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?)\\s+)?(?:за|на|for|on)?\\s*' + NUM + '\\s*(?:\\$|€|£|₽|руб[а-яё.]*|rm|usd|eur)?\\s*(?:(?:на|за|on|for)\\s+(.+))?$', 'i')))){
+      const amount = toN(m[2]), note = (m[3] || m[1] || '').trim();
+      if (amount > 0){ r.money.push({type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1], note: note || c}); hit = true; }
+    } else if ((m = c.match(new RegExp('(?:получил[аи]?|заработал[аи]?|зарплат[а-яё]*|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
+    if (!hit){
+      const t = parseQuick(c);
+      if (t && t.due){
+        const exam = /экзамен|зач[её]т|контрольн|exam|test\b|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
+        if (exam || deadline) r.events.push({title: t.title, date: t.due, from: t.time || null, until: null, kind: exam ? 'exam' : 'deadline', note: ''});
+        else r.new_tasks.push({title: t.title, date: t.due, time: t.time || null});
+        hit = true;
+      }
+    }
+    if (!hit) left.push(c);
+  }
+  return {r, left};
+}
+function tellLocal(text, date){
+  const {r, left} = localTellParse(text, date);
+  if (!tellLines(r, date).length) return false;
+  r.reply = tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.') + (left.length ? ' ' + tr('Еду и остальное без ИИ не понимаю: еду можно добавить в «Питание → Продукты».') : '');
+  const id = uid(), it = {id, kind: 'tell', result: r, meta: {date, text, local: true}, provider: 'local', label: tr('Разбор · ') + fmtShort(date), date, created: new Date().toISOString(), done: false};
+  save('inbox/' + id, it);
+  SH.jobId = id; SH.outId = 'tellOut';
+  const out = $('#tellOut'); if (out) out.innerHTML = jobView(it);
+  return true;
+}
 
 /* ============ permissions on the iPhone: say why first, then let iOS ask ============ */
 function permBody(){

@@ -812,3 +812,44 @@ test('the font ships with the app: no request to Google, and the offline shell i
   }
   assert.match(readFileSync(new URL('../kai/fonts/OFL.txt', import.meta.url), 'utf8'), /SIL Open Font License/);
 });
+
+test('without AI, everyday messages are still understood on the phone, in both languages, and shown before anything changes', () => {
+  const p = (t) => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()))`));
+  let x = p('Slept 7.5 hours, walked 40 minutes and spent 12 on lunch. 9,500 steps');
+  assert.equal(x.r.sleep_h, 7.5);
+  assert.deepEqual(x.r.time_log, [{kind: 'walk', min: 40}]);
+  assert.equal(x.r.steps, 9500);
+  assert.deepEqual([x.r.money[0].type, x.r.money[0].amount, x.r.money[0].cat], ['out', 12, 'Кафе и рестораны']);
+  x = p('Спал 6 часов, гулял полчаса и потратил 300 на такси. Вес 80,5 кг');
+  assert.equal(x.r.sleep_h, 6);
+  assert.equal(x.r.weight, 80.5);
+  assert.deepEqual([x.r.money[0].amount, x.r.money[0].cat], [300, 'Транспорт']);
+  assert.deepEqual(x.r.time_log, [{kind: 'walk', min: 30}], '"полчаса" is 30 minutes');
+  assert.deepEqual(p('studied for an hour and a half').r.time_log, [{kind: 'study', min: 90}]);
+  x = p('Physics exam on Friday at 10:00, call mom tomorrow at 18:30');
+  assert.equal(x.r.events[0].kind, 'exam');
+  assert.equal(x.r.events[0].from, '10:00');
+  assert.equal(x.r.new_tasks[0].time, '18:30');
+  x = p('Had oatmeal with a banana');
+  assert.equal(x.left.length, 1, 'food needs the AI or the food table');
+  run(`save('app/profile', {...profile(), units: 'us'})`);
+  assert.equal(p('weight 180').r.weight, 81.6, 'pounds become kilograms in storage');
+  run(`save('app/profile', {...profile(), units: 'metric'})`);
+  // the whole flow: nothing is saved until the person confirms
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.sleep = null; }); SH = null; A.tell()`);
+  assert.equal(run(`tellLocal('slept 8 hours', '${d}')`), true);
+  assert.equal(run(`getDay('${d}').sleep`), null, 'nothing changes before the tap');
+  const id = run(`SH.jobId`);
+  assert.equal(run(`S.docs['inbox/' + SH.jobId].meta.local`), true);
+  run(`A.tellApply({dataset: {id: '${id}'}})`);
+  assert.equal(run(`getDay('${d}').sleep`), 8);
+  assert.equal(run(`tellLocal('had oatmeal', '${d}')`), false, 'nothing understood: falls through to the usual AI message');
+  run(`SH = null`);
+});
+
+test('every first-run example works without AI, in both languages', () => {
+  const ru = ['Гулял 40 минут, спал 7 часов', 'Потратил 12 на обед', 'В пятницу в 10:00 экзамен', 'Завтра в 18:30 позвонить маме'];
+  for (const t of [...JSON.parse(run(`JSON.stringify(TELL_EXAMPLES())`)), ...ru])
+    assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0`), t);
+});

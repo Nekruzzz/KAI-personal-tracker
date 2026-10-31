@@ -11,12 +11,12 @@ KAI does a lot. For a stranger opening it for the first time, every extra screen
 ## Worth hiding until needed
 
 4. **Your own API key** (Claude or ChatGPT). Once KAI's own AI is live, this is for power users only. It's already under the AI settings; it could move fully under Advanced.
-5. **The "Day 1/90" season chip in the header.** A stranger doesn't know what a season is. Show it after the first week, or only once someone opens Season.
-6. **The knowledge base button in the header.** It takes one of only three header buttons for a feature few will use early on. It could move to More.
+5. **The "Day 1/90" season chip in the header:** done, removed (Season is in More).
+6. **The knowledge base button in the header:** done, moved to a row in More.
 
 ## Worth merging
 
-7. **Progress appeared in seven places.** It's now one folded "Progress and awards" section on the Day tab, plus the streak chip and the weekly recap. Merging the recap into that section is the remaining step.
+7. **Progress appeared in seven places:** done. It's one folded "Progress and awards" section on the Day tab (with "Week in review" inside), plus the streak chip. The weekly recap banner still appears on Sundays and Mondays, which is timely rather than repeated.
 
 ## Safety question, not just simplicity
 
@@ -35,6 +35,13 @@ These are switched off or folded, not deleted: saved data stays, and each can co
 - **Money:** one Expenses/Income switch instead of two, and a smaller chart.
 - **More:** the class timetable shows only for students, or when classes are already saved.
 - **Tell KAI:** a one-sentence intro instead of a paragraph. The meal-plan card is one row until a menu exists.
+
+## Also lighter since
+
+- Food shows one week chart with a Calories/Protein switch, instead of two charts.
+- Sleep is a section of Body, so the three Health tabs fit on a phone.
+- More lists everyday settings first and one-time ones last.
+- The walking week total on Day appears only once there is some.
 
 ## Already done in this round
 

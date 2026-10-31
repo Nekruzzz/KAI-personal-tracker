@@ -4570,6 +4570,22 @@ const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget 
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
 const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл/i;
 const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован/i;
+/* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
+const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
+const amountOf = (whole, cents) => +(whole.replace(/[\s ]/g, '') + (cents ? '.' + cents : ''));
+const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|gas|fuel|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
+function localMoney(c){
+  const cat = () => (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1];
+  // income first: "got paid" also contains "paid"
+  let m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + AMT, 'i'));
+  if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return {type: 'in', amount, cat: 'Доход', note: c}; }
+  m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for)\\s+(.+))?$', 'i'));
+  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return {type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}; }
+  // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
+  m = c.match(new RegExp('^(' + SPEND_WORDS + ')\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
+  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return {type: 'out', amount, cat: cat(), note: m[1]}; }
+  return null;
+}
 function localTellParse(text, date){
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
@@ -4600,10 +4616,8 @@ function localTellParse(text, date){
       if (lb) w = Math.round(w / LB * 10) / 10;
       if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
     }
-    if ((m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?)\\s+)?(?:за|на|for|on)?\\s*' + NUM + '\\s*(?:\\$|€|£|₽|руб[а-яё.]*|rm|usd|eur)?\\s*(?:(?:на|за|on|for)\\s+(.+))?$', 'i')))){
-      const amount = toN(m[2]), note = (m[3] || m[1] || '').trim();
-      if (amount > 0){ r.money.push({type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1], note: note || c}); hit = true; }
-    } else if ((m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + NUM, 'i')))){ r.money.push({type: 'in', amount: toN(m[1]), cat: 'Доход', note: c}); hit = true; }
+    const mo = localMoney(c);
+    if (mo){ r.money.push(mo); hit = true; }
     const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
     if (!hit && !future){ const ms = c.split(/\s+(?:with|plus|с|со)\s+/i).map(localMeal).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }

@@ -1180,3 +1180,12 @@ test('an answer with an impossible weight or sleep shows and applies neither', (
   assert.deepEqual([run(`getDay('${d}').weight`), run(`getDay('${d}').sleep`), run(`getDay('${d}').steps`)], [80, 7, 5000]);
   run(`remove('inbox/bad')`);
 });
+
+test('money exports as a spreadsheet: every entry, oldest first, with commas and quotes kept intact', () => {
+  run(`addTx([{id: 'c1', date: '2030-02-02', type: 'out', amount: 12, cat: 'Кафе и рестораны', note: 'lunch, with "friends"'}, {id: 'c2', date: '2030-01-05', type: 'in', amount: 900, cat: 'Доход', note: 'pay'}])`);
+  const csv = run(`moneyCSV()`).split('\r\n');
+  assert.equal(csv[0], 'Date,Type,Amount,Category,Note');
+  const i5 = csv.findIndex(l => l.startsWith('2030-01-05')), i2 = csv.findIndex(l => l.startsWith('2030-02-02'));
+  assert.ok(i5 > 0 && i2 > i5, 'oldest first');
+  assert.equal(csv[i2], '2030-02-02,Expense,12,Cafes and restaurants,"lunch, with ""friends"""');
+});

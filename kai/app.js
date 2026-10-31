@@ -84,7 +84,13 @@ const fmtShort = s => { const d = new Date(s+'T12:00:00'); return d.getDate()+' 
 const num = (v, d=0) => { const n = Number(v); if (!isFinite(n)) return '0'; return n.toLocaleString(LOCALE, {minimumFractionDigits:d, maximumFractionDigits:d}); };
 const money = v => { const c = S.docs['app/profile']?.currency; const n = num(v, Math.abs(v % 1) > 0.001 ? 2 : 0); if (c && LANG !== 'ru' && /^[$€£₹¥]$/.test(c)) return (v < 0 ? '−' : '') + c + num(Math.abs(v), Math.abs(v % 1) > 0.001 ? 2 : 0); return n + (c ? ' ' + c : ''); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-const toNum = v => { if (v === '' || v == null) return null; const n = Number(String(v).replace(',','.')); return isFinite(n) ? n : null; };
+// "1 200" is 1200; in English "9,500" is 9500 (a thousands comma); otherwise a comma is the decimal point, as in "80,5"
+const toNum = v => {
+  if (v === '' || v == null) return null;
+  let x = String(v).trim().replace(/(\d)[\s\u00a0]+(?=\d{3}(?!\d))/g, '$1');
+  x = LANG === 'en' && /^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(x) ? x.replace(/,/g, '') : x.replace(',', '.');
+  const n = Number(x); return isFinite(n) ? n : null;
+};
 
 const TQ = []; let TCUR = null;
 function toast(msg, o={}){

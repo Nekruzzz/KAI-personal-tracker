@@ -1108,3 +1108,13 @@ test('the on-phone answer names the parts it did not understand', () => {
   assert.match(reply, /Not understood without AI: “had some soup”|Not understood without AI: «had some soup»/);
   run(`SH = null`);
 });
+
+test('typed numbers: thousands with a space or (in English) a comma, and a decimal comma', () => {
+  assert.equal(run(`toNum('1 200')`), 1200);
+  assert.equal(run(`toNum('9,500')`), 9500, 'English thousands comma');
+  assert.equal(run(`toNum('80,5')`), 80.5, 'a decimal comma still works');
+  assert.equal(run(`toNum('1,234.5')`), 1234.5);
+  assert.equal(run(`toNum('12 5')`), null, 'not a thousands group');
+  assert.equal(run(`toNum('')`), null);
+  assert.equal(run(`toNum(42)`), 42);
+});

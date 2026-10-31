@@ -1153,3 +1153,15 @@ test('at the calorie floor, slow weight loss brings advice to move more, never a
     assert.match(a.text, /lowest KAI suggests/);
   } finally { run(`weightTrend = wt0`); setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'}); }
 });
+
+test('a typo in today\'s weight, sleep or steps is not saved', () => {
+  run(`save('app/profile', {...profile(), units: 'metric'}); mutDay(todayISO(), d => { d.weight = 80; d.sleep = 7; })`);
+  run(`CH.weight({value: '750'}); CH.sleep({value: '80'})`);
+  assert.equal(run(`getDay(todayISO()).weight`), 80);
+  assert.equal(run(`getDay(todayISO()).sleep`), 7);
+  run(`CH.weight({value: '79,5'}); CH.sleep({value: '7.5'})`);
+  assert.equal(run(`getDay(todayISO()).weight`), 79.5);
+  assert.equal(run(`getDay(todayISO()).sleep`), 7.5);
+  run(`CH.weight({value: ''})`);
+  assert.equal(run(`getDay(todayISO()).weight`), null, 'clearing the field still works');
+});

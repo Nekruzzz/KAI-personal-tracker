@@ -2219,7 +2219,12 @@ A.mPrev = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = n
 A.mNext = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
 A.psf = el => { S.sub.ps = el.dataset.v; render(); };
 
-const dayField = (f, parse=toNum) => el => mutDay(todayISO(), d => { d[f] = parse(el.value); if (f==='steps'){ const t = d.tasks.find(x=>x.id==='steps'); if (t && d.steps>=targets().steps) t.done = true; } if (f==='sleep'){ const t = d.tasks.find(x=>x.id==='sleep'); if (t && d.sleep>=7) t.done = true; } });
+// a typo like 750 kg or 80 hours of sleep would bend every chart and the calorie advice, so it is not saved
+const DAY_LIMITS = {weight: [25, 300], waist: [30, 250], sleep: [0, 16], steps: [0, 100000]};
+const dayField = (f, parse=toNum) => el => { const v = parse(el.value), lim = DAY_LIMITS[f];
+  if (v != null && lim && (v < lim[0] || v > lim[1])){ toast(tr('Похоже на опечатку, не сохранил:') + ' ' + el.value, {ms: 4000}); el.value = ''; return; }
+  return dayFieldSave(f, parse, el); };
+const dayFieldSave = (f, parse, el) => mutDay(todayISO(), d => { d[f] = parse(el.value); if (f==='steps'){ const t = d.tasks.find(x=>x.id==='steps'); if (t && d.steps>=targets().steps) t.done = true; } if (f==='sleep'){ const t = d.tasks.find(x=>x.id==='sleep'); if (t && d.sleep>=7) t.done = true; } });
 CH.steps = dayField('steps'); CH.sleep = dayField('sleep'); CH.weight = dayField('weight', v => wIn(toNum(v))); CH.waist = dayField('waist', v => lIn(toNum(v)));
 CH.set = el => {
   mutDay(todayISO(), d => { d.sets = d.sets||{}; const a = d.sets[el.dataset.ex] = d.sets[el.dataset.ex]||[]; const i = +el.dataset.i; a[i] = a[i]||{}; a[i][el.dataset.f] = el.dataset.f === 'w' ? wIn(toNum(el.value)) : toNum(el.value); for (let k=0;k<a.length;k++) if (!a[k]) a[k] = {}; });

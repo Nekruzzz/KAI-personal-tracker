@@ -1929,4 +1929,5 @@ window.I18N_EN = {
 "Рост, вес или возраст в профиле выглядят как опечатка (рост нужен в сантиметрах). Пока они не исправлены, норму не считаю.":"Height, weight or age in your profile look like a typo (height goes in centimeters). Until they are fixed, I won't work out a target.",
 "Проверить профиль":"Check profile",
 "Норма уже на нижней границе, ниже KAI не советует. Больше движения и сна помогут сильнее, а если вес стоит долго, стоит обсудить это с врачом.":"Your target is already at the lowest KAI suggests. More movement and sleep will help more, and if your weight stays the same for a long time, talk to a doctor.",
+"Похоже на опечатку, не сохранил:":"Looks like a typo, not saved:",
 };

@@ -1397,3 +1397,22 @@ test('the weekly summary leads with something real, never "0 min", and leaves ou
   assert.equal(b.head, '2.2 h'); assert.equal(b.headLabel, 'invested this week');
   assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'days in a row']);
 });
+
+test('after Sign in with Apple, the one-time code goes to the server so the account can be revoked later; sign-in never waits for it', async () => {
+  Object.assign(run('globalThis'), {crypto, TextEncoder}); // Sign in with Apple hashes its one-time nonce with Web Crypto
+  run(`globalThis.calls = []; globalThis.ac0 = authCall; globalThis.af1 = apiFetch; globalThis.cfg4 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k';
+    authCall = async () => ({ok: true, d: {access_token: 'a', refresh_token: 'r', expires_in: 3600, user: {id: 'u1', email: ''}}});
+    apiFetch = async (path, o) => { calls.push([path, o.body]); return {ok: true, status: 200, json: async () => ({})}; };
+    window.Capacitor = {isNativePlatform: () => true, Plugins: {SignInWithApple: {authorize: async () => ({response: {identityToken: 'id', authorizationCode: 'code-1'}})}}};
+    globalThis.auth5 = AUTH; SH = null`);
+  try {
+    await run(`A.authApple({dataset: {}, innerHTML: '', textContent: ''})`);
+    await wait(10);
+    assert.equal(run(`AUTH.id`), 'u1', 'signed in');
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(calls)`)), [['/functions/v1/apple-token', '{"code":"code-1"}']]);
+    run(`calls.length = 0; apiFetch = async () => { throw new Error('offline'); }`);
+    await run(`A.authApple({dataset: {}, innerHTML: '', textContent: ''})`);
+    await wait(10);
+    assert.equal(run(`AUTH.id`), 'u1', 'a failed hand-over changes nothing');
+  } finally { run(`authCall = ac0; apiFetch = af1; delete window.Capacitor; Object.assign(CFG, cfg4); CFG.supabaseUrl = ''; CFG.supabaseKey = ''; AUTH = auth5; lsSet('kai_auth', null); syncSave(null); clearTimeout(syncTimer)`); }
+});

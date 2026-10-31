@@ -205,7 +205,7 @@ window.I18N_EN = {
 "Введи сумму":"Enter an amount",
 "Вверху пауза, вниз 2 секунды.":"Pause at the top, 2 seconds down.",
 "Ввести КБЖУ вручную":"Enter nutrition manually",
-"Вернуть":"Restore",
+"Вернуть":"Undo",
 "Вернуть время":"Restore time",
 "Вернуть расчётную":"Back to calculated",
 "Верх":"Upper",
@@ -1889,4 +1889,5 @@ window.I18N_EN = {
 "Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.":"Without AI I understand sleep, steps, walks, weight, spending, gym sets, checking off tasks, dated to-dos, and food with grams or pieces. For everything else, connect AI.",
 "Завтра в 18:30 позвонить маме":"Call mom tomorrow at 18:30",
 "Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.":"Counted from the food table, without AI. Check the grams and confirm.",
+"Отменено, всё как было":"Undone, everything is as it was",
 };

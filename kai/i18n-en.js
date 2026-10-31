@@ -1890,4 +1890,6 @@ window.I18N_EN = {
 "Завтра в 18:30 позвонить маме":"Call mom tomorrow at 18:30",
 "Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.":"Counted from the food table, without AI. Check the grams and confirm.",
 "Отменено, всё как было":"Undone, everything is as it was",
+"Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».":"Deleting erases everything KAI keeps on this phone. If you signed in, the cloud copy stays; you delete that under Account.",
+"Удалить все данные на этом телефоне":"Delete all data on this phone",
 };

@@ -949,3 +949,18 @@ test('an applied answer can be undone in one tap, and everything returns as it w
   assert.equal(run(`S.docs['inbox/${id}'].done`), false, 'the answer can be applied again');
   run(`SH = null`);
 });
+
+test('deleting all data on this phone takes two taps, signs out first so nothing is deleted in the cloud, and keeps the language', async () => {
+  const {run: r2} = load('en');
+  for (let i = 0; i < 50 && !r2('S.ready'); i++) await wait(20);
+  r2(`mutDay(todayISO(), d => { d.steps = 4321; }); syncSave({owner: 'u', dirty: {}}); globalThis.reloaded = 0; location.reload = () => { reloaded++; }`);
+  const btn = r2(`globalThis.btn = {dataset: {}, textContent: '', innerHTML: '', disabled: false}; btn`);
+  assert.ok(btn);
+  await r2(`A.wipeLocal(btn)`);
+  assert.equal(r2(`getDay(todayISO()).steps`), 4321, 'the first tap only asks');
+  await r2(`A.wipeLocal(btn)`);
+  assert.equal(r2(`Object.keys(S.docs).length`), 0);
+  assert.equal(r2(`Object.keys(syncState().dirty || {}).length`), 0, 'no deletions queued for the cloud');
+  assert.equal(r2(`localStorage.getItem('kai_lang')`), 'en');
+  assert.equal(r2(`reloaded`), 1);
+});

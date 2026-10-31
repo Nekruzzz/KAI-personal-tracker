@@ -68,7 +68,7 @@ KAI даёт общие оценки и не заменяет врача.
 
 KAI is a personal tracker with native reminders and Apple Health. Sign-in is optional; everything except AI works without it.
 
-To test AI: sign in with the demo account [demo email and code, or how to get one]. The first AI request shows a consent screen naming Anthropic as the third party and listing what is sent (guideline 5.1.2). Account deletion is under More → Account (guideline 5.1.1(v)).
+To test AI: sign in with the demo account [demo email and code, or how to get one]. The first AI request shows a consent screen naming Anthropic as the third party and listing what is sent (guideline 5.1.2). Account deletion is under More → Account (guideline 5.1.1(v)). Everything on the phone itself can be erased under More → Data and backup → Delete all data on this phone.
 
 Health data is read only, used for the person's own progress, and never used for advertising.
 

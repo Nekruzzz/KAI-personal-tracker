@@ -3266,8 +3266,12 @@ function parseQuick(raw, defDue){
   let t = ' ' + String(raw).trim() + ' ', due = null, time = null, pri = 2, parsed = false;
   const today = todayISO();
   if (/!/.test(t) || /срочно|\burgent\b/i.test(t)){ pri = 1; t = t.replace(/!+/g, ' ').replace(/срочно|\burgent\b/ig, ' '); }
-  let m = t.match(/(^|[^\d])([01]?\d|2[0-3])[:.]([0-5]\d)(?!\d)/);
-  if (m){ time = pad(+m[2]) + ':' + m[3]; t = t.replace(m[0], m[1] + ' '); parsed = true; }
+  let m = t.match(/(^|[^\d])([01]?\d|2[0-3])[:.]([0-5]\d)(?!\d)(?:\s*(am|pm)\b)?/i);
+  if (m){ let h = +m[2]; if (/pm/i.test(m[4] || '') && h < 12) h += 12; if (/am/i.test(m[4] || '') && h === 12) h = 0; time = pad(h) + ':' + m[3]; t = t.replace(m[0], m[1] + ' '); parsed = true; } /* "9:30pm" is 21:30 */
+  else if ((m = t.match(/(?:\bin|через)\s+(?:(\d{1,3})\s*)?(hours?|hrs?|час(?:а|ов)?|minutes?|mins?|минут[уы]?|мин)(?![a-zа-яё])|(?:\bin\s+half an hour|через полчаса)/i))){
+    const n = +(m[1] || 1), mins = /^(?:h|час)/i.test(m[2] || '') ? n * 60 : m[2] ? n : 30, at = new Date(Date.now() + mins * 60000); /* "in 2 hours", "через полчаса" */
+    time = pad(at.getHours()) + ':' + pad(at.getMinutes()); due = at.getFullYear() + '-' + pad(at.getMonth() + 1) + '-' + pad(at.getDate()); t = t.replace(m[0], ' '); parsed = true;
+  }
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})\s*(?:час[а-яё]*|ч)(?![а-яё])/i)) && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; }
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 1 && +m[1] < 24){ const h = +m[1] <= 6 ? +m[1] + 12 : +m[1]; time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day; "в 5" is the afternoon
   else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; if (!m[2] && h >= 1 && h <= 6) h += 12; /* "at 5" means the afternoon */ if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
@@ -3278,6 +3282,11 @@ function parseQuick(raw, defDue){
   else for (const [w, n] of WD_RU){
     const re = new RegExp('(?:^|\\s)(?:(?:в|во|до|к|на|on|by|next)\\s+)?' + w + '(?![а-яёa-z])', 'i');
     if (re.test(t)){ due = addDays(today, ((n - dow(today) + 7) % 7) || 7); t = t.replace(re, ' '); break; }
+  }
+  // parts of the day: "tonight", "tomorrow morning", "в субботу утром", "at noon"
+  if (!time){
+    const PART = [[/\btonight\b|\bthis evening\b|(?:сегодня\s+)?вечером(?![а-яё])/i, '19:00', true], [/\b(?:in the )?morning\b|утром(?![а-яё])/i, '09:00'], [/\b(?:in the )?afternoon\b|дн[её]м(?![а-яё])/i, '14:00'], [/\b(?:at )?(?:noon|midday)\b|(?:в\s+)?полдень(?![а-яё])/i, '12:00']];
+    for (const [re, hm0, tonight] of PART) if (re.test(t)){ time = hm0; if (tonight && !due) due = today; t = t.replace(re, ' '); parsed = true; break; }
   }
   // "на следующей неделе" / "next week" pushes a weekday that would fall this week to the next one
   if (/(?:на\s+)?следующей\s+неделе|\bnext\s+week\b/i.test(t)){ if (due && dayDiff(today, due) < 7 && dow(due) > dow(today)) due = addDays(due, 7); t = t.replace(/(?:на\s+)?следующей\s+неделе|\bnext\s+week\b/ig, ' '); }
@@ -4618,7 +4627,7 @@ function localTellParse(text, date){
     }
     const mo = localMoney(c);
     if (mo){ r.money.push(mo); hit = true; }
-    const future = (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal
+    const future = !/(?:^|\s)(?:ate|had|съел[аи]?|выпил[аи]?|поел[аи]?|перекусил[аи]?)(?![a-zа-яё])/i.test(c) && (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal; "вечером съел…" already happened
     if (!hit && !future){ const ms = c.split(/\s+(?:with|plus|с|со)\s+/i).map(localMeal).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete

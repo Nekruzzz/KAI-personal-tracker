@@ -1074,3 +1074,20 @@ test('without AI, money in the ways people write it, and thousands with a space 
   assert.equal(m('lunch 200 g rice'), null, 'grams are food, not money');
   assert.equal(m('coffee with friends'), null);
 });
+
+test('times people say: pm after minutes, tonight, mornings, noon, "in 2 hours"', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
+  assert.equal(q('call at 9:30pm').time, '21:30');
+  assert.equal(q('call at 9:30pm').title, 'Call', 'no "pm" left in the title');
+  assert.equal(q('meeting at 3:15 pm tomorrow').time, '15:15');
+  assert.deepEqual([q('call mom tonight').due, q('call mom tonight').time], [run('todayISO()'), '19:00']);
+  assert.equal(q('call mom tomorrow morning').time, '09:00');
+  assert.equal(q('в субботу утром позвонить').time, '09:00');
+  assert.equal(q('вечером позвонить маме').title, 'Позвонить маме');
+  assert.equal(q('call at noon').time, '12:00');
+  const inTwo = q('позвонить маме через 2 часа'), now = run('Date.now()');
+  const at = new Date(`${inTwo.due}T${inTwo.time}:00`).getTime();
+  assert.ok(Math.abs(at - (now + 2 * 3600e3)) < 61e3, 'two hours from now');
+  const meal = JSON.parse(run(`JSON.stringify(localTellParse('вечером съел 200 г риса', todayISO()).r)`));
+  assert.equal(meal.meals?.length, 1, 'eaten in the evening is a meal, not a plan');
+});

@@ -72,6 +72,8 @@ To test AI: sign in with the demo account [demo email and code, or how to get on
 
 Health data is read only, used for the person's own progress, and never used for advertising.
 
+What makes it an app rather than a website (guideline 4.2): reminders that open the right screen when tapped, Apple Health (steps, sleep, workouts), Sign in with Apple, haptic feedback, the iOS share sheet for backups and the weekly summary, and full use offline. Things to try without signing in: tap the microphone button and send "slept 7 hours, walked 40 minutes, spent 12 on lunch" (it's read on the phone, shown for confirmation, then applied, with Undo), check off a task on Day, or open Health → Workouts for a no-equipment home workout with a rest timer.
+
 Before submitting, run `node tools/check-release.js`: it lists the draft notices and blanks in the legal pages, the server settings and anything else that would block review. Also check that `plans` in `kai/config.js` is `false` unless real in-app purchases are set up. With it on, the plans screen shows a placeholder price, which App Review rejects as incomplete. Supplements and the face log are switched off in this version, so there's nothing about them to review.
 
 ## Review risks to decide on

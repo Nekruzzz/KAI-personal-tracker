@@ -915,3 +915,10 @@ test('dates with a month name: this year, or next year once the day has passed',
   assert.equal(q('8 марта поздравить маму'), expect('03', '08'));
   assert.equal(q('the market 5 minutes away'), null, 'a word that starts like a month is not a date');
 });
+
+test('without AI, a clear to-do without a date is still a to-do', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.new_tasks)`));
+  assert.deepEqual(p('remind me to buy a new charger'), [{title: 'Buy a new charger', date: null, time: null}]);
+  assert.equal(p('надо купить молоко')[0].title, 'Купить молоко');
+  assert.deepEqual(p('I need a break'), [], 'only "need to", not any "need"');
+});

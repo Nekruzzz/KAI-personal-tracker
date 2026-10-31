@@ -3309,8 +3309,15 @@ function taskCard(){
     ${smartTasks().some(t => !t.done && t.due && t.time && t.due >= today) ? `<button class="link" data-act="tasksIcs" style="padding:6px 0">${ic('bell')} ${tr("Напомнить через Календарь")}</button>` : ''}
   </section>`;
 }
+const isDayNote = raw => { const lp = localTellParse(raw, todayISO()).r; return !lp.new_tasks.length && !lp.events.length && tellLines(lp, todayISO()).length > 0 && !careSignal(raw); };
 A.qaAdd = () => {
   const el = $('#qa'); const raw = el?.value || ''; if (!raw.trim()) return;
+  // "slept 7 hours" is a note about the day, not a to-do: it goes to Tell KAI, shown before anything changes
+  if (isDayNote(raw)){
+    el.value = ''; A.tell(); SH.tellText = raw; drawSheet();
+    if (!aiStatus().ok) tellLocal(raw, todayISO()); // with an AI, the person sends it as usual
+    return;
+  }
   const t = parseQuick(raw); if (!t) return toast(tr('Впиши, что сделать'));
   saveTasks([...smartTasks(), t]); haptic('light'); el.value = ''; render();
   toast(tr('Добавлено · ') + dueLabel(t));

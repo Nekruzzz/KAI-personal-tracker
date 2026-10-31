@@ -1005,3 +1005,8 @@ test('without AI, "I\'m sick" and a day rating are understood, "sick of" is not'
   assert.equal(r('оценка дня 3').rating, 3);
   assert.equal(r('read 3 books').rating, undefined);
 });
+
+test('a day note typed into the to-do field goes to Tell KAI instead of becoming a to-do', () => {
+  for (const t of ['slept 7 hours', 'spent 12 on lunch', '150 g rice', 'гулял 40 минут']) assert.equal(run(`isDayNote(${JSON.stringify(t)})`), true, t);
+  for (const t of ['call mom tomorrow at 18:30', 'buy milk', 'exam on Friday at 10', 'надо оплатить интернет']) assert.equal(run(`isDayNote(${JSON.stringify(t)})`), false, t);
+});

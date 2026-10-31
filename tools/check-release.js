@@ -21,8 +21,13 @@ const storeGaps = [...new Set(store.match(/\[[^\]`]{3,60}\]/g) || [])].filter(g 
 if (storeGaps.length) blockers.push(`docs/app-store.md: blanks to fill in: ${storeGaps.join(', ')}`);
 
 const plist = read('native/ios/App/App/Info.plist');
-// KAI only reads Health data, so only the reading text is required
-if (!plist.includes('NSHealthShareUsageDescription')) blockers.push('Info.plist: NSHealthShareUsageDescription is missing, and iOS ends the app when Health access is requested without it');
+// iOS ends the app when it touches any of these without the text that explains why. KAI only reads Health, so only the reading text is required.
+for (const [key, why] of [
+  ['NSHealthShareUsageDescription', 'Health access is requested'],
+  ['NSCameraUsageDescription', 'someone takes a photo of a meal'],
+  ['NSPhotoLibraryUsageDescription', 'someone picks a photo'],
+  ['NSPhotoLibraryAddUsageDescription', 'someone taps Save Image when sharing the weekly summary'],
+]) if (!plist.includes(`<key>${key}</key>`)) blockers.push(`Info.plist: ${key} is missing, and iOS ends the app when ${why}`);
 
 console.log(blockers.length ? `Not ready, ${blockers.length} to fix:\n- ` + blockers.join('\n- ') : 'ready');
 process.exitCode = blockers.length ? 1 : 0;

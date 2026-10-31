@@ -1,0 +1,5 @@
+/* Why KAI asks for each permission, in Russian. English is in Info.plist. */
+NSCameraUsageDescription = "KAI использует камеру, когда ты фотографируешь еду или скриншот, чтобы записать их.";
+NSPhotoLibraryUsageDescription = "KAI открывает только те фото, которые ты выбираешь, например еду или прогресс.";
+NSPhotoLibraryAddUsageDescription = "KAI сохраняет картинку в «Фото», только когда ты выбираешь «Сохранить изображение», например итоги недели.";
+NSHealthShareUsageDescription = "KAI читает шаги, сон и тренировки, чтобы показывать прогресс и планировать день. В «Здоровье» он ничего не записывает.";

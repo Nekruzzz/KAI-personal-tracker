@@ -1711,7 +1711,9 @@ const PRODUCTS = [
   [tr('Вино'), 83, 0.1, 0, 2.6],
 ];
 // each food's name in the other language too, so "rice" and "рис" both find it
-const PRODUCTS_ALT = (() => { const en = window.I18N_EN || {}, ru = {}; Object.entries(en).forEach(([k, v]) => { ru[v] = ru[v] || k; }); return PRODUCTS.map(p => LANG === 'ru' ? en[p[0]] || '' : ru[p[0]] || ''); })();
+const RU_OF = (() => { const ru = {}; Object.entries(window.I18N_EN || {}).forEach(([k, v]) => { ru[v] = ru[v] || k; }); return ru; })();
+const otherLang = name => LANG === 'ru' ? (window.I18N_EN || {})[name] || '' : RU_OF[name] || '';
+const PRODUCTS_ALT = PRODUCTS.map(p => otherLang(p[0]));
 
 /* ---- supplements with solid evidence, usable without AI ---- */
 const SUPP_PRESETS = [
@@ -2223,6 +2225,8 @@ CH.bodyPhoto = async el => {
 /* ============ TELL ============ */
 A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   <div class="hint">${tr("Одним сообщением: что сделал, что съел, что потратил или что изменить в планах. Я покажу, прежде чем что-то менять.")}</div>
+  <button class="link" style="align-self:flex-start" data-act="tellHelp" aria-expanded="${!!SH?.tellHelp}">${SH?.tellHelp ? tr('Скрыть примеры') : tr('Что можно написать?')}</button>
+  ${SH?.tellHelp ? tellHelpHTML() : ''}
   ${connectNudge(true)}
   <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
   ${provPicker(false)}
@@ -4679,13 +4683,13 @@ function localDone(c, date){
   if (!neg && !/(?:^|\s)(?:did|done|finished|completed|сделал[аи]?|выполнил[аи]?|сходил[аи]? в зал|был[аи]? в зале|worked out)(?![a-zа-яё])/i.test(c)) return null;
   const tasks = getDay(date).tasks || [];
   if (/\bgym\b|в зал|в зале|worked out|тренировк/i.test(c) && tasks.some(t => t.id === 'gym')) return {key: neg ? 'tasks_undone' : 'tasks_done', id: 'gym'};
-  const ws = wordsOf(c), hit = tasks.find(t => wordsOf(t.title).some(a => ws.some(b => sameWord(a, b))));
+  const ws = wordsOf(c), hit = tasks.find(t => wordsOf(t.title + ' ' + otherLang(t.title)).some(a => ws.some(b => sameWord(a, b))));
   return hit ? {key: neg ? 'tasks_undone' : 'tasks_done', id: hit.id} : null;
 }
 /* sets for exercises in the plan, today's workout first; returns the text with them taken out */
 function localSets(text, date, out){
   const today = (plan().workouts[workoutFor(date)]?.ex || []), all = [...today, ...Object.values(plan().workouts).flatMap(w => w.ex)];
-  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.find(e => wordsOf(e.name).some(a => ws.some(b => sameWord(a, b)))) : null; };
+  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too
   const kg = (n, u) => { const v = toN(n); return (u ? /lb|фунт/i.test(u) : isUS()) ? Math.round(v / LB * 10) / 10 : v; };
   return text.replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*)?\s*(?:for|на|по)\s*(\d{1,2}(?:\s*(?:,|and|и|\/)\s*\d{1,2})*)/gi, (m, name, w, u, reps) => {
     const ex = findEx(name); if (!ex) return m;
@@ -4717,6 +4721,29 @@ function tellLocal(text, date){
   const out = $('#tellOut'); if (out) out.innerHTML = jobView(it);
   return true;
 }
+
+/* ---- "What can I write?": examples by topic; a tap adds one to the message. Without AI, only what the phone understands, plus a few marked as needing AI ---- */
+const TELL_HELP = [
+  [tr('Тело'), [tr('Спал 7 часов'), tr('Лёг в 23, встал в 7'), tr('9 000 шагов'), tr('Вес 72,5')]],
+  [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Учился 2 часа'), tr('Присед 40 на 10, 10 и 8')]],
+  [tr('Еда'), [tr('200 г гречки и 2 яйца'), tr('Стакан кефира')]],
+  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900')]],
+  [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку')]],
+  [tr('День'), [tr('Заболел'), tr('Оценка дня 4')]],
+];
+const TELL_HELP_AI = [tr('Перенеси тренировку с пятницы на субботу'), tr('Стоматолога отменили'), tr('На обед суп и салат')];
+function tellHelpHTML(){
+  const chip = (x, ai) => `<button class="pill" data-act="tellAdd" data-v="${esc(x)}">${esc(x)}${ai ? ` <span class="tag warn">${tr('нужен ИИ')}</span>` : ''}</button>`;
+  return `<section class="card tellhelp" style="display:flex;flex-direction:column;gap:10px">${TELL_HELP.map(([h, xs]) => `<b>${h}</b><div class="ob-goals">${xs.map(x => chip(x)).join('')}</div>`).join('')}
+    <b>${tr('С ИИ')}</b><div class="ob-goals">${TELL_HELP_AI.map(x => chip(x, !aiStatus().ok)).join('')}</div></section>`;
+}
+A.tellHelp = () => { SH.tellText = val('tellT'); SH.tellHelp = !SH.tellHelp; drawSheet(); };
+A.tellAdd = el => {
+  const cur = val('tellT'), add = el.dataset.v;
+  SH.tellText = cur ? cur.replace(/[\s,.]*$/, '') + ', ' + add[0].toLowerCase() + add.slice(1) : add;
+  SH.tellHelp = false; drawSheet();
+  const t = $('#tellT'); if (t){ t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+};
 
 /* ============ permissions on the iPhone: say why first, then let iOS ask ============ */
 function permBody(){

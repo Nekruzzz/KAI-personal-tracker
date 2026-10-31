@@ -1030,3 +1030,14 @@ test('switches inside a card change the card, not the tab', () => {
   assert.equal(run(`S.tab`), 'health');
   run(`S.sub.prog = 'week'; S.sub.fw = 'kcal'; S.tab = 'day'`);
 });
+
+test('"What can I write?" examples all work without AI, in both languages; the AI ones are marked', () => {
+  const en = JSON.parse(run(`JSON.stringify(TELL_HELP.flatMap(([, xs]) => xs))`));
+  const ruSrc = readFileSync(new URL('../kai/app.js', import.meta.url), 'utf8').match(/const TELL_HELP = \[([\s\S]*?)\n\];/)[1];
+  const ru = [...ruSrc.matchAll(/tr\('([^']+)'\)/g)].map(m => m[1]).filter(x => /\d|Заболел/.test(x));
+  assert.ok(ru.length >= 14);
+  for (const t of [...en, ...ru]) assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0`), t);
+  run(`SH = {}`);
+  assert.match(run(`tellHelpHTML()`), /needs AI/);
+  run(`SH = null`);
+});

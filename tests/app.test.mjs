@@ -1091,3 +1091,12 @@ test('times people say: pm after minutes, tonight, mornings, noon, "in 2 hours"'
   const meal = JSON.parse(run(`JSON.stringify(localTellParse('вечером съел 200 г риса', todayISO()).r)`));
   assert.equal(meal.meals?.length, 1, 'eaten in the evening is a meal, not a plan');
 });
+
+test('in the small hours, the Now card says it is time to sleep, not a free slot', () => {
+  run(`globalThis.tl0 = tlState; tlState = date => { const r = tl0(date); const wake = r.bl.find(b => b.kind === 'wake'); return {...r, nowM: Math.max(0, wake.s - 180)}; }`);
+  try {
+    const h = run(`nowCard()`);
+    assert.match(h, /Time to sleep/);
+    assert.doesNotMatch(h, /Nothing planned/);
+  } finally { run(`tlState = tl0`); }
+});

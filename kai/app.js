@@ -1185,6 +1185,7 @@ document.addEventListener('focusout', () => { if (!deferred) return; setTimeout(
 function render(){
   ensureMigrated();
   if ((S.tab === 'content' || S.tab === 'money') && !modOn(S.tab)) S.tab = 'day';
+  document.body.dataset.tab = S.tab; // the page's colour follows the section
   renderTop(); renderNav();
   const v = $('#view');
   const y = window.scrollY;
@@ -1194,6 +1195,7 @@ function render(){
   window.scrollTo(0, y);
   animateUI(v);
   if ($('#storeInfo')) showStorage(); // the data section's storage line and copies are filled in after drawing
+  glassScroll();
   queueBadgeCheck();
 }
 const emptyState = (icon, text) => `<div class="empty"><span class="e-ic">${ic(icon)}</span><span>${text}</span></div>`;
@@ -1202,10 +1204,10 @@ function renderTop(){
   const titles = {health:tr('Здоровье'), content:tr('Контент'), money:tr('Деньги'), more:tr('Ещё')};
   $('#top').className = 'top' + (S.tab==='day' ? '' : ' plain');
   $('#top').innerHTML = `<div class="hdr">
-    <button class="ava" data-act="profile" aria-label="${tr("Профиль")}">${esc((profile().name||'K')[0])}</button>
-    <button class="hname" data-act="profile" aria-label="${tr("Профиль")}">${esc(profile().name||tr('Профиль'))} ${ic('chevR')}</button>
+    <button class="hpill lg" data-act="profile" aria-label="${esc(tr("Профиль") + (profile().name ? ': ' + profile().name : ''))}"><span class="ava" aria-hidden="true">${esc((profile().name||'K')[0])}</span><span class="hx" aria-hidden="true"><span>${esc(profile().name||tr('Профиль'))}</span>${ic('chevR')}</span></button>
+    ${titles[S.tab] ? `<span class="htitle" aria-hidden="true">${titles[S.tab]}</span>` : ''}
     <span class="hsp"></span>
-    <button class="iconbtn aibtn" data-act="aiSheet" aria-label="${tr("ИИ: ответы и очередь")}">${ic('spark')}<span class="badge" id="aiBadge" hidden></span></button>
+    <button class="iconbtn aibtn lg" data-act="aiSheet" aria-label="${tr("ИИ: ответы и очередь")}">${ic('spark')}<span class="badge" id="aiBadge" hidden></span></button>
   </div>${S.tab==='content'?`<button class="backlink" data-act="tab" data-v="more">${tr("‹ Ещё")}</button>`:''}${titles[S.tab]?`<h1 class="ptitle">${titles[S.tab]}</h1>`:`<h1 class="vh">${tr('День')}</h1>`}
   ${S.online && syncBehind() ? `<div class="note" style="margin-top:12px">${trf('Облачная копия отстаёт: изменений ждут отправки {n}. Всё сохранено на телефоне, отправлю, когда сервер ответит.', {n: syncBehind()})}</div>` : ''}
   ${!S.online ? `<div class="note" style="margin-top:12px">${tr("Нет интернета. Всё работает и сохраняется в телефоне; запросы к Claude подождут в очереди.")}</div>`:''}
@@ -1219,6 +1221,7 @@ function renderNav(){
   $('#nav').innerHTML = tabs.map(([id,l,i]) => id==='tell'
     ? `<button class="mic" data-act="tell" aria-label="${tr("Рассказать о дне")}"><span class="b">${ic('mic')}</span><span>${l}</span></button>`
     : `<button class="${cur===id?'on':''}" data-act="tab" data-v="${id}" ${cur===id?'aria-current="page"':''}><span class="nb">${ic(i)}</span><span>${l}</span></button>`).join('');
+  navIndicator(tabs.map(t => t[0]).indexOf(cur), tabs.length);
 }
 
 /* ============ DAY ============ */
@@ -2101,7 +2104,7 @@ function drawSheet(){
   const prevScroll = $('.sheet')?.scrollTop || 0;
   const fresh = SH.enter, enter = fresh && !reduceMotion(); SH.enter = false;
   root.innerHTML = `<div class="scrim${enter?' enter':''}" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shT" tabindex="-1"><div class="grab"></div><div class="sh-h"><h2 id="shT">${esc(SH.title)}</h2><button class="iconbtn" data-act="closeSheet" aria-label="${tr("Закрыть")}">${ic('x')}</button></div><div class="sh-b" style="display:flex;flex-direction:column;gap:16px">${typeof SH.body==='function'?SH.body():SH.body}</div></div></div>`;
-  $('.sheet').scrollTop = prevScroll;
+  $('.sheet').scrollTop = prevScroll; $('.sheet').classList.toggle('scrolled', prevScroll > 4);
   if (fresh) $('.sheet').focus({preventScroll: true}); // screen readers start at the sheet, not behind it
   SH.after && SH.after($('.sh-b'));
   animateUI($('.sheet'));
@@ -4981,6 +4984,38 @@ function fillDay(cur, old){
   }
   return out;
 }
+
+/* ============ Liquid Glass bars (iOS 26) ============ */
+/* the selected tab sits in a glass capsule that slides to the new tab and stretches like a drop on the way */
+let NAV_I = null, NAV_T = 0;
+function navIndicator(i, n){
+  const nav = $('.nav'); if (!nav) return;
+  nav.style.setProperty('--nn', n); nav.style.setProperty('--ni', Math.max(0, i));
+  const ind = $('.nav-ind'); if (ind) ind.hidden = i < 0;
+  if (NAV_I != null && NAV_I !== i && i >= 0 && !reduceMotion()){
+    nav.classList.remove('moving'); void nav.offsetWidth; nav.classList.add('moving');
+    clearTimeout(NAV_T); NAV_T = setTimeout(() => nav.classList.remove('moving'), 600);
+  }
+  NAV_I = i;
+}
+/* once the page moves, the header compacts to its glass buttons over a soft edge; scrolling down, the tab bar recedes */
+let GLASS_Y = 0;
+function glassScroll(){
+  const y = window.scrollY || 0, b = document.body;
+  b.classList.toggle('scrolled', y > 24);
+  if (reduceMotion() || y < 60){ b.classList.remove('nav-min'); GLASS_Y = y; return; }
+  if (y > GLASS_Y + 8 && y > 140){ b.classList.add('nav-min'); GLASS_Y = y; }
+  else if (y < GLASS_Y - 8){ b.classList.remove('nav-min'); GLASS_Y = y; }
+}
+addEventListener('scroll', glassScroll, {passive: true});
+/* a sheet's title bar is clear until content scrolls under it, then it frosts */
+document.addEventListener('scroll', e => { const t = e.target; if (t?.classList?.contains('sheet')) t.classList.toggle('scrolled', t.scrollTop > 4); }, {capture: true, passive: true});
+/* a touch lights the glass from where the finger is */
+document.addEventListener('pointerdown', e => {
+  const g = e.target.closest?.('.lg'); if (!g) return;
+  const r = g.getBoundingClientRect();
+  g.style.setProperty('--px', (e.clientX - r.left) + 'px'); g.style.setProperty('--py', (e.clientY - r.top) + 'px');
+}, {passive: true});
 
 /* ============ init ============ */
 async function init(){

@@ -4879,6 +4879,8 @@ try { matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', (
 applyTheme();
 
 /* ============ links into the app: home-screen shortcuts open a screen directly (#tell, #day) ============ */
+/* the iPhone app's Home Screen quick actions set #tell or #day while it's running */
+addEventListener('hashchange', () => openFromLink());
 function openFromLink(){
   const h = location.hash.slice(1); if (!['tell', 'day'].includes(h)) return;
   if (!S.ready) return setTimeout(openFromLink, 200);

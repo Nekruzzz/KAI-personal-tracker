@@ -2495,13 +2495,23 @@ A.exportData = async () => {
 };
 CH.importData = async el => {
   const f = el.files?.[0]; if (!f) return;
+  el.value = ''; // the same file can be picked again
+  let d;
+  try { d = JSON.parse(await f.text()); } catch { return toast(tr('Файл не подошёл: это не копия этого приложения')); }
+  const docs = d && typeof d === 'object' ? d.docs || d : null;
+  const paths = docs && typeof docs === 'object' ? Object.keys(docs).filter(k => /^[a-z]+\/[^/]+$/.test(k) && !k.startsWith('jobs/') && docs[k] && typeof docs[k] === 'object') : [];
+  if (!paths.length) return toast(tr('Файл не подошёл: это не копия этого приложения'));
+  /* what the file replaces is kept: Undo for a few seconds, and a copy on the phone for later */
+  const snap = [...new Set([...paths, 'app/meta'])].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
+  const replaced = Object.fromEntries(snap.filter(([p, v]) => v !== undefined && p in docs && p !== 'app/ai' && JSON.stringify(v) !== JSON.stringify(docs[p])));
+  if (Object.keys(replaced).length) await keepCopy('preimport_' + Date.now(), replaced).catch(() => {});
   try {
-    const d = JSON.parse(await f.text());
-    const docs = d.docs || d; let n = 0;
-    for (const [k, v] of Object.entries(docs)) { if (!/^[a-z]+\/[^/]+$/.test(k) || k.startsWith('jobs/')) continue; if (k === 'app/ai' && S.docs['app/ai']) { const cur = S.docs['app/ai']; save(k, {...v, claude:{...v.claude, key: cur.claude?.key||''}}); } else save(k, langDoc(k, v)); n++; }
+    for (const k of paths) { const v = docs[k]; if (k === 'app/ai' && S.docs['app/ai']) { const cur = S.docs['app/ai']; save(k, {...v, claude:{...v.claude, key: cur.claude?.key||''}}); } else save(k, langDoc(k, v)); }
     for (const [k, v] of Object.entries(d.blobs||{})) { const bin = Uint8Array.from(atob(v.b64), c=>c.charCodeAt(0)); await blobPut(k, new Blob([bin], {type:v.type})); }
-    setMeta({imported:true}); initBadges(); toast(tr('Загружено записей: ')+n); closeSheet();
-  } catch(e){ toast(tr('Файл не подошёл: это не копия этого приложения')); }
+  } catch(e){ UNDO = snap; toast(tr('Файл загрузился не полностью. Проверь данные или верни как было.'), {ms: 8000, action: {label: tr('Вернуть'), act: 'undoApply'}}); return; }
+  setMeta({imported:true}); initBadges(); closeSheet();
+  UNDO = snap;
+  toast(tr('Загружено записей: ')+paths.length, {ms: 8000, action: {label: tr('Вернуть'), act: 'undoApply'}});
 };
 A.chatReport = async () => {
   const text = weekReportText() + tr('\n\nРазбери неделю: что получилось, что нет, что изменить в плане. Если что-то меняешь в плане — пришли обновление файлом для импорта в приложение.');
@@ -4961,18 +4971,24 @@ document.addEventListener('pointerup', dragEnd); document.addEventListener('poin
 
 /* ============ copies kept on this phone before big changes ============ */
 /* before the first cloud sync replaces records, and before a finished season's days are cleared, KAI keeps a copy in the "Save a copy" format */
+const COPY_KINDS = ['presync_', 'season_', 'preimport_'];
 let COPIES = null; // the copies' keys, read once from the phone's storage
 async function loadCopies(){
-  try { COPIES = (await blobKeys()).map(String).filter(k => k.startsWith('presync_') || k.startsWith('season_')).reverse(); } catch { COPIES = []; }
+  try { COPIES = (await blobKeys()).map(String).filter(k => COPY_KINDS.some(c => k.startsWith(c))).reverse(); } catch { COPIES = []; }
   return COPIES;
 }
 async function keepCopy(key, docs){
   await blobPut(key, new Blob([JSON.stringify({app:'kai', version:1, exported:new Date().toISOString(), docs})], {type:'application/json'}));
   if (COPIES) COPIES = [key, ...COPIES.filter(k => k !== key)];
+  if (key.startsWith('preimport_')){ // only the last three restores are kept
+    const old = (await blobKeys().catch(() => [])).map(String).filter(k => k.startsWith('preimport_')).sort((a, b) => b.slice(10) - a.slice(10)).slice(3);
+    for (const k of old) await dropCopy(k);
+  }
 }
 async function dropCopy(key){ await blobDel(key).catch(() => {}); if (COPIES) COPIES = COPIES.filter(k => k !== key); }
 function copyTitle(k){
   if (k.startsWith('presync_')){ const t = +k.slice(8); return trf('Перед первой синхронизацией с облаком, {d}', {d: t ? fmtShort(iso(t)) : '?'}); }
+  if (k.startsWith('preimport_')){ const t = +k.slice(10); return trf('Перед загрузкой копии из файла, {d}', {d: t ? fmtShort(iso(t)) : '?'}); }
   const a = S.docs['seasons/' + k.slice(7)];
   return a ? trf('Дни сезона «{t}», {a} — {b}', {t: a.title, a: fmtShort(a.start), b: fmtShort(a.end)}) : tr('Дни завершённого сезона');
 }
@@ -4984,7 +5000,7 @@ async function showCopies(){
 A.copySave = async el => {
   const k = el.dataset.k, b = await blobGet(k).catch(() => null);
   if (!b){ await dropCopy(k); showCopies(); return toast(tr('Этой копии на телефоне уже нет')); }
-  if (await shareOrDownload(`kai-${k.startsWith('season_') ? 'season' : 'before-sync'}-${todayISO()}.json`, b)) toast(tr('Копия готова: сохрани её в «Файлы» или iCloud'));
+  if (await shareOrDownload(`kai-${k.startsWith('season_') ? 'season' : k.startsWith('preimport_') ? 'before-restore' : 'before-sync'}-${todayISO()}.json`, b)) toast(tr('Копия готова: сохрани её в «Файлы» или iCloud'));
 };
 /* a finished season's days come back; a day written since keeps what it has and only gets what it is missing */
 A.seasonBack = async el => {

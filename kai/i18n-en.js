@@ -1948,4 +1948,6 @@ window.I18N_EN = {
 "Копии этих дней на телефоне уже нет":"The copy of these days is no longer on this phone",
 "Вернулось дней: {n}":"Days brought back: {n}",
 "Все эти дни уже на месте":"All these days are already here",
+"Перед загрузкой копии из файла, {d}":"Before restoring a backup, {d}",
+"Файл загрузился не полностью. Проверь данные или верни как было.":"The file only partly loaded. Check your data, or undo.",
 };

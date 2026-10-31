@@ -2156,7 +2156,7 @@ function refocus(k){
 }
 
 A.tab = el => { if (S.tab !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.tab = el.dataset.v; window.scrollTo(0,0); render(); };
-A.sub = el => { if (S.sub[el.dataset.k] !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.sub[el.dataset.k] = el.dataset.v; if (el.dataset.k==='health' || el.dataset.k==='content') window.scrollTo(0,0); if (['health', 'content', 'money'].includes(el.dataset.k)) S.tab = el.dataset.k; render(); /* other keys (prog, fw) switch a card, not the tab */ };
+A.sub = el => { const from = pillFrom(el); if (S.sub[el.dataset.k] !== el.dataset.v){ haptic('selection'); S.animIn = true; } S.sub[el.dataset.k] = el.dataset.v; if (el.dataset.k==='health' || el.dataset.k==='content') window.scrollTo(0,0); if (['health', 'content', 'money'].includes(el.dataset.k)) S.tab = el.dataset.k; render(); pillGlide(el.dataset.k, el.dataset.v, from); /* other keys (prog, fw) switch a card, not the tab */ };
 A.closeSheet = closeSheet; A.scrim = closeSheet;
 A.toggleOpen = el => { const k = el.dataset.k; S.open[k] = !S.open[k]; if (SH && el.closest('.sheet')) drawSheet(); else render(); };
 A.openTask = el => { const k = 't_'+el.dataset.id; S.open[k] = !S.open[k]; render(); };
@@ -5077,6 +5077,22 @@ function swCheck(){
 }
 document.addEventListener('visibilitychange', swCheck);
 A.appReload = () => location.reload();
+
+/* ============ section switchers glide (Liquid Glass) ============ */
+/* switching Food / Workouts / Body and the like, the selected capsule glides from the old choice to the new one */
+function pillFrom(el){
+  const on = el.classList?.contains('pill') && el.closest?.('.pills')?.querySelector('.pill.on');
+  return on && on !== el ? {left: on.offsetLeft, top: on.offsetTop, width: on.offsetWidth, height: on.offsetHeight} : null;
+}
+function pillGlide(k, v, from){
+  if (!from || reduceMotion()) return;
+  const to = $(`.pills .pill.on[data-k="${k}"][data-v="${v}"]`), box = to?.parentElement; if (!to) return;
+  const g = document.createElement('span'); g.className = 'pill-ghost'; g.setAttribute('aria-hidden', 'true');
+  Object.assign(g.style, {left: from.left + 'px', top: from.top + 'px', width: from.width + 'px', height: from.height + 'px'});
+  box.prepend(g); to.classList.add('arriving');
+  requestAnimationFrame(() => requestAnimationFrame(() => { g.style.transform = `translateX(${to.offsetLeft - from.left}px)`; g.style.width = to.offsetWidth + 'px'; }));
+  setTimeout(() => { g.remove(); to.classList.remove('arriving'); }, 450);
+}
 
 /* ============ init ============ */
 async function init(){

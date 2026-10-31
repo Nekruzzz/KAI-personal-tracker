@@ -733,6 +733,19 @@ body.nav-min .nav .mic span.b{width:44px;height:44px}
 .seg button{border-radius:999px}
 .seg button.on{box-shadow:inset 0 1px 0 var(--fill-hi),0 2px 8px rgba(0,0,0,.14)}
 
+/* the selected capsule of a section switcher glides to the new choice; the switcher itself stays put while the content changes */
+.pills{position:relative}
+.pills .pill{position:relative;z-index:1}
+.pill-ghost{position:absolute;z-index:0;border-radius:999px;background:var(--pill-on);box-shadow:0 4px 12px -4px rgba(0,0,0,.35);pointer-events:none;transition:transform .4s cubic-bezier(.3,1.25,.45,1),width .4s cubic-bezier(.3,1.25,.45,1)}
+.pill.on.arriving{background:transparent;box-shadow:none}
+.view.tab-in > .pills:first-child{animation:none}
+
+/* rows and card buttons answer a touch the iOS way: a quick highlight for a row, a slight press for a whole card */
+.acc-h{transition:background-color .15s}
+.acc-h:active{background-color:var(--fill-1)}
+button.card,.navrow,.onbc{transition:transform .25s cubic-bezier(.3,1.4,.4,1),background-color .15s}
+button.card:active,.navrow:active,.onbc:active{transform:scale(.98)}
+
 /* without blur, glass needs more tint to stay readable */
 @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){.lg,.nav,.toast,.rb-in{--lgt:var(--lg-tint-strong)}}
 @media (prefers-reduced-transparency:reduce){

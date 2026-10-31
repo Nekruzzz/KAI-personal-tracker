@@ -1232,6 +1232,7 @@ function viewDay(){
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
   h += firstTellCard();
+  h += suppsGoneNote();
   h += yesterdayBanner();
   h += recapBanner();
   h += warnCard();
@@ -4814,6 +4815,13 @@ A.wipeLocal = async el => {
   try { Object.keys(localStorage).filter(k => k.startsWith('kai_') && k !== 'kai_lang').forEach(k => localStorage.removeItem(k)); } catch {}
   location.reload();
 };
+
+/* ============ once, for people who used supplements before they were switched off ============ */
+function suppsGoneNote(){
+  if (SUPPS_ON || meta().suppsNoteSeen || !(plan().supps || []).length) return '';
+  return `<div class="banner" role="status">${ic('alert')}<div><div>${tr('Раздел БАДов убран, чтобы приложение было проще. Твой список сохранён и вернётся, если раздел включат снова.')}</div><div class="btnrow"><button class="btn ghost" data-act="suppsNoteOk">${tr('Понятно')}</button></div></div></div>`;
+}
+A.suppsNoteOk = () => setMeta({suppsNoteSeen: true});
 
 /* ============ init ============ */
 async function init(){

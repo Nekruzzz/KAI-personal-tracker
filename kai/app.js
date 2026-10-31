@@ -4682,7 +4682,7 @@ function localSets(text, date, out){
 function foodLocal(text, date){
   const meals = String(text).split(/[;\n]+|,\s+|\s+(?:и|with|and|с)\s+/i).map(x => x.trim()).filter(Boolean).map(localMeal).filter(Boolean);
   if (!meals.length) return false;
-  const id = uid(), it = {id, kind: 'tell', result: {reply: tr('Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.'), meals}, meta: {date, text, local: true}, provider: 'local', label: tr('КБЖУ · ') + String(text).slice(0, 30), date, created: new Date().toISOString(), done: false};
+  const id = uid(), it = {id, kind: 'tell', result: {reply: tr('Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.'), meals: meals.length > 1 ? [joinMeals(meals)] : meals}, meta: {date, text, local: true}, provider: 'local', label: tr('КБЖУ · ') + String(text).slice(0, 30), date, created: new Date().toISOString(), done: false};
   save('inbox/' + id, it);
   SH.jobId = id; SH.outId = 'fpOut';
   const out = $('#fpOut'); if (out) out.innerHTML = jobView(it);

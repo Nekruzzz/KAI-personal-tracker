@@ -1600,7 +1600,7 @@ function viewMoney(){
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
     <div style="display:grid;place-items:center;margin:14px 0">${donut(segsFor(G, sel), 140, 20)}</div>
-    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${(x => num(x, x < 10 && x % 1 ? 1 : 0))(g.sum/(SUM||1)*100)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
+    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${(x => num(x, x < 10 && x % 1 ? 1 : 0))(g.sum/(SUM||1)*100)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}${catVsPrev(m, sel === 'in' ? 'in' : 'out', g.cat, g.sum)}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
   const byDate = {}; monthTx(m).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
   const dates = Object.keys(byDate).sort().reverse();
   if (!dates.length) return h;
@@ -5693,6 +5693,19 @@ function timetableCard(){
     <button class="link" data-act="ttCardOff">${tr('Не сейчас')}</button></section>`;
 }
 A.ttCardOff = () => setMeta({ttCardOff: true});
+
+/* ============ money: each category against last month (the same days of it for the current month) ============ */
+function catVsPrev(m, type, cat, sum, today = todayISO()){
+  const [y, mm] = m.split('-').map(Number), pd = new Date(y, mm - 2, 1), pm = pd.getFullYear() + '-' + pad(pd.getMonth() + 1);
+  const cur = m === today.slice(0, 7), d = Math.min(+today.slice(8), new Date(y, mm - 1, 0).getDate()), prev = monthTx(pm);
+  if (!prev.length || (cur && prev.some(t => t.summary))) return '';
+  const was = prev.filter(t => t.status !== 'fail' && t.type === type && catInfo(type, t.cat)[0] === cat && (!cur || +t.date.slice(8) <= d)).reduce((a, t) => a + +t.amount, 0);
+  if (!was) return '';
+  const pct = Math.round((sum - was) / was * 100);
+  if (Math.abs(pct) < 10) return '';
+  const worse = (pct > 0) === (type === 'out'); // more spending, or less coming in
+  return ` · <span class="cat-d ${worse ? 'worse' : 'better'}">${pct > 0 ? '↑' : '↓'}\u00a0${Math.abs(pct)}%</span>\u00a0${tr('к предыдущему месяцу')}`;
+}
 
 /* ============ init ============ */
 async function init(){

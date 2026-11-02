@@ -1604,7 +1604,7 @@ function viewMoney(){
   const byDate = {}; monthTx(m).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
   const dates = Object.keys(byDate).sort().reverse();
   if (!dates.length) return h;
-  h += `<div class="sec-h"><h2>${tr("История")}</h2></div>`;
+  h += `<div class="sec-h"><h2>${tr("История")}</h2><button class="link" data-act="txFind">${ic('search', 'link-ic')}${tr('Поиск')}</button></div>`;
   h += dates.length ? dates.map(k=>`<section class="card" style="padding:4px 18px"><div class="hint" style="padding:10px 0 2px">${fmtDay(k)}</div><div class="list">${byDate[k].map(t=>{ const inf = catInfo(t.type,t.cat); return `<button class="row" data-act="txEdit" data-id="${t.id}"><span class="ic" style="background:var(--${inf[1]});color:#fff">${ic(inf[2])}</span><div class="mid"><div class="t">${esc(t.note||tr(t.cat))}</div><div class="s" style="${t.status==='fail'?'color:var(--bad)':''}">${t.status==='fail'?tr('Неуспешно'):esc(tr(t.cat))}${t.count>1?' · '+t.count+tr(' операций'):''}</div></div><div class="r" style="color:${t.status==='fail'?'var(--bad)':t.type==='in'?'var(--good)':'var(--text)'}">${t.type==='in'?'+':'−'}${money(t.amount)}</div></button>`; }).join('')}</div></section>`).join('') : `<section class="card"><div class="empty">${tr("За этот месяц нет операций")}</div></section>`;
   return h;
 }
@@ -5706,6 +5706,28 @@ function catVsPrev(m, type, cat, sum, today = todayISO()){
   const worse = (pct > 0) === (type === 'out'); // more spending, or less coming in
   return ` · <span class="cat-d ${worse ? 'worse' : 'better'}">${pct > 0 ? '↑' : '↓'}\u00a0${Math.abs(pct)}%</span>\u00a0${tr('к предыдущему месяцу')}`;
 }
+
+/* ============ money: find entries in every month ("gym", "netflix", an amount) ============ */
+P.search = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+function txFindResults(q){
+  q = String(q || '').trim().toLowerCase(); if (!q) return {list: [], total: 0};
+  const num = toNum(q), list = [];
+  Object.keys(S.docs).filter(k => k.startsWith('money/')).sort().reverse().forEach(k => (S.docs[k].tx || []).forEach(t => {
+    const text = `${t.note || ''} ${tr(t.cat)} ${t.cat}`.toLowerCase();
+    if (text.includes(q) || (num && +t.amount === num)) list.push(t);
+  }));
+  list.sort((a, b) => b.date.localeCompare(a.date));
+  return {list, total: list.filter(t => t.status !== 'fail').reduce((a, t) => a + (t.type === 'in' ? 1 : -1) * +t.amount, 0)};
+}
+function txFindList(){
+  const {list, total} = txFindResults(SH?.txq);
+  if (!SH?.txq?.trim()) return `<div class="hint">${tr('Название, категория или сумма, по всем месяцам.')}</div>`;
+  if (!list.length) return `<div class="empty">${tr('Ничего не нашлось')}</div>`;
+  return `<div class="hint">${list.length} ${plural(list.length, tr('операция'), tr('операции'), tr('операций'))} · ${total >= 0 ? '+' : ''}${money(total)}</div><section class="card" style="padding:4px 18px"><div class="list">${list.slice(0, 60).map(t => { const inf = catInfo(t.type, t.cat); return `<button class="row" data-act="txFound" data-id="${esc(t.id)}" data-m="${esc(t.date.slice(0, 7))}"><span class="ic" style="background:var(--${inf[1]});color:#fff">${ic(inf[2])}</span><div class="mid"><div class="t">${esc(t.note || tr(t.cat))}</div><div class="s">${fmtShort(t.date)} ${t.date.slice(0, 4)} · ${esc(tr(t.cat))}</div></div><div class="r" style="color:${t.type === 'in' ? 'var(--good)' : 'var(--text)'}">${t.type === 'in' ? '+' : '−'}${money(t.amount)}</div></button>`; }).join('')}</div></section>${list.length > 60 ? `<div class="hint">${trf('Показаны последние {n}', {n: 60})}</div>` : ''}`;
+}
+A.txFind = () => { SH = null; openSheet(tr('Поиск по операциям'), () => `<div class="field"><input class="in" id="txQ" data-inp="txQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="${tr('например, зал или 12')}" aria-label="${tr('Поиск по операциям')}" value="${esc(SH?.txq || '')}"></div><div id="txFindOut">${txFindList()}</div>`, b => $('#txQ', b)?.focus()); };
+document.addEventListener('input', e => { if (e.target?.dataset?.inp === 'txQ' && SH){ SH.txq = e.target.value; const out = $('#txFindOut'); if (out) out.innerHTML = txFindList(); } });
+A.txFound = el => { S.moneyMonth = el.dataset.m; A.txEdit(el); };
 
 /* ============ init ============ */
 async function init(){

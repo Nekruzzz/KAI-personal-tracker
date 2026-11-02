@@ -2079,4 +2079,10 @@ window.I18N_EN = {
 "Добавь расписание пар":"Add your class timetable",
 "Если университет даёт расписание файлом календаря (.ics), KAI добавит все пары сразу. Или добавь их по одной.":"If your university gives the timetable as a calendar file (.ics), KAI adds all your classes at once. Or add them one by one.",
 "к предыдущему месяцу":"vs the month before",
+"Поиск":"Search",
+"Название, категория или сумма, по всем месяцам.":"A name, a category or an amount, across all months.",
+"Ничего не нашлось":"Nothing found",
+"Показаны последние {n}":"Showing the latest {n}",
+"Поиск по операциям":"Search transactions",
+"например, зал или 12":"for example, gym or 12",
 };

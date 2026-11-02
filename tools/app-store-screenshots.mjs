@@ -51,6 +51,10 @@ async function seed(p, lang){
     const k = ru ? 90 : 1;
     addTx([...Array(14)].map((_, i) => ({id: 'x' + i, date: addDays(todayISO(), -(i % 9)), type: 'out', amount: Math.round((6 + (i * 37) % 40) * k), cat: cats[i % 5], note: notes[i % 5]}))
       .concat([{id: 'in1', date: addDays(todayISO(), -3), type: 'in', amount: 900 * k, cat: 'Доход', note: ru ? 'Стипендия' : 'Allowance'}]));
+    // a budget with regular payments: the phone plan paid this month, the others still to come
+    save('app/budget', {monthly: 700 * k});
+    save('app/bills', {list: [{id: 'b1', title: ru ? 'Телефон' : 'Phone plan', amount: 15 * k, type: 'out', cat: 'Связь и интернет', day: 5}, {id: 'b2', title: ru ? 'Музыка' : 'Music', amount: 10 * k, type: 'out', cat: 'Подписки', day: 21}, {id: 'b3', title: ru ? 'Спортзал' : 'Gym', amount: 30 * k, type: 'out', cat: 'Спорт и здоровье', day: 25}]});
+    addTx([{id: 'bp1', date: todayISO().slice(0, 8) + '05', type: 'out', amount: 15 * k, cat: 'Связь и интернет', note: ru ? 'Телефон' : 'Phone plan', bill: 'b1'}]);
   }, lang);
   await p.waitForTimeout(1800); // awards and milestones from the sample data settle
   await p.evaluate(() => { closeSheet(); document.querySelectorAll('.fxl,.toast').forEach(e => e.remove()); });

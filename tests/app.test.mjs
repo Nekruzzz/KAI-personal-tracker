@@ -1498,3 +1498,14 @@ test('without an AI that reads pictures, the note says how to get one in this se
   const offline = app.match(/tr\("(Нет интернета\.[^"]*)"\)/)[1];
   assert.equal(run(`tr(${JSON.stringify(offline)})`), 'No internet. Everything works and saves on your phone; AI requests will wait in the queue.');
 });
+
+test('the budget card says what is left and roughly how much a day, in plain English', () => {
+  run(`save('app/profile', {...profile(), currency: '$'}); save('app/budget', {monthly: 600})`);
+  try {
+    const m = run(`todayISO().slice(0, 7)`), daysLeft = run(`(() => { const [y, mm] = todayISO().split('-').map(Number); return new Date(y, mm, 0).getDate() - new Date().getDate() + 1; })()`);
+    const h = run(`budgetCard('${m}', 515)`);
+    assert.match(h, /Left: \$85/);
+    assert.match(h, new RegExp(`about \\$${Math.floor(85 / daysLeft)} a day until the end of the month`));
+    assert.match(run(`budgetCard('${m}', 700)`), /Over budget|Overspent|−\$100|-\$100/);
+  } finally { run(`remove('app/budget')`); }
+});

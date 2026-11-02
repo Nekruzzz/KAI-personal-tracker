@@ -2057,7 +2057,7 @@ function budgetCard(m, spentMonth){
   const pct = Math.min(100, spentMonth/b*100), over = left < 0;
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>${tr("Бюджет")} ${money(b)}</b><button class="link" data-act="budgetSet">${tr("Изменить")}</button></div>
     <div class="bar"><i style="width:${pct}%;background:${over?'var(--bad)':pct>85?'var(--warn)':'var(--accent)'}"></i></div>
-    <div class="hint">${over ? `${tr("Перерасход:")} ${money(-left)}` : `${tr("Осталось:")} ${money(left)}${isCur && daysLeft ? ` ${tr("· в день можно")} ${money(Math.floor(left/daysLeft))} ${tr("до конца месяца")}` : ''}`}</div></section>`;
+    <div class="hint">${over ? `${tr("Перерасход:")} ${money(-left)}` : `${tr("Осталось:")} ${money(left)}${isCur && daysLeft ? ` ${trf('· в день можно {d} до конца месяца', {d: money(Math.floor(left/daysLeft))})}` : ''}`}</div></section>`;
 }
 A.budgetSet = () => openSheet(tr('Бюджет на месяц'), `<div class="field"><label for="bgV">${tr("Сколько можно тратить в месяц")}</label><input class="in" id="bgV" inputmode="decimal" value="${esc(S.docs['app/budget']?.monthly||'')}"></div><button class="btn block" data-act="budgetSave">${tr("Сохранить")}</button>`, b => $('#bgV', b).focus());
 A.budgetSave = () => { const v = toNum(val('bgV')); save('app/budget', {monthly: v || null}); closeSheet(); };

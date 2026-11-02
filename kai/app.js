@@ -4526,7 +4526,7 @@ function notifBody(){
   const m = meta();
   if (SH.notifDenied) return `<div class="hint">${tr('Уведомления выключены в настройках iPhone. Открой Настройки → KAI → Уведомления и включи их.')}</div>`;
   if (!m.remindAsked) return `<div class="hint">${tr('KAI напомнит об экзаменах, парах и конфликтах в планах, даже когда приложение закрыто и нет интернета.')}</div><button class="btn block" data-act="notifOn">${ic('bell')}${tr('Включить напоминания')}</button>`;
-  return `<div class="hint">${tr('Напоминания обновляются сами, когда меняется расписание.')}</div><section class="card" style="padding:4px 16px"><div class="list">${REMIND_KINDS.map(([k, l, hh]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${hh}</div></div><input type="checkbox" switch class="sw" data-ch="remind" data-k="${k}" aria-label="${l}" ${remindOn(k) ? 'checked' : ''}></label>`).join('')}</div></section>`;
+  return `<div class="hint">${tr('Напоминания обновляются сами, когда меняется расписание.')}</div>${remindGroups()}`;
 }
 A.notifSheet = () => openSheet(tr('Напоминания'), notifBody);
 A.notifOn = async () => {
@@ -5568,6 +5568,14 @@ const badgesShown = () => BADGES.filter(b => !BADGE_MODULE[b.k] || modOn(BADGE_M
 
 /* ============ the budget sheet points to regular payments, which it sets aside ============ */
 const budgetBillsHint = () => `<div class="hint">${bills().some(b => b.type !== 'in') ? trf('Регулярные платежи ({s} в месяц) уже учтены: бюджет откладывает то, что ещё не оплачено.', {s: money(bills().filter(b => b.type !== 'in').reduce((a, b) => a + (+b.amount || 0), 0))}) : tr('Аренду, телефон и подписки удобно добавить как регулярные платежи: бюджет будет откладывать их заранее.')}</div><button class="btn ghost block" data-act="billNew">${ic('repeat')}${tr('Регулярный платёж')}</button>`;
+
+/* ============ reminders, grouped so the list reads at a glance ============ */
+const REMIND_GROUPS = [['Учёба и планы', ['exams', 'classes', 'events', 'tasks', 'warnings']], ['Ритм дня', ['morning', 'gym', 'evening', 'bed']]];
+function remindGroups(){
+  const kinds = REMIND_KINDS.filter(([k]) => k !== 'bills' || modOn('money')), used = new Set(REMIND_GROUPS.flatMap(g => g[1]));
+  const groups = [...REMIND_GROUPS.map(([h, ks]) => [tr(h), ks.map(k => kinds.find(x => x[0] === k)).filter(Boolean)]), [tr('Остальное'), kinds.filter(([k]) => !used.has(k))]].filter(g => g[1].length);
+  return groups.map(([h, ks]) => `<h3 class="remind-h">${h}</h3><section class="card" style="padding:4px 16px"><div class="list">${ks.map(([k, l, hh]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${hh}</div></div><input type="checkbox" switch class="sw" data-ch="remind" data-k="${k}" aria-label="${l}" ${remindOn(k) ? 'checked' : ''}></label>`).join('')}</div></section>`).join('');
+}
 
 /* ============ init ============ */
 async function init(){

@@ -3348,7 +3348,7 @@ function taskCard(){
   return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) + (doneToday ? tr(' · готово ') + doneToday : '') : doneToday ? tr('всё сделано') : ''}</span></div>
   <section class="card" style="padding:12px 16px 6px">
     <div class="qadd"><input class="in" id="qa" placeholder="${tr("Что нужно сделать?")}" enterkeyhint="done" aria-label="${tr("Новая задача")}" autocomplete="off"><button class="btn" data-act="qaAdd" aria-label="${tr("Добавить задачу")}">${ic('plus')}</button></div>
-    <div class="list">${now.map(row).join('') || `<div class="hint" style="padding:12px 0">${tr("Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30»: срок и время я пойму сам.")}</div>`}</div>
+    <div class="list">${now.map(row).join('') || `<div class="hint" style="padding:12px 0">${tr("Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30» или «стирка каждую субботу»: срок, время и повтор я пойму сам.")}</div>`}</div>
     ${later.length ? `<div class="hint" style="padding:10px 0 0;font-weight:700">${tr("Позже")}</div><div class="list">${(S.open.tk_later ? later : later.slice(0, 3)).map(row).join('')}</div>${later.length > 3 ? `<button class="link" data-act="toggleOpen" data-k="tk_later" style="padding:6px 0">${S.open.tk_later ? tr('Свернуть') : tr('Ещё ') + (later.length - 3)}</button>` : ''}` : ''}
     ${doneToday ? doneTodayHTML(today) : ''}
     ${smartTasks().some(t => !t.done && t.due && t.time && t.due >= today) ? `<button class="link" data-act="tasksIcs" style="padding:6px 0">${ic('bell')} ${tr("Напомнить через Календарь")}</button>` : ''}
@@ -4864,7 +4864,7 @@ const TELL_HELP = [
   [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Пробежал 5 км за 30 минут'), tr('Учился 2 часа'), tr('Присед 40 на 10, 10 и 8')]],
   [tr('Еда'), [tr('200 г гречки и 2 яйца'), tr('Стакан кефира')]],
   [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Получил 50 от мамы'), tr('Аренда 400 каждый месяц')]],
-  [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку')]],
+  [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку'), tr('Выносить мусор по понедельникам')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4')]],
 ];
 const TELL_HELP_AI = [tr('Перенеси тренировку с пятницы на субботу'), tr('Стоматолога отменили'), tr('На обед суп и салат')];

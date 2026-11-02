@@ -2483,7 +2483,7 @@ CH.importData = async el => {
 };
 A.chatReport = async () => {
   const text = weekReportText() + tr('\n\nРазбери неделю: что получилось, что нет, что изменить в плане. Если что-то меняешь в плане — пришли обновление файлом для импорта в приложение.');
-  try { await navigator.clipboard.writeText(text); toast(tr('Отчёт скопирован: вставь его в чат с Claude')); } catch { shareOrDownload('report.txt', new Blob([text], {type:'text/plain'})); }
+  try { await navigator.clipboard.writeText(text); toast(tr('Отчёт скопирован: вставь его в чат с ИИ')); } catch { shareOrDownload('report.txt', new Blob([text], {type:'text/plain'})); }
 };
 A.season = () => { openSheet(tr('Сезон'), seasonBody); if (!COPIES) loadCopies().then(() => { if (SH?.body === seasonBody) drawSheet(); }); };
 function seasonBody(){
@@ -3208,7 +3208,7 @@ function viewMore(){
   h += acc('data', 'shield', tr('Данные и копия'), cloudKept() && lastB == null ? tr('В облачной копии аккаунта') : lastB == null ? tr('Копии ещё нет') : lastB === 0 ? tr('Копия сегодня') : `${tr("Копия")} ${lastB} ${plural(lastB, tr('день'), tr('дня'), tr('дней'))} ${tr("назад")}`, `<div class="hint">${cloudKept() ? tr('Записи хранятся в этом телефоне и в облачной копии аккаунта. Файл с копией нужен, только если хочешь держать данные и у себя.') : tr("Всё хранится в этом телефоне. Раз в неделю сохраняй копию в «Файлы» или iCloud: если iOS очистит память, данные можно вернуть.")}</div><div id="storeInfo" class="hint"></div>
     <div class="btnrow"><button class="btn" data-act="exportData">${tr("Сохранить копию")}</button><label class="btn ghost">${tr("Загрузить копию")}<input type="file" accept="application/json,.json" hidden data-ch="importData"></label></div>
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
-    <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с Claude")}</button>
+    <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с ИИ")}</button>
     <button class="btn ghost" data-act="moneyCsv">${tr("Деньги таблицей (CSV)")}</button>
     <div id="copyList" style="display:flex;flex-direction:column;gap:6px"></div>
     <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>

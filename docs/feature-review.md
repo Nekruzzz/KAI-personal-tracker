@@ -47,3 +47,22 @@ These are switched off or folded, not deleted: saved data stays, and each can co
 
 - The "Which AI" choice now appears only when two or more AIs are set up, so it no longer clutters every AI screen.
 - Progress with nothing to show is hidden in the first week, and the first-message card makes the main feature obvious.
+
+## Added later, and how each stays out of the way
+
+New features from the later rounds, with what a person sees before they use them. Anything here can be switched off with a one-line change if the owner finds it unnecessary.
+
+- **Regular payments (Money):** invisible until someone adds one or the app spots something paid once a month; then one card under the budget. The payment reminder is a switch in Reminders and is hidden while Money is off.
+- **Category limits (Money):** folded inside the budget sheet; nothing on screen until a limit is set.
+- **Month and category comparisons (Money):** one line under the total and a few words on a category, only when last month has data and the change is 10% or more.
+- **Money search:** a single "Search" link next to History.
+- **Repeating to-dos:** no new control; it's read from the words ("every Monday"). A small "↻ every week" appears only on repeating ones.
+- **Done today:** one "Done today: 2" link, closed by default.
+- **Habit streaks:** a few words under a daily task, only from 2 days in a row.
+- **Hold timer:** replaces the Rest link on timed exercises only (plank and similar), so no extra button.
+- **Focus sessions and awards:** a button on the Now card and exam cards; three more awards on the shelf.
+- **Evening check-in and morning plan reminders:** off until turned on.
+- **Timetable card:** students only, in the first two weeks, until classes exist or "Not now".
+- **Quick actions:** only on a long press of the app icon.
+
+Candidates to cut if the app feels crowded: the month comparison line (the category words say more), the evening check-in (overlaps with the day's own "2 more tasks" line), and Focus awards.

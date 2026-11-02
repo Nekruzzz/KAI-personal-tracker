@@ -1616,7 +1616,7 @@ window.I18N_EN = {
 "Снизить вес":"Lose weight",
 "Набрать массу":"Gain weight",
 "Пол (для расчёта нормы)":"Sex (for the calorie estimate)",
-"Не указывать":"Prefer not to say",
+"Не указывать":"Not specified",
 "Женский":"Female",
 "Мужской":"Male",
 "Заполни профиль, и я рассчитаю её под твою цель.":"Fill in your profile and I'll work it out for your goal.",

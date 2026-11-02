@@ -2229,3 +2229,22 @@ test('an AI answer to Tell KAI gets "every month", repeating to-dos and screen t
     assert.deepEqual(JSON.parse(run(`JSON.stringify(enrichTell({reply: 'x'}, 'hello', '${d}'))`)).money, [], 'nothing to add: unchanged apart from empty lists');
   } finally { run(`setMeta({modules: mods21})`); }
 });
+
+test('exam results: asked after the exam, saved with a grade, and listed under past exams', () => {
+  const today = run(`todayISO()`), y = run(`addDays(todayISO(), -1)`), old = run(`addDays(todayISO(), -20)`);
+  run(`globalThis.plan22 = clone(plan()); globalThis.toastX = toast; toast = () => {}`);
+  setPlan([{id: 'xr', date: y, title: 'Statistics', kind: 'exam', from: '10:00', until: '12:00'}, {id: 'xo', date: old, title: 'Old exam', kind: 'exam'}, {id: 'xd', date: y, title: 'Essay', kind: 'deadline'}]);
+  try {
+    let qs = JSON.parse(run(`JSON.stringify(checkins().filter(q => q.type === 'exam'))`));
+    assert.deepEqual(qs.map(q => q.id), ['xr'], 'only a recent exam, not a deadline or one from weeks ago');
+    run(`A.ciAns({dataset: {k: 'x_xr', a: 'wait', id: 'xr'}})`);
+    assert.equal(run(`checkins().filter(q => q.type === 'exam').length`), 0, '"don\\u2019t know yet" waits until tomorrow');
+    withForm({'#ciGrade': 'A'}, () => run(`A.ciAns({dataset: {k: 'x_xr', a: 'pass', id: 'xr'}})`));
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(allEvents().find(e => e.id === 'xr').result)`)), {passed: true, grade: 'A', at: today});
+    const html = run(`pastExamsHTML()`);
+    assert.ok(html.includes('Statistics') && html.includes('Old exam'));
+    assert.ok(html.includes(run(`trf('сдано {n} из {k}', {n: 1, k: 1})`)));
+    assert.ok(html.includes(run(`tr('сдан')`) + ' · A'));
+    assert.ok(!html.includes('Essay'), 'deadlines are not exams');
+  } finally { run(`toast = toastX; save('app/plan', plan22)`); }
+});

@@ -2309,3 +2309,15 @@ test("a season's archive keeps its focus time and exam results", () => {
     assert.equal(run(`seasonExtraLine({focusMin: 20, examsKnown: 0})`), '', 'little to say: nothing added');
   } finally { run(`save('app/plan', plan25)`); }
 });
+
+test("an exam card's Focus works on the next open topic of its study plan", () => {
+  const today = run(`todayISO()`), soon = run(`addDays(todayISO(), 6)`);
+  run(`globalThis.plan26 = clone(plan()); globalThis.tasks26 = clone(smartTasks())`);
+  setPlan([{id: 'ef', date: soon, title: 'Biology', kind: 'exam'}]);
+  try {
+    assert.match(run(`examCard()`), /data-act="focusSheet" data-exam="ef"/, 'no plan: the session is for the exam');
+    run(`saveTasks([{id: 't1', title: 'Cells', due: '${run(`addDays(todayISO(), 2)`)}', done: false, pri: 2, examId: 'ef', perTopic: 60}, {id: 't0', title: 'Genetics', due: '${today}', done: false, pri: 2, examId: 'ef', perTopic: 60}, {id: 'tx', title: 'Old', due: '${today}', done: true, pri: 2, examId: 'ef'}])`);
+    assert.equal(run(`nextTopic('ef').id`), 't0');
+    assert.match(run(`examCard()`), /data-act="focusTask" data-id="t0"/);
+  } finally { run(`saveTasks(tasks26); save('app/plan', plan26)`); }
+});

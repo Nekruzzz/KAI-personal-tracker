@@ -1488,3 +1488,13 @@ test('bar charts label their axis with round numbers', () => {
   const svg = run(`barChart([{x: 'Mon', y: 1240}, {x: 'Tue', y: 1300}], {target: 2130})`);
   assert.match(svg, />2,500</); assert.match(svg, />1,250</);
 });
+
+test('without an AI that reads pictures, the note says how to get one in this setup, and the offline note names no provider', () => {
+  assert.match(run(`imgNote(true)`), /Claude or ChatGPT/, 'no server: connect a key');
+  run(`globalThis.cfg6 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'`);
+  try { assert.match(run(`imgNote(true)`), /KAI's AI: sign in/); assert.match(run(`imgNote(false)`), /KAI's AI: sign in/); }
+  finally { run(`Object.assign(CFG, cfg6); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+  const app = readFileSync(new URL('../kai/app.js', import.meta.url), 'utf8');
+  const offline = app.match(/tr\("(Нет интернета\.[^"]*)"\)/)[1];
+  assert.equal(run(`tr(${JSON.stringify(offline)})`), 'No internet. Everything works and saves on your phone; AI requests will wait in the queue.');
+});

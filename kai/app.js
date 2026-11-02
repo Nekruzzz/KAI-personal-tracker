@@ -556,6 +556,10 @@ function provReady(p, needImg){
   return false;
 }
 function provConfigured(p){ const c = aiCfg(); if (p==='app') return !!SAMPLE_CAP; if (p==='kai') return signedIn(); return p==='claude' ? !!(c.claude?.key||c.claude?.proxy) : p==='openai' ? !!c.openai?.key : p==='pc' ? !!(c.pc?.url && c.pc?.model) : !!c.phone?.downloaded; }
+/* without an AI that reads pictures: say how to get one, in this setup (an account when there's a server, a key otherwise) */
+const imgNote = photo => cloudOn()
+  ? (photo ? tr('Фото читает ИИ KAI: войди в аккаунт в разделе ИИ, а пока фото подождёт в очереди. Или опиши еду текстом.') : tr('Скриншоты читает ИИ KAI: войди в аккаунт. Пока не вошёл, запрос подождёт в очереди.'))
+  : (photo ? tr('Фото читает ИИ: Claude или ChatGPT. Подключи его в разделе ИИ, а пока фото подождёт в очереди. Или опиши еду текстом.') : tr('Скриншоты читает ИИ: Claude или ChatGPT. Пока он не подключён, запрос подождёт в очереди.'));
 const imgCapable = () => S.inClaude ? !!S.appImg : provConfigured('kai') || provConfigured('claude') || provConfigured('openai') || (provConfigured('pc') && aiCfg().pc.vision);
 function pickProvider(job){
   const list = job.provider && job.provider !== 'auto' ? [job.provider] : S.inClaude ? ['app'] : aiCfg().order;
@@ -1217,7 +1221,7 @@ function renderTop(){
     <button class="iconbtn aibtn lg" data-act="aiSheet" aria-label="${tr("ИИ: ответы и очередь")}">${ic('spark')}<span class="badge" id="aiBadge" hidden></span></button>
   </div>${S.tab==='content'?`<button class="backlink" data-act="tab" data-v="more">${tr("‹ Ещё")}</button>`:''}${titles[S.tab]?`<h1 class="ptitle">${titles[S.tab]}</h1>`:`<h1 class="vh">${tr('День')}</h1>`}
   ${S.online && syncBehind() ? `<div class="note" style="margin-top:12px">${trf('Облачная копия отстаёт: изменений ждут отправки {n}. Всё сохранено на телефоне, отправлю, когда сервер ответит.', {n: syncBehind()})}</div>` : ''}
-  ${!S.online ? `<div class="note" style="margin-top:12px">${tr("Нет интернета. Всё работает и сохраняется в телефоне; запросы к Claude подождут в очереди.")}</div>`:''}
+  ${!S.online ? `<div class="note" style="margin-top:12px">${tr("Нет интернета. Всё работает и сохраняется в телефоне; запросы к ИИ подождут в очереди.")}</div>`:''}
   ${!S.live && S.ready ? `<div class="note" style="margin-top:12px">${tr("Хранилище телефона недоступно: данные не сохранятся после закрытия. Проверь, что это не приватная вкладка Safari.")}</div>`:''}`;
   setTimeout(renderBadge);
 }
@@ -2353,7 +2357,7 @@ function withUndo(paths, fn, msg){
 function foodSheet(mode){
   openSheet(mode==='photo'?tr('Фото еды'):mode==='text'?tr('Опиши, что ешь'):tr('Из продуктов'), () => {
     if (mode==='manual') return productBuilderHTML();
-    return `${mode==='photo' ? `<label class="btn block">${ic('camera')}${tr("Сфоткать или выбрать фото")}<input type="file" accept="image/*" hidden id="fpF" data-ch="foodFile"></label><div id="fpPrev"></div>${imgCapable()?'':`<div class="note">${tr("Фото может разобрать только Claude или ИИ на компьютере с поддержкой картинок. Настрой их в разделе ИИ, а пока фото подождёт в очереди. Или опиши еду текстом.")}</div>`}` : ''}
+    return `${mode==='photo' ? `<label class="btn block">${ic('camera')}${tr("Сфоткать или выбрать фото")}<input type="file" accept="image/*" hidden id="fpF" data-ch="foodFile"></label><div id="fpPrev"></div>${imgCapable()?'':`<div class="note">${imgNote(true)}</div>`}` : ''}
       <div class="field"><label for="fpC">${mode==='photo'?tr('Комментарий (необязательно)'):tr('Что и сколько')}</label><textarea class="in" id="fpC" placeholder="${mode==='photo'?tr('например, курица 150 г, соус не ел'):tr('например, 2 яйца, 150 г гречки, огурец, кусок хлеба')}"></textarea></div>
       ${provPicker(mode==='photo')}
       <button class="btn block" data-act="foodGo">${ic('spark')}${tr("Посчитать КБЖУ")}</button><div id="fpOut"></div>`;
@@ -2664,7 +2668,7 @@ A.txDel = () => { const m = (SH.tx.date || '').slice(0, 7) || S.moneyMonth; with
 A.txShot = () => {
   openSheet(tr('Скриншот из банка'), () => `<div class="hint">${tr("Загрузи скриншоты «Истории» или «Анализа финансов» из банка. ИИ перепишет операции, а ты отметишь, что добавить.")}</div>
     <label class="btn ghost block">${ic('image')}${tr("Выбрать скриншоты")}<input type="file" accept="image/*" multiple hidden data-ch="bkFiles"></label><div id="bkPrev" class="hint"></div>
-    ${imgCapable()?'':`<div class="note">${tr("Скриншоты может прочитать только Claude или ИИ на компьютере с поддержкой картинок. Пока их нет, запрос подождёт в очереди.")}</div>`}
+    ${imgCapable()?'':`<div class="note">${imgNote(false)}</div>`}
     ${provPicker(true)}
     <button class="btn block" data-act="bkGo">${ic('spark')}${tr("Распознать")}</button>
     <div id="bkOut" style="display:flex;flex-direction:column;gap:12px"></div>`);

@@ -2123,4 +2123,8 @@ window.I18N_EN = {
 "Бюджет на месяц (необязательно)":"Monthly budget (optional)",
 "За {d}:":"For {d}:",
 "Вчера гулял час":"Walked for an hour yesterday",
+"«{b}» ({s}) ожидается сегодня. Получено?":"“{b}” ({s}) is expected today. Received?",
+"«{b}» ({s}) ожидался {d}. Получено?":"“{b}” ({s}) was expected on {d}. Received?",
+"«{b}» ({s}): срок сегодня. Оплачено?":"“{b}” ({s}) is due today. Paid?",
+"«{b}» ({s}): срок был {d}. Оплачено?":"“{b}” ({s}) was due on {d}. Paid?",
 };

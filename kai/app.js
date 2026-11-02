@@ -3428,6 +3428,7 @@ function checkins(){
     smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
   examResultQs(date).forEach(x => q(x.k, x));
+  billDueQs(date).forEach(x => q(x.k, x));
   if (modOn('timeline') && plan().routine){
     const {bl, st, endOf} = tlState(date);
     const from = meta().startedOn === date ? meta().startedAt : 0;
@@ -3449,6 +3450,7 @@ function checkinCard(){
   else if (c.type === 'block') body = `<div class="btnrow">${b('yes', tr('Да'))}${b('no', tr('Нет'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'rate') body = `<div class="rate5">${[1, 2, 3, 4, 5].map(i => `<button data-act="ciAns" data-k="rate" data-a="${i}" aria-label="${i} ${tr("из 5")}">${'★'}<small>${i}</small></button>`).join('')}</div><div class="btnrow">${b('later', tr('Не сейчас'), 'ghost')}</div>`;
   else if (c.type === 'exam') body = examResultBody(c, b);
+  else if (c.type === 'bill') body = `<div class="btnrow">${b('paid', c.inc ? tr('Получено') : tr('Оплачено'))}${b('skip', tr('Пропустить месяц'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
   return `<section class="card ci"><div class="nc-l">${tr("Вопрос")}${more ? tr(' · ещё ') + more : ''}</div><div class="t" style="font-weight:700;font-size:17px">${esc(c.text)}</div>${body}</section>`;
 }
@@ -3475,6 +3477,7 @@ A.ciAns = el => {
   if (a === 'later') return mark(Date.now() + 3600000);
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
   if (k.startsWith('x_')) return examResultAns(a, id, mark);
+  if (k.startsWith('p_')) return billDueAns(a, id, mark);
   if (k === 'rate') return mutDay(date, d => { d.rating = +a; d.asked = {...(d.asked || {}), rate: 'yes'}; });
   if (k.startsWith('b_')){
     if (a === 'yes'){
@@ -5494,12 +5497,14 @@ A.billSave = () => {
   toast(linked ? trf('Сохранено. В этом месяце уже записано {d}', {d: fmtShort(linked.date)}) : tr('Сохранено'));
 };
 A.billDel = () => { const id = SH?.bill?.id; if (!id) return; withUndo(['app/bills'], () => { billSaveList(bills().filter(x => x.id !== id)); closeSheet(); }); };
-A.billSkip = () => {
-  const b = bills().find(x => x.id === SH?.bill?.id); if (!b) return;
+A.billSkip = () => { const id = SH?.bill?.id; if (!id) return; const on = billSkipMonth(id); closeSheet(); if (on != null) toast(on ? tr('Снова ждёт оплаты в этом месяце') : tr('В этом месяце пропущен')); };
+/* skip this month, or take the skip back; true when it is due again */
+function billSkipMonth(id){
+  const b = bills().find(x => x.id === id); if (!b) return null;
   const m = curMonth(), on = (b.skip || []).includes(m);
   billSaveList(bills().map(x => x.id === b.id ? {...x, skip: on ? x.skip.filter(k => k !== m) : [...(x.skip || []), m].slice(-12)} : x));
-  closeSheet(); toast(on ? tr('Снова ждёт оплаты в этом месяце') : tr('В этом месяце пропущен'));
-};
+  return on;
+}
 A.billPay = el => {
   const b = bills().find(x => x.id === el.dataset.id), today = todayISO(), m = today.slice(0, 7);
   if (!b || billTx(b, m)) return; // a double tap records it once
@@ -5897,6 +5902,22 @@ function tellDayOf(text, date){
   if (/завтра(?![а-яё])|tomorrow/i.test(t)) return date; // a message about tomorrow too keeps today ("завтрак" is breakfast)
   if (/позавчера|day before yesterday/i.test(t)) return addDays(date, -2);
   return PAST_DAY_RE.test(t) ? addDays(date, -1) : date;
+}
+
+/* ============ a regular payment that is due shows up as a question on the Day tab ============ */
+// the earliest one due and unpaid this month; "Later" waits until tomorrow
+function billDueQs(date){
+  if (!modOn('money')) return [];
+  const due = bills().filter(b => billState(b, date) === 'due').sort((a, b) => billDue(a, date.slice(0, 7)).localeCompare(billDue(b, date.slice(0, 7))));
+  return due.slice(0, 1).map(b => { const d = billDue(b, date.slice(0, 7)), inc = b.type === 'in', today = d === date;
+    const key = inc ? (today ? '«{b}» ({s}) ожидается сегодня. Получено?' : '«{b}» ({s}) ожидался {d}. Получено?') : (today ? '«{b}» ({s}): срок сегодня. Оплачено?' : '«{b}» ({s}): срок был {d}. Оплачено?');
+    return {k: 'p_' + b.id, type: 'bill', id: b.id, inc, text: trf(key, {b: b.title, s: money(b.amount), d: fmtShort(d)})}; });
+}
+function billDueAns(a, id, mark){
+  if (a === 'later') return mark('later');
+  if (a === 'paid') A.billPay({dataset: {id}});
+  if (a === 'skip'){ billSkipMonth(id); toast(tr('В этом месяце пропущен')); }
+  mark(a);
 }
 
 /* ============ init ============ */

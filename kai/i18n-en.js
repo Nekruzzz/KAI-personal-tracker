@@ -419,7 +419,6 @@ window.I18N_EN = {
 "Заканчивай основную часть, оставь время на проверку.":"Finish the main part and leave time to check it.",
 "Закрепить время":"Lock the time",
 "Закрыть":"Close",
-"Зал":"Gym",
 "Зал ·":"Gym ·",
 "Зал · Тренировка":"Gym · Workout",
 "Зал · тренировка":"Gym · workout",

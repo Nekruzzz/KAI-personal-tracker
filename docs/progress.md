@@ -77,6 +77,8 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Timetable from a calendar file (new):** More → Class timetable and Events take a `.ics` file (the format university timetables are exported in). Weekly lessons become classes with their room; future exams and deadlines become events, recognised by their names. Finished terms, past and cancelled events are skipped, lessons listed one by one are folded into weekly classes, and nothing already in the plan is added twice. Shown first, added with "Add all", with Undo.
 - **Focus on a to-do:** any to-do's details have a Focus button; the session is named after it and offers to mark it done at the end. A study-plan topic's planned time now counts once (focus minutes count toward it; marking it done adds only what's left; before, the full hour was added on top). Sessions are recorded, the Focus sheet shows the last 7 days, and the weekly summary image shows focus sessions.
 - **Regular payments (new):** rent, a phone plan, subscriptions or an allowance, added under Money or by switching on "Every month" when saving an entry. Each shows as due, coming, paid or skipped this month and is marked paid with one tap (Undo works); nothing is recorded by itself. The budget sets aside what is still to pay, so "about $15 a day" is what can really be spent. Something paid once a month around the same day, with the same name and amount, is offered as a regular payment (once; "No, thanks" is remembered). With reminders on, the iPhone app reminds at 10:00 on the day, and the morning plan mentions it. Two categories were added for them: Housing and utilities, and Subscriptions; the on-phone reader files "rent 400", "netflix 11" and "phone bill 15" there.
+- **Tell KAI understands "every month":** "Netflix 11 every month" or "Аренда 400 каждый месяц" is read on the phone as the entry plus a regular payment. The preview says "every month" before anything changes, and Undo removes both. It's one of the "What can I write?" examples.
+- **Money compares with last month:** under the month's total, "For comparison, 1–2 October: $39 · now 18% less", the same days of last month (or the whole month before a past one). Negative amounts in Russian now use a true minus sign.
 - **New money entries pick a category from the description** ("Internet" → Phone and internet), instead of always starting on Transfers. A category the person chose is never changed.
 - **Focus from an exam card:** each exam card has Focus next to its study plan, and focused minutes count as preparation for that exam. "+30 min of prep" and "To Calendar" became links, so the card has one row of buttons instead of three.
 - **Morning plan reminder (new, off until turned on):** at wake-up, the day in one line, for example "2 classes · workout at 17:15 · 1 task · "Chemistry" in 3 days". Nothing on an empty day.
@@ -128,7 +130,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 135 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 138 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

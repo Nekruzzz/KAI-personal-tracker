@@ -1600,7 +1600,7 @@ function viewMoney(){
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
     <div style="display:grid;place-items:center;margin:14px 0">${donut(segsFor(G, sel), 140, 20)}</div>
-    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${(x => num(x, x < 10 && x % 1 ? 1 : 0))(g.sum/(SUM||1)*100)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}${catVsPrev(m, sel === 'in' ? 'in' : 'out', g.cat, g.sum)}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
+    <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${(x => num(x, x < 10 && x % 1 ? 1 : 0))(g.sum/(SUM||1)*100)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}${catVsPrev(m, sel === 'in' ? 'in' : 'out', g.cat, g.sum)}</div>${sel === 'in' ? '' : catLimitBar(g.cat, g.sum)}</div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
   const byDate = {}; monthTx(m).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
   const dates = Object.keys(byDate).sort().reverse();
   if (!dates.length) return h;
@@ -2072,8 +2072,8 @@ function budgetCard(m, spentMonth){
     <div class="bar"><i style="width:${pct}%;background:${over?'var(--bad)':pct>85?'var(--warn)':'var(--accent)'}"></i></div>
     <div class="hint">${over ? `${tr("Перерасход:")} ${money(-left)}` : `${tr("Осталось:")} ${money(left)}${pend ? ` ${trf(free < 0 ? '· регулярные платежи ({s}) больше остатка' : '· из них {s} на регулярные платежи', {s: money(pend)})}` : ''}${isCur && daysLeft && free > 0 ? ` ${trf('· в день можно {d} до конца месяца', {d: money(Math.floor(free/daysLeft))})}` : ''}`}</div></section>`;
 }
-A.budgetSet = () => openSheet(tr('Бюджет на месяц'), `<div class="field"><label for="bgV">${tr("Сколько можно тратить в месяц")}</label><input class="in" id="bgV" inputmode="decimal" value="${esc(S.docs['app/budget']?.monthly||'')}"></div><button class="btn block" data-act="budgetSave">${tr("Сохранить")}</button>${budgetBillsHint()}`, b => $('#bgV', b).focus());
-A.budgetSave = () => { const v = toNum(val('bgV')); save('app/budget', {monthly: v || null}); closeSheet(); };
+A.budgetSet = () => openSheet(tr('Бюджет на месяц'), `<div class="field"><label for="bgV">${tr("Сколько можно тратить в месяц")}</label><input class="in" id="bgV" inputmode="decimal" value="${esc(S.docs['app/budget']?.monthly||'')}"></div>${catLimitsHTML()}<button class="btn block" data-act="budgetSave">${tr("Сохранить")}</button>${budgetBillsHint()}`, b => $('#bgV', b).focus());
+A.budgetSave = () => { const v = toNum(val('bgV')); saveBudget(v || null, Object.fromEntries($$('[data-lim]').map(el => [el.dataset.lim, el.value]))); closeSheet(); };
 
 /* ============ reminders → iPhone Calendar (.ics) ============ */
 const ICS_ITEMS = [
@@ -5743,6 +5743,28 @@ function linkTodo(){
 /* ============ a study plan ends with its exam ============ */
 // topics still open once the exam is over (or gone) leave the to-do list and stop being asked about; they stay in the data
 const studyOver = (t, today = todayISO()) => { if (!t?.examId) return false; const e = allEvents().find(x => x.id === t.examId); return !e || (e.toDate || e.date) < today; };
+
+/* ============ budget: limits for single categories ("cafes: 100 a month") ============ */
+// app/budget: {monthly, cats: {category: limit}}. Optional; a category without a limit shows nothing extra.
+const catLimits = () => S.docs['app/budget']?.cats || {};
+function saveBudget(monthly, limits){
+  const cats = {}; Object.entries(limits || {}).forEach(([k, v]) => { const n = Math.abs(toNum(v)); if (n > 0 && OUT_CATS.some(c => c[0] === k)) cats[k] = n; });
+  save('app/budget', {...(S.docs['app/budget'] || {}), monthly, cats});
+}
+function catLimitsHTML(){
+  const lim = catLimits(), m = curMonth(), [y, mm] = m.split('-').map(Number), prev = new Date(y, mm - 2, 1), pm = prev.getFullYear() + '-' + pad(prev.getMonth() + 1);
+  const used = new Set([...monthTx(m), ...monthTx(pm)].filter(t => t.type === 'out').map(t => t.cat));
+  let cats = OUT_CATS.filter(c => used.has(c[0]) || lim[c[0]]);
+  if (!cats.length) cats = OUT_CATS.filter(c => ['Кафе и рестораны', 'Супермаркеты', 'Транспорт', 'Онлайн-покупки', 'Подписки', 'Спорт и здоровье'].includes(c[0]));
+  return `<details class="lims" ${Object.keys(lim).length ? 'open' : ''}><summary>${ic('chevR', 'chev')}${tr('Лимиты по категориям (необязательно)')}</summary>
+    <div class="hint">${tr('Например, кафе не больше 100 в месяц. Пустое поле: без лимита.')}</div>
+    ${cats.map((c, i) => `<div class="lim-row"><label for="bgL${i}">${esc(tr(c[0]))}</label><input class="in" id="bgL${i}" data-lim="${esc(c[0])}" inputmode="decimal" placeholder="—" value="${esc(lim[c[0]] ?? '')}"></div>`).join('')}</details>`;
+}
+function catLimitBar(cat, sum){
+  const L = catLimits()[cat]; if (!L) return '';
+  const pct = sum / L * 100, over = sum - L;
+  return `<div class="lim-bar"><div class="bar"><i style="width:${Math.min(100, pct)}%;background:var(--${pct > 100 ? 'bad' : pct >= 85 ? 'warn' : 'accent'})"></i></div><div class="s">${over > 0 ? `<span class="cat-d worse">${trf('лимит превышен на {s}', {s: money(over)})}</span>` : trf('{s} из {l}', {s: money(sum), l: money(L)})}</div></div>`;
+}
 
 /* ============ init ============ */
 async function init(){

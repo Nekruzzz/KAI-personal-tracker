@@ -767,6 +767,16 @@ body.resting.focusing .toast{bottom:calc(232px + env(safe-area-inset-bottom,0px)
 /* an icon inside a text link */
 .link-ic{width:15px;height:15px;vertical-align:-2px;margin-right:4px}
 
+/* limits for single money categories */
+.lims summary{cursor:pointer;font-weight:600;padding:6px 0;min-height:44px;display:flex;align-items:center;gap:6px;list-style:none}
+.lims summary::-webkit-details-marker{display:none}
+.lims .chev{width:16px;height:16px;flex:none;transition:transform .2s}
+.lims[open] .chev{transform:rotate(90deg)}
+.lim-row{display:grid;grid-template-columns:1fr 110px;gap:10px;align-items:center;margin-top:8px}
+.lim-row label{font-size:14.5px}
+.lim-bar{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.lim-bar .bar{height:6px}
+
 /* a money category against the month before */
 .cat-d{font-weight:700;white-space:nowrap}
 .cat-d.worse{color:var(--bad-ink)}

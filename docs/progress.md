@@ -78,6 +78,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Focus on a to-do:** any to-do's details have a Focus button; the session is named after it and offers to mark it done at the end. A study-plan topic's planned time now counts once (focus minutes count toward it; marking it done adds only what's left; before, the full hour was added on top). Sessions are recorded, the Focus sheet shows the last 7 days, and the weekly summary image shows focus sessions.
 - **Regular payments (new):** rent, a phone plan, subscriptions or an allowance, added under Money or by switching on "Every month" when saving an entry. Each shows as due, coming, paid or skipped this month and is marked paid with one tap (Undo works); nothing is recorded by itself. The budget sets aside what is still to pay, so "about $15 a day" is what can really be spent. Something paid once a month around the same day, with the same name and amount, is offered as a regular payment (once; "No, thanks" is remembered). With reminders on, the iPhone app reminds at 10:00 on the day, and the morning plan mentions it. Two categories were added for them: Housing and utilities, and Subscriptions; the on-phone reader files "rent 400", "netflix 11" and "phone bill 15" there.
 - **Tell KAI on the phone, two misreadings fixed and more understood:** "сходил в зал на час" was logged as an hour's walk, and "ran 5 km in 30 minutes" or "slept from 1 to 9" became to-dos. Now read without AI: running, cycling, swimming and yoga as workouts (also with a distance), sleep from one time to another ("slept 11pm to 7am", "спал с часу до 9"), money from family ("got 50 from mom", "получил 2000 от мамы"), spending "at the pharmacy" / "в аптеке", and Uber as transport. "Woke up at 7" is no longer a to-do. A weight typed without a unit is read as kilograms or pounds, whichever is closer to the last weight logged. Found by trying 50 everyday messages in both languages.
+- **What's new:** people updating from an earlier version see the main additions once (about two seconds after opening, never over another sheet); new installs skip it.
 - **Season archive:** a finished season also records its focus time and exam results ("· focus 12 h · exams: 3 of 4 passed").
 - **The iPhone Calendar repeats what repeats:** a repeating to-do sent to the Calendar carries its rule, and the web app's "Set up Calendar reminders" can add each regular payment as a monthly event on its day (the 29th to 31st on a short month's last day).
 - **An exam's Focus works on its next study topic** when there is a study plan, so a session counts for that topic and can mark it done.
@@ -159,7 +160,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 166 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 167 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

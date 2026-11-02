@@ -2085,4 +2085,5 @@ window.I18N_EN = {
 "Показаны последние {n}":"Showing the latest {n}",
 "Поиск по операциям":"Search transactions",
 "например, зал или 12":"for example, gym or 12",
+"Задачи выключены: включи их в «Ещё» → «Модули»":"To-dos are off: turn them on in More → Modules",
 };

@@ -4963,11 +4963,14 @@ applyTheme();
 /* the iPhone app's Home Screen quick actions set #tell or #day while it's running */
 addEventListener('hashchange', () => openFromLink());
 function openFromLink(){
-  const h = location.hash.slice(1); if (!['tell', 'day'].includes(h)) return;
+  const h = location.hash.slice(1); if (!['tell', 'day', 'todo', 'focus'].includes(h)) return;
   if (!S.ready) return setTimeout(openFromLink, 200);
   history.replaceState(null, '', location.pathname + location.search);
-  S.tab = 'day'; render();
-  if (h === 'tell' && meta().welcomed) A.tell();
+  closeSheetQuiet(); S.tab = 'day'; render();
+  if (!meta().welcomed) return;
+  if (h === 'tell') A.tell();
+  if (h === 'todo') linkTodo();
+  if (h === 'focus' && !FOCUS) A.focusSheet({dataset: {}});
 }
 
 /* ============ money as a spreadsheet: every entry, oldest first, opens in Numbers, Excel or Google Sheets ============ */
@@ -5728,6 +5731,14 @@ function txFindList(){
 A.txFind = () => { SH = null; openSheet(tr('Поиск по операциям'), () => `<div class="field"><input class="in" id="txQ" data-inp="txQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="${tr('например, зал или 12')}" aria-label="${tr('Поиск по операциям')}" value="${esc(SH?.txq || '')}"></div><div id="txFindOut">${txFindList()}</div>`, b => $('#txQ', b)?.focus()); };
 document.addEventListener('input', e => { if (e.target?.dataset?.inp === 'txQ' && SH){ SH.txq = e.target.value; const out = $('#txFindOut'); if (out) out.innerHTML = txFindList(); } });
 A.txFound = el => { S.moneyMonth = el.dataset.m; A.txEdit(el); };
+
+/* ============ quick actions: a new to-do ============ */
+// the to-do field on the Day tab, in view and ready to type in
+function linkTodo(){
+  if (!modOn('tasks')) return toast(tr('Задачи выключены: включи их в «Ещё» → «Модули»'));
+  const qa = $('#qa'); if (!qa) return;
+  qa.scrollIntoView?.({block: 'center'}); qa.focus?.();
+}
 
 /* ============ init ============ */
 async function init(){

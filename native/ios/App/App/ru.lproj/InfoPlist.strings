@@ -7,3 +7,5 @@ NSHealthShareUsageDescription = "KAI читает шаги, сон и трени
 /* Home Screen quick actions (long-press the app icon) */
 "Tell KAI" = "Сказать KAI";
 "Today" = "Сегодня";
+"New To-Do" = "Новая задача";
+"Focus" = "Фокус";

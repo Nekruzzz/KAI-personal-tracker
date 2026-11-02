@@ -90,6 +90,22 @@
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>calendar</string>
 		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).todo</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>New To-Do</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>plus.circle</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).focus</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Focus</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>scope</string>
+		</dict>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>

@@ -2177,3 +2177,19 @@ test('links from quick actions: #todo shows the Day with the to-do field, #focus
     assert.equal(run(`SH`), null, 'no sheet over the to-do field');
   } finally { run(`location.hash = ''; closeSheetQuiet(); setMeta(meta18)`); }
 });
+
+test('a study plan ends with its exam: leftover topics leave the to-do list and the questions', () => {
+  const today = run(`todayISO()`), past = run(`addDays(todayISO(), -2)`), soon = run(`addDays(todayISO(), 5)`);
+  run(`globalThis.tasks19 = clone(smartTasks()); globalThis.plan19 = clone(plan())`);
+  setPlan([{id: 'exOld', date: past, title: 'Chemistry', kind: 'exam'}, {id: 'exNew', date: soon, title: 'Biology', kind: 'exam'}]);
+  try {
+    run(`saveTasks([{id: 'st1', title: 'Revise: acids', due: '${run(`addDays(todayISO(), -3)`)}', done: false, pri: 2, examId: 'exOld'}, {id: 'st2', title: 'Revise: cells', due: '${today}', done: false, pri: 2, examId: 'exNew'}, {id: 'st3', title: 'Buy pens', due: null, done: false, pri: 2}])`);
+    assert.equal(run(`studyOver(smartTasks()[0])`), true);
+    assert.equal(run(`studyOver(smartTasks()[1])`), false);
+    assert.equal(run(`studyOver(smartTasks()[2])`), false);
+    const card = run(`taskCard()`);
+    assert.ok(!card.includes('Revise: acids') && card.includes('Revise: cells'));
+    assert.ok(!run(`JSON.stringify(checkins())`).includes('Revise: acids'), 'no "overdue, done?" for a finished exam');
+    assert.equal(run(`smartTasks().length`), 3, 'nothing is deleted');
+  } finally { run(`saveTasks(tasks19); save('app/plan', plan19)`); }
+});

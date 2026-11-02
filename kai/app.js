@@ -3333,7 +3333,7 @@ function dueLabel(t){
 const isOverdue = t => !t.done && !!t.due && (t.due < todayISO() || (t.due === todayISO() && !!t.time && t.time < nowHM()));
 function taskCard(){
   if (!modOn('tasks')) return '';
-  const today = todayISO(), items = smartTasks().filter(t => !t.done);
+  const today = todayISO(), items = smartTasks().filter(t => !t.done && !studyOver(t));
   const rank = t => isOverdue(t) ? 0 : t.due === today ? 1 : !t.due ? 2 : 3;
   const sorted = [...items].sort((a, b) => rank(a) - rank(b) || (a.time || '99').localeCompare(b.time || '99') || a.pri - b.pri);
   const now = sorted.filter(t => rank(t) <= 2), later = sorted.filter(t => rank(t) === 3);
@@ -3415,8 +3415,8 @@ function checkins(){
   const q = (k, o) => { if (open(k)) out.push({k, ...o}); };
   if (modOn('tasks')){
     if (hr >= 6 && hr < 12 && !smartTasks().some(t => !t.done && t.due === date) && !d.planDone) q('plan', {type: 'plan', text: tr('Что нужно сделать сегодня?')});
-    smartTasks().filter(t => isOverdue(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
-    smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
+    smartTasks().filter(t => isOverdue(t) && !studyOver(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
+    smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
   if (modOn('timeline') && plan().routine){
     const {bl, st, endOf} = tlState(date);
@@ -5739,6 +5739,10 @@ function linkTodo(){
   const qa = $('#qa'); if (!qa) return;
   qa.scrollIntoView?.({block: 'center'}); qa.focus?.();
 }
+
+/* ============ a study plan ends with its exam ============ */
+// topics still open once the exam is over (or gone) leave the to-do list and stop being asked about; they stay in the data
+const studyOver = (t, today = todayISO()) => { if (!t?.examId) return false; const e = allEvents().find(x => x.id === t.examId); return !e || (e.toDate || e.date) < today; };
 
 /* ============ init ============ */
 async function init(){

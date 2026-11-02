@@ -2151,3 +2151,17 @@ test('Money categories against the month before: a real change is shown, small o
     assert.equal(run(`catVsPrev('2030-08', 'out', 'Супермаркеты', 80, '2030-08-10')`), '', 'nothing the month before');
   } finally { run(`remove('money/2030-07')`); }
 });
+
+test('money search finds entries by name, category or amount in every month', () => {
+  run(`save('money/2030-10', {tx: [{id: 's1', type: 'out', amount: 30, date: '2030-10-05', cat: 'Спорт и здоровье', note: 'Gym membership'}, {id: 's2', type: 'out', amount: 12, date: '2030-10-07', cat: 'Кафе и рестораны', note: 'Lunch'}]}); save('money/2030-11', {tx: [{id: 's3', type: 'out', amount: 30, date: '2030-11-05', cat: 'Спорт и здоровье', note: 'gym'}, {id: 's4', type: 'in', amount: 300, date: '2030-11-01', cat: 'Доход', note: 'Allowance'}]})`);
+  try {
+    const f = q => JSON.parse(run(`JSON.stringify(txFindResults(${JSON.stringify(q)}))`));
+    let r = f('GYM');
+    assert.deepEqual(r.list.map(t => t.id), ['s3', 's1'], 'newest first, any case');
+    assert.equal(r.total, -60);
+    assert.deepEqual(f('30').list.map(t => t.id), ['s3', 's1'], 'by amount');
+    assert.ok(f(run(`tr('Кафе и рестораны')`).slice(0, 4)).list.some(t => t.id === 's2'), 'by category name');
+    assert.equal(f('allowance').total, 300);
+    assert.deepEqual(f('').list, []);
+  } finally { run(`remove('money/2030-10'); remove('money/2030-11')`); }
+});

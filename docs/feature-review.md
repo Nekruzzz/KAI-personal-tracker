@@ -63,6 +63,7 @@ New features from the later rounds, with what a person sees before they use them
 - **Focus sessions and awards:** a button on the Now card and exam cards; three more awards on the shelf.
 - **Evening check-in and morning plan reminders:** off until turned on.
 - **Timetable card:** students only, in the first two weeks, until classes exist or "Not now".
+- **Exam results:** one check-in question after each exam (with "Don't know yet"), and a past exams list at the bottom of Events.
 - **Quick actions:** only on a long press of the app icon.
 
 Candidates to cut if the app feels crowded: the month comparison line (the category words say more), the evening check-in (overlaps with the day's own "2 more tasks" line), and Focus awards.

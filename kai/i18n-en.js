@@ -1612,7 +1612,7 @@ window.I18N_EN = {
 "ChatGPT не принял запрос:":"ChatGPT didn't accept the request:",
 "ChatGPT временно недоступен (":"ChatGPT is temporarily unavailable (",
 "Цель по весу":"Weight goal",
-"Держать вес":"Keep my weight",
+"Держать вес":"Keep weight",
 "Снизить вес":"Lose weight",
 "Набрать массу":"Gain weight",
 "Пол (для расчёта нормы)":"Sex (for the calorie estimate)",

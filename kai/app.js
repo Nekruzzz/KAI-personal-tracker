@@ -3884,7 +3884,7 @@ function tellPlanLines(r){
   (r.cancel_events || []).filter(id => allEvents().some(e => e.id === id)).forEach(id => lines.push(`${tr("Отменить «")}${name(id)}${tr('»')}`));
   tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}`));
   moves.forEach(m => lines.push(m.to ? `${tr("Перенести тренировку:")} ${fmtShort(m.from)} → ${fmtShort(m.to)}` : `${tr("Убрать тренировку")} ${fmtShort(m.from)}`));
-  const tn = {walk:tr('Ходьба'), gym:tr('Зал'), study:tr('Учёба')};
+  const tn = {walk:tr('Ходьба'), gym:tr('Тренировка'), study:tr('Учёба')};
   (r.time_log || []).filter(x => tn[x?.kind] && +x.min > 0).forEach(x => lines.push(`${tn[x.kind]}: ${fmtMin(+x.min)}`));
   return lines;
 }
@@ -4655,15 +4655,15 @@ const NUM = '(\\d+(?:[.,]\\d+)?)';
 const toN = x => +String(x).replace(',', '.');
 const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*)';
 const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
-const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
+const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|uber|lyft|bolt|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/аптек|pharmacy|drugstore|лекарств|medicine/i, 'Спорт и здоровье'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
-const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл/i;
+const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул[аи]?сь|встал[аи]?(?![а-яё])/i;
 const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован/i;
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
 const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
 const amountOf = (whole, cents) => +(whole.replace(/[\s ]/g, '') + (cents ? '.' + cents : ''));
-const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|phone bill|internet|netflix|spotify|gas|fuel|квартплата|коммуналка|интернет|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
+const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|phone bill|internet|netflix|spotify|pharmacy|uber|gas|fuel|квартплата|коммуналка|интернет|аптека|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
 function localMoney(c){
   // "netflix 11 every month": the entry, offered as a regular payment too
   const every = MONTHLY_RE.test(c); if (every) c = c.replace(MONTHLY_RE, ' ').replace(/\s+/g, ' ').trim();
@@ -4672,7 +4672,9 @@ function localMoney(c){
   // income first: "got paid" also contains "paid"
   let m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + AMT, 'i'));
   if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return out({type: 'in', amount, cat: 'Доход', note: c}); }
-  m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for)\\s+(.+))?$', 'i'));
+  m = c.match(new RegExp('(?:got|received|получил[аи]?)\\s+' + AMT + '\\s+(?:from|от)\\s+\\S|(?:скинул[аи]?|перевел[аи]?|перевёл|прислал[аи]?|отправил[аи]?)\\s+мне\\s+' + AMT, 'i'));
+  if (m){ const amount = m[1] ? amountOf(m[1], m[2]) : amountOf(m[3], m[4]); if (amount > 0) return out({type: 'in', amount, cat: 'Переводы входящие', note: c}); }
+  m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for|at|в|во)\\s+(.+))?$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
   m = c.match(new RegExp('^(' + SPEND_WORDS + ')\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
@@ -4687,9 +4689,12 @@ function localTellParse(text, date){
   const sets = [];
   let rest = localSets(spelled, date, sets);
   // "went to bed at 23:30, woke up at 7" / "лёг в 23, встал в 7": the hours in between
-  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\D{1,40}?(?:woke(?: up)?|got up|until|till|встал[аи]?|проснул[аи]?сь|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?/i);
+  rest = rest.replace(/((?:по)?спал[аи]?|slept)\s+(с|from)\s+часу/i, '$1 $2 1').replace(/((?:по)?спал[аи]?|slept)\s+(с|from)\s+(?:полуночи|midnight)/i, '$1 $2 0');
+  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|slept|(?:по)?спал[аи]? с|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?\D{1,40}?(?:woke(?: up)?|got up|until|till|to|встал[аи]?|проснул[аи]?сь|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?/i);
   if (bed){
-    const h = ((+bed[3] * 60 + +(bed[4] || 0)) - (+bed[1] * 60 + +(bed[2] || 0)) + 1440) % 1440 / 60;
+    const h24 = (h, ap) => ap ? h % 12 + (/pm/i.test(ap) ? 12 : 0) : h, span = from => ((h24(+bed[4], bed[6]) * 60 + +(bed[5] || 0)) - (from * 60 + +(bed[2] || 0)) + 1440) % 1440 / 60;
+    let h = span(h24(+bed[1], bed[3]));
+    if (h > 14 && !bed[3] && +bed[1] >= 7 && +bed[1] <= 12) h = span(+bed[1] + 12); // "slept 11 to 7": 11 at night
     if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(bed[0], ' '); }
   }
   if (sets.length) r.sets = sets;
@@ -4701,11 +4706,11 @@ function localTellParse(text, date){
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
     if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
     if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
-    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|прогулк[а-яё]*|ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
+    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
     else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|в зале|зал|workout|worked out|trained|gym)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|в зале|зал|workout|worked out|trained|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
     if ((m = c.match(new RegExp('(?:вес(?![а-яё])|вешу|взвесил[аи]?сь|weigh(?:t|ed|ing)?)\\D{0,8}?' + NUM + '\\s*(кг|kg|lbs?|pounds?|фунт[а-яё]*)?', 'i')))){
-      let w = toN(m[1]); const lb = m[2] ? /lb|pound|фунт/i.test(m[2]) : isUS();
+      let w = toN(m[1]); const ref = refWeight(), lb = m[2] ? /lb|pound|фунт/i.test(m[2]) : ref ? Math.abs(w / LB - ref) < Math.abs(w - ref) : isUS();
       if (lb) w = Math.round(w / LB * 10) / 10;
       if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
     }
@@ -4836,9 +4841,9 @@ function tellLocal(text, date){
 /* ---- "What can I write?": examples by topic; a tap adds one to the message. Without AI, only what the phone understands, plus a few marked as needing AI ---- */
 const TELL_HELP = [
   [tr('Тело'), [tr('Спал 7 часов'), tr('Лёг в 23, встал в 7'), tr('9 000 шагов'), tr('Вес 72,5')]],
-  [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Учился 2 часа'), tr('Присед 40 на 10, 10 и 8')]],
+  [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Пробежал 5 км за 30 минут'), tr('Учился 2 часа'), tr('Присед 40 на 10, 10 и 8')]],
   [tr('Еда'), [tr('200 г гречки и 2 яйца'), tr('Стакан кефира')]],
-  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Аренда 400 каждый месяц')]],
+  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Получил 50 от мамы'), tr('Аренда 400 каждый месяц')]],
   [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4')]],
 ];
@@ -5576,6 +5581,12 @@ function remindGroups(){
   const groups = [...REMIND_GROUPS.map(([h, ks]) => [tr(h), ks.map(k => kinds.find(x => x[0] === k)).filter(Boolean)]), [tr('Остальное'), kinds.filter(([k]) => !used.has(k))]].filter(g => g[1].length);
   return groups.map(([h, ks]) => `<h3 class="remind-h">${h}</h3><section class="card" style="padding:4px 16px"><div class="list">${ks.map(([k, l, hh]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${hh}</div></div><input type="checkbox" switch class="sw" data-ch="remind" data-k="${k}" aria-label="${l}" ${remindOn(k) ? 'checked' : ''}></label>`).join('')}</div></section>`).join('');
 }
+
+/* ============ Tell KAI on the phone: running, cycling, swimming and yoga; a weight's unit ============ */
+const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]';
+const DIST = '(?:\\s*\\d+(?:[.,]\\d+)?\\s*(?:km|км|mi|miles?|k)(?![a-zа-яё]))?'; // "ran 5 km in 30 minutes"
+/* the last weight logged, or the profile's: tells "вес 70" in kilograms from "weight 154" in pounds */
+function refWeight(){ const k = dayKeys().reverse().find(x => toNum(S.docs['days/' + x]?.weight) > 0); return k ? toNum(S.docs['days/' + k].weight) : toNum(profile().weight) || 0; }
 
 /* ============ init ============ */
 async function init(){

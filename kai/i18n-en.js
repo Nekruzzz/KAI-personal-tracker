@@ -2053,4 +2053,6 @@ window.I18N_EN = {
 "Учёба и планы":"Study and plans",
 "Ритм дня":"Daily rhythm",
 "Остальное":"Other",
+"Пробежал 5 км за 30 минут":"Ran 5 km in 30 minutes",
+"Получил 50 от мамы":"Got 50 from mom",
 };

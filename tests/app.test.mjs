@@ -1941,3 +1941,40 @@ test('awards of a switched-off module are hidden unless already earned', () => {
     assert.ok(run(`badgesShown().some(b => b.id === 'post12')`));
   } finally { run(`setMeta({modules: mods10, badges: badges10})`); }
 });
+
+test('Tell KAI on the phone: running, cycling, swimming and yoga are workouts; sleep ranges; money from family; pharmacy and Uber', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.deepEqual(p('ran 5 km in 30 minutes').time_log, [{kind: 'gym', min: 30}]);
+  assert.equal(p('ran 5 km in 30 minutes').new_tasks.length, 0, 'not a to-do in 30 minutes');
+  assert.deepEqual(p('пробежал 5 км за 30 минут').time_log, [{kind: 'gym', min: 30}]);
+  assert.deepEqual(p('сходил в зал на час').time_log, [{kind: 'gym', min: 60}], 'went to the gym: not a walk');
+  assert.deepEqual(p('ходил пешком 40 минут').time_log, [{kind: 'walk', min: 40}]);
+  assert.deepEqual(p('swam 30 minutes').time_log, [{kind: 'gym', min: 30}]);
+  assert.deepEqual(p('катался на велике 45 минут').time_log, [{kind: 'gym', min: 45}]);
+  assert.deepEqual(p('йога 20 минут').time_log, [{kind: 'gym', min: 20}]);
+  assert.deepEqual(p("I'm running 10 minutes late").time_log, [], 'running late is not a workout');
+  assert.equal(p('slept from 1 to 9').sleep_h, 8);
+  assert.equal(p('slept 11pm to 7am').sleep_h, 8);
+  assert.equal(p('slept 11 to 7').sleep_h, 8, '11 means the evening');
+  assert.equal(p('спал с часу до 9').sleep_h, 8);
+  assert.equal(p('спал с 23 до 7').sleep_h, 8);
+  assert.equal(p('went to bed at 23:30, woke up at 7').sleep_h, 7.5);
+  assert.equal(p('woke up at 7').new_tasks.length, 0, '"woke up at 7" is not a to-do');
+  assert.deepEqual(p('got 50 from mom').money[0], {type: 'in', amount: 50, cat: 'Переводы входящие', note: 'got 50 from mom'});
+  assert.equal(p('получил 2000 от мамы').money[0].type, 'in');
+  assert.equal(p('мама перевела мне 2000').money[0].amount, 2000);
+  assert.equal(p('получил 5 по матану').money.length, 0, 'a grade is not money');
+  assert.equal(p('spent 20 at the pharmacy').money[0].cat, 'Спорт и здоровье');
+  assert.equal(p('потратил 300 в аптеке').money[0].amount, 300);
+  assert.equal(p('uber 18').money[0].cat, 'Транспорт');
+});
+
+test('a weight without a unit is read in kilograms or pounds, whichever is closer to the last one logged', () => {
+  const day = '2029-12-30';
+  run(`globalThis.prof11 = clone(profile()); save('app/profile', {...profile(), units: 'us'}); save('days/${day}', {...buildDay('${day}'), weight: 70})`);
+  try {
+    assert.equal(run(`localTellParse('вес 70,4', todayISO()).r.weight`), 70.4, 'pounds in the settings, but 70.4 kg is the likely meaning');
+    assert.equal(run(`localTellParse('weight 155', todayISO()).r.weight`), 70.3);
+    assert.equal(run(`localTellParse('weight 71 kg', todayISO()).r.weight`), 71);
+  } finally { run(`save('app/profile', prof11); remove('days/${day}')`); }
+});

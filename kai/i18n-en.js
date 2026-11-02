@@ -2033,4 +2033,7 @@ window.I18N_EN = {
 "сейчас на {n}% меньше":"now {n}% less",
 "каждый месяц":"every month",
 "Аренда 400 каждый месяц":"Rent 400 every month",
+"Вечерняя проверка":"Evening check-in",
+"Если день ещё не засчитан: за 2 часа до сна":"If the day doesn't count yet: 2 hours before bedtime",
+"Ещё {n} {t}, и день засчитан":"{n} more {t} and the day counts",
 };

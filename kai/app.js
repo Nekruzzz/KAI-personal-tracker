@@ -4426,8 +4426,8 @@ function recapBanner(){
 A.recapOpen = () => { setMeta({recapSeen: recapRange()[0]}); A.recap(); };
 
 /* ============ v8: the iPhone app. The native wrapper adds its plugins to window.Capacitor; in a browser none of this runs ============ */
-const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')]];
-const REMIND_OFF = new Set(['bed', 'morning']); // off until the person turns them on
+const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')], ['evening', tr('Вечерняя проверка'), tr('Если день ещё не засчитан: за 2 часа до сна')]];
+const REMIND_OFF = new Set(['bed', 'morning', 'evening']); // off until the person turns them on
 const remindOn = k => { const v = (meta().remind || {})[k]; return v === undefined ? !REMIND_OFF.has(k) : v !== false; };
 const REMIND_MAX = 60; // iOS keeps only 64 pending notifications per app
 const REMIND_MUST = 30; // exams come first, so a full timetable can't push them out
@@ -4457,6 +4457,7 @@ function buildReminders(now = Date.now()){
     if (gym && remindOn('gym') && !getDay(date).tasks.some(t => t.id === 'gym' && t.done)) add(`g${date}`, atMin(date, gym.s - 30), tr('Скоро тренировка'), tr('Через 30 минут'), false, 'train');
     if (remindOn('bills')) billsOn(date).forEach(b => add(`p${date}_${b.id}`, atMin(date, 10 * 60), trf('Сегодня платёж: {b}', {b: b.title}), trf('{s}. Отметь в KAI, когда оплатишь.', {s: money(b.amount)}), false, 'money'));
     if (i < 7 && remindOn('morning')){ const wk = dayBlocks(date).find(b => b.id === 'wake'), line = morningLine(date); if (wk && line) add(`m${date}`, atMin(date, wk.s + 5), tr('План на день'), line); }
+    if (i < 7 && remindOn('evening')){ const e = eveningNudge(date); if (e) add(`v${date}`, e.at, e.title, e.body); }
     const bed = i < 7 && remindOn('bed') && bedMin(date);
     if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
   }
@@ -5502,6 +5503,19 @@ function billRep(m, t){
   if (!m.rep || !modOn('money')) return t;
   const b = bills().find(x => billKey(x) === billKey(t));
   return {...t, bill: b ? b.id : billFromTx(t)};
+}
+
+/* ============ evening check-in: what is left for the day to count ============ */
+// off until turned on; 2 hours before the routine's bedtime (no later than 22:00), only while the day doesn't count yet
+function eveningNudge(date){
+  const d = getDay(date);
+  if (d.status === 'sick' || !d.tasks?.length) return null;
+  const need = Math.ceil(d.tasks.length * .7) - d.tasks.filter(t => t.done).length;
+  if (need <= 0) return null;
+  const bed = bedMin(date), open = d.tasks.filter(t => !t.done).map(t => t.title);
+  return {at: atMin(date, bed != null ? Math.min(bed - 120, 22 * 60) : 21 * 60),
+    title: trf('Ещё {n} {t}, и день засчитан', {n: need, t: plural(need, tr('задача'), tr('задачи'), tr('задач'))}),
+    body: open.slice(0, 3).join(' · ') + (open.length > 3 ? ' …' : '')};
 }
 
 /* ============ init ============ */

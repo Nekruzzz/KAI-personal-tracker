@@ -1964,4 +1964,9 @@ window.I18N_EN = {
 "Осталось {m} мин. Вернись, чтобы не сбить сессию.":"{m} min left. Come back to keep the session going.",
 "Фокус на этом":"Focus on this",
 "Начать фокус":"Start focus",
+"Отметить сделанным":"Mark done",
+"За 7 дней: {n} {s}, {t} фокуса, {d} {w}":"Last 7 days: {n} {s}, {t} of focus, {d} {w}",
+"сессия":"session",
+"сессии":"sessions",
+"сессий":"sessions",
 };

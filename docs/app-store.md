@@ -25,6 +25,7 @@ See your effort add up: hours walked and studied, active days, streaks, levels a
 - Study plans built around your real week
 - Import your timetable from a calendar file
 - A monthly budget that sets aside rent and subscriptions, with a reminder on the day each is due
+- To-dos that repeat ("every Monday", "every month"), and a streak for each daily habit
 - Focus sessions that count only the minutes you actually focus, and notice when you leave for another app
 - Apple Health for steps, sleep and workouts
 - English and Russian
@@ -62,6 +63,7 @@ KAI предупредит, если планы мешают друг другу
 - Планы подготовки под твою реальную неделю
 - Импорт расписания из файла календаря
 - Бюджет месяца, который заранее учитывает аренду и подписки, с напоминанием в день платежа
+- Повторяющиеся задачи («каждый понедельник», «каждый месяц») и серия для каждой ежедневной привычки
 - Фокус-сессии: в учёбу засчитываются только минуты без отвлечений, а уход в другое приложение замечается
 - Здоровье iPhone: шаги, сон и тренировки
 - Русский и английский

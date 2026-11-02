@@ -883,7 +883,6 @@ window.I18N_EN = {
 "Растяжка грудных в дверном проёме":"Doorway chest stretch",
 "Расход":"Expense",
 "Расходы":"Expenses",
-"Расходы и бюджет месяца":"Expenses and monthly budget",
 "Расчётный максимум на 1 повтор (формула Эпли), кг":"Estimated 1-rep max (Epley formula), kg",
 "Режим сна":"Sleep routine",
 "Резервной копии ещё нет.":"No backup yet.",
@@ -2087,4 +2086,5 @@ window.I18N_EN = {
 "Задачи выключены: включи их в «Ещё» → «Модули»":"To-dos are off: turn them on in More → Modules",
 "Выносить мусор по понедельникам":"Take out the trash every Monday",
 "Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30» или «стирка каждую субботу»: срок, время и повтор я пойму сам.":"Nothing yet. Write it your way, like “call mom tomorrow at 18:30” or “laundry every Saturday”: I'll work out the date, time and repeat.",
+"Расходы, бюджет месяца и регулярные платежи":"Spending, the monthly budget and regular payments",
 };

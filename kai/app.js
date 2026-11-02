@@ -467,15 +467,22 @@ function lineChart(pts, opts={}){
     <circle cx="${X(last)}" cy="${Y(opts.avg?avg[last].y:pts[last].y)}" r="4.5" fill="var(--${opts.c||'c1'})" stroke="var(--card)" stroke-width="2"/>
     ${xl}<line class="cross" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="var(--text-3)" visibility="hidden"/></svg></div>`;
 }
+/* the smallest round number at or above v whose half is round too */
+function niceTop(v){
+  if (!(v > 0)) return 1;
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v - 1e-9) return +(m * p).toPrecision(6);
+  return 10 * p;
+}
 function barChart(pts, opts={}){
   const W=340, H=140, L=30, R=6, T=10, B=22;
   if (!pts.length) return `<div class="empty">${tr("Пока нет данных")}</div>`;
-  const hi = Math.max(1, ...pts.map(p=>p.y), opts.target||0)*1.1;
+  const hi = niceTop(Math.max(1, ...pts.map(p=>p.y), opts.target||0)*1.05); // round axis labels: 2,500 and 1,250, not 2,343 and 1,172
   const bw = (W-L-R)/pts.length;
   const Y = v => T + (hi-v)*(H-T-B)/hi;
   const bars = pts.map((p,i)=>{ const x = L+i*bw+bw*.18, w = bw*.64, y = Y(p.y), h = H-B-y; const c = opts.colorFn ? opts.colorFn(p) : `var(--${opts.c||'c1'})`; return h>0?`<path d="M${x},${H-B}V${y+Math.min(4,h)}Q${x},${y} ${x+Math.min(4,w/2)},${y}H${x+w-Math.min(4,w/2)}Q${x+w},${y} ${x+w},${y+Math.min(4,h)}V${H-B}Z" fill="${c}"/>`:''; }).join('');
   const tgt = opts.target!=null ? `<line x1="${L}" x2="${W-R}" y1="${Y(opts.target)}" y2="${Y(opts.target)}" stroke="var(--text-2)" stroke-dasharray="4 4"/><text x="${W-R}" y="${Y(opts.target)-5}" fill="var(--text-2)" font-size="10" text-anchor="end">${tr("цель")} ${num(opts.target, opts.dec??0)}</text>` : '';
-  const grid = [0,.5,1].map(f=>{ const v=hi*f; return `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--track)"/><text x="${L-5}" y="${Y(v)}" fill="var(--text-3)" font-size="10" text-anchor="end" dominant-baseline="central">${num(v, v<10?1:0)}</text>`; }).join('');
+  const grid = [0,.5,1].map(f=>{ const v=hi*f; return `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--track)"/><text x="${L-5}" y="${Y(v)}" fill="var(--text-3)" font-size="10" text-anchor="end" dominant-baseline="central">${num(v, Number.isInteger(v)?0:1)}</text>`; }).join('');
   const step = Math.ceil(pts.length/7);
   const xl = pts.map((p,i)=> i%step===0 || i===pts.length-1 ? `<text x="${L+i*bw+bw/2}" y="${H-6}" fill="var(--text-3)" font-size="10" text-anchor="middle">${esc(p.x)}</text>`:'').join('');
   const data = esc(JSON.stringify({L,R,W,H,bar:true,pts:pts.map((p,i)=>({x:p.x,y:p.y,px:L+i*bw+bw/2,py:Y(p.y)})), unit:opts.unit||'', dec:opts.dec??0}));
@@ -1858,18 +1865,19 @@ function adaptiveAdvice(){
   const since = dayDiff(season().start, todayISO());
   const rateTxt = `${tr("Вес меняется на")} ${trend.rate>0?'+':''}${num(trend.rate,2)}${tr("% в неделю (")}${trend.perWeek>0?'+':''}${num(W(trend.perWeek),2)} ${kgU()}${tr("). Цель: −0,5…−0,7%.")}`;
   if (trend.rate > -0.25){
-    if (logged < 8) return {state:'log', rate:trend.rate, text: rateTxt + ` ${tr("Вес почти не снижается, но еда записана только за")} ${logged} ${tr("из 14 дней. Сначала 1–2 недели записывай всё, что ешь: часто лишние калории прячутся в перекусах и масле.")}`};
+    const up = trend.rate > 0.1; // going up, not just slowly down: say so
+    if (logged < 8) return {state:'log', rate:trend.rate, text: rateTxt + ` ${up ? tr("Вес растёт, но еда записана только за") : tr("Вес почти не снижается, но еда записана только за")} ${logged} ${tr("из 14 дней. Сначала 1–2 недели записывай всё, что ешь: часто лишние калории прячутся в перекусах и масле.")}`};
     const k = Math.max(t.bmr, KCAL_FLOOR, t.kcal - 150);
     // already at the floor: eating less is not the answer
     if (k >= t.kcal) return {state:'slow', rate:trend.rate, text: rateTxt + ` ${tr("Норма уже на нижней границе, ниже KAI не советует. Больше движения и сна помогут сильнее, а если вес стоит долго, стоит обсудить это с врачом.")}`};
-    return {state:'slow', rate:trend.rate, kcal:k, text: rateTxt + ` ${tr("Снижение слишком медленное. Убери примерно 150 ккал в день, белок не трогай.")}`};
+    return {state:'slow', up, rate:trend.rate, kcal:k, text: rateTxt + ` ${up ? tr("Вес растёт, а цель — снижение. Убери примерно 150 ккал в день, белок не трогай.") : tr("Снижение слишком медленное. Убери примерно 150 ккал в день, белок не трогай.")}`};
   }
   if (trend.rate < -1.0 && since >= 14){ const k = t.kcal + 150; return {state:'fast', rate:trend.rate, kcal:k, text: rateTxt + tr(' Худеешь слишком быстро: растёт риск терять мышцы. Добавь около 150 ккал в день, лучше из углеводов.')}; }
   return {state:'ok', rate:trend.rate, text: rateTxt + (trend.rate < -1.0 ? tr(' В первые 2 недели быстрый спад — это в основном вода, норму пока не меняем.') : tr(' Темп в норме, ничего не меняем.'))};
 }
 function adaptiveCard(){
   const a = adaptiveAdvice(), t = targets(); if (!a) return '';
-  const tag = {ok:['good',tr('Темп в норме')], slow:['warn',tr('Медленно')], fast:['bad',tr('Слишком быстро')], log:['warn',tr('Мало данных о еде')], wait:['',tr('Копим данные')]}[a.state];
+  const tag = {ok:['good',tr('Темп в норме')], slow:['warn',a.up ? tr('Вес растёт') : tr('Медленно')], fast:['bad',tr('Слишком быстро')], log:['warn',tr('Мало данных о еде')], wait:['',tr('Копим данные')]}[a.state];
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${tr("Подстройка нормы по весу")}</b><span class="tag ${tag[0]}">${tag[1]}</span></div>
     <div class="hint">${esc(a.text)}</div>
     ${a.kcal ? `<button class="btn" data-act="applyKcal" data-v="${a.kcal}">${tr("Сделать норму")} ${a.kcal} ${tr("ккал")}</button>` : ''}

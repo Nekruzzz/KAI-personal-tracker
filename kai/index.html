@@ -522,7 +522,8 @@ details.manual .field{margin-bottom:10px}
 .wrow .s{font-size:12.5px;font-weight:700;color:var(--text-2)}
 .wi svg{width:22px;height:22px;color:var(--warn)}
 .wrow.bad .wi svg{color:var(--bad)}
-.examc{display:flex;gap:14px;align-items:flex-start}
+.examc{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.ex-act{flex-basis:100%;display:flex;flex-direction:column;gap:6px;margin-top:-4px}
 .examc .mid{flex:1;min-width:0}
 .examc .t{font-weight:700;font-size:16px}
 .examc .s{color:var(--text-2);font-size:13.5px;margin-top:2px}
@@ -750,6 +751,12 @@ body.resting.focusing #focusBar{bottom:calc(158px + env(safe-area-inset-bottom,0
 .rb-in > .ic{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent)}
 .rb-in > .ic svg{width:20px;height:20px}
 .nowc > .btn{align-self:flex-start}
+
+/* the exam card: two main actions, the rest as links */
+.examc .btnrow{flex-wrap:nowrap}
+.examc .btnrow .btn{flex:1 1 auto;min-width:0;padding-left:10px;padding-right:10px}
+.ex-links{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:2px}
+.ex-links .link{min-height:36px;font-size:14px}
 
 /* rows and card buttons answer a touch the iOS way: a quick highlight for a row, a slight press for a whole card */
 .acc-h{transition:background-color .15s}

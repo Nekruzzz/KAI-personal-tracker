@@ -1634,3 +1634,15 @@ test('a calendar file becomes classes and events: weekly lessons, exams and dead
   assert.equal(run(`plan().classes.length`), 0, 'and it can be undone');
   run(`SH = null`);
 });
+
+test('Focus from an exam card adds the focused minutes to that exam\'s preparation', () => {
+  const T0 = Date.UTC(2030, 0, 12, 9, 0);
+  run(`globalThis.now0 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toast4 = toast; toast = () => {}`);
+  try {
+    setPlan([{id: 'ex9', date: '2030-01-25', title: 'Biology', kind: 'exam', from: '09:00'}]);
+    run(`A.focusSheet({dataset: {exam: 'ex9', l: 'Biology'}}); SH.fm = 45; A.focusGo()`);
+    assert.equal(run(`FOCUS.exam`), 'ex9');
+    run(`T += 45 * 60000; focusTick()`);
+    assert.equal(run(`allEvents().find(e => e.id === 'ex9').prepMin`), 45);
+  } finally { run(`Date.now = now0; toast = toast4; FOCUS = null; focusSave(); SH = null`); }
+});

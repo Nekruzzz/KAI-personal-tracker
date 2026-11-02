@@ -3028,7 +3028,7 @@ function evBody(){
     <div class="field"><label for="evF">${tr("Начало")}</label><input class="in" type="time" id="evF" value="${esc(cur.from || '')}"></div><div class="field"><label for="evU">${tr("Конец")}</label><input class="in" type="time" id="evU" value="${esc(cur.until || '')}"></div></div>
     <div class="field"><label for="evN">${tr("Заметка")}</label><input class="in" id="evN" value="${esc(cur.note || '')}"></div>
     <div class="hint">${tr("Если указать время, событие встанет в ленту и вытеснит проект, свободное время и учёбу на этот отрезок.")}</div>
-    <button class="btn" data-act="evSave">${ic(cur.id ? 'check' : 'plus')}${cur.id ? tr("Сохранить") : tr("Добавить")}</button>${cur.id ? `<button class="btn ghost" data-act="evEditCancel">${tr("Отменить")}</button>` : ''}</section>`;
+    <button class="btn" data-act="evSave">${ic(cur.id ? 'check' : 'plus')}${cur.id ? tr("Сохранить") : tr("Добавить")}</button>${cur.id ? `<button class="btn ghost" data-act="evEditCancel">${tr("Отменить")}</button>` : ''}</section>${pastExamsHTML()}`;
 }
 A.evSheet = () => openSheet(tr('События'), evBody);
 A.evEdit = el => { SH.evEdit = el.dataset.id; SH.evKind = null; drawSheet(); $('.sheet').scrollTop = 1e6; };
@@ -3419,6 +3419,7 @@ function checkins(){
     smartTasks().filter(t => isOverdue(t) && !studyOver(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
     smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
+  examResultQs(date).forEach(x => q(x.k, x));
   if (modOn('timeline') && plan().routine){
     const {bl, st, endOf} = tlState(date);
     const from = meta().startedOn === date ? meta().startedAt : 0;
@@ -3439,6 +3440,7 @@ function checkinCard(){
   else if (c.type === 'when') body = `<div class="btnrow">${b('eve', tr('Сегодня вечером'), 'ghost')}${b('tom', tr('Завтра'), 'ghost')}${b('wk', tr('В выходные'), 'ghost')}${b('none', tr('Без срока'), 'ghost')}</div>`;
   else if (c.type === 'block') body = `<div class="btnrow">${b('yes', tr('Да'))}${b('no', tr('Нет'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'rate') body = `<div class="rate5">${[1, 2, 3, 4, 5].map(i => `<button data-act="ciAns" data-k="rate" data-a="${i}" aria-label="${i} ${tr("из 5")}">${'★'}<small>${i}</small></button>`).join('')}</div><div class="btnrow">${b('later', tr('Не сейчас'), 'ghost')}</div>`;
+  else if (c.type === 'exam') body = examResultBody(c, b);
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
   return `<section class="card ci"><div class="nc-l">${tr("Вопрос")}${more ? tr(' · ещё ') + more : ''}</div><div class="t" style="font-weight:700;font-size:17px">${esc(c.text)}</div>${body}</section>`;
 }
@@ -3464,6 +3466,7 @@ A.ciAns = el => {
   const mark = v => mutDay(date, d => { d.asked = {...(d.asked || {}), [k]: v}; });
   if (a === 'later') return mark(Date.now() + 3600000);
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
+  if (k.startsWith('x_')) return examResultAns(a, id, mark);
   if (k === 'rate') return mutDay(date, d => { d.rating = +a; d.asked = {...(d.asked || {}), rate: 'yes'}; });
   if (k.startsWith('b_')){
     if (a === 'yes'){
@@ -5780,6 +5783,30 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   return out;
+}
+
+/* ============ exam results: asked after the exam, kept with it ============ */
+// event.result = {passed, grade, at}. Asked for a week after the exam (from an hour after it ends), until answered.
+function examResultQs(date){
+  const now = nowMin();
+  return allEvents().filter(e => e.kind === 'exam' && !e.result && e.date <= date && dayDiff(e.date, date) <= 7 && (e.date < date || hm(e.until || e.from || '23:00') + 60 <= now))
+    .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 1).map(e => ({k: 'x_' + e.id, type: 'exam', id: e.id, text: trf('Как прошёл «{e}»?', {e: e.title})}));
+}
+const examResultBody = (c, b) => `<div class="field"><label for="ciGrade">${tr('Оценка или баллы (необязательно)')}</label><input class="in" id="ciGrade" maxlength="12" autocomplete="off" placeholder="${tr('например, 5, A или 92')}"></div><div class="btnrow">${b('pass', tr('Сдал'))}${b('fail', tr('Не сдал'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="wait" data-id="${esc(c.id || '')}">${tr('Пока не знаю')}</button>`;
+function examResultAns(a, id, mark){
+  if (a === 'wait') return mark('wait'); // asked again tomorrow, within the week
+  const pl = clone(plan()), e = pl.routine?.events?.find(x => x.id === id); if (!e) return mark(a);
+  e.result = {passed: a === 'pass', grade: val('ciGrade').slice(0, 12) || null, at: todayISO()};
+  save('app/plan', pl); mark(a);
+  if (a === 'pass'){ haptic('success'); toast(trf('Поздравляю! «{e}» сдан', {e: e.title}), {icon: 'trophy', tone: 'gold'}); }
+  else toast(tr('Записал. Когда будет дата пересдачи, добавь её, и KAI поможет подготовиться'), {ms: 5000});
+}
+/* under the events list: exams already past, with their results */
+function pastExamsHTML(){
+  const today = todayISO(), list = allEvents().filter(e => e.kind === 'exam' && e.date < today && dayDiff(e.date, today) <= 366).sort((a, b) => b.date.localeCompare(a.date));
+  if (!list.length) return '';
+  const passed = list.filter(e => e.result?.passed).length, known = list.filter(e => e.result).length;
+  return `<div class="sec-h"><h2>${tr('Прошедшие экзамены')}</h2>${known ? `<span class="hint">${trf('сдано {n} из {k}', {n: passed, k: known})}</span>` : ''}</div><section class="card" style="padding:4px 18px"><div class="list">${list.slice(0, 20).map(e => `<div class="row"><div class="mid"><div class="t">${esc(e.title)}</div><div class="s">${fmtShort(e.date)} ${e.date.slice(0, 4)}${e.prepMin ? ' · ' + tr('подготовка') + ' ' + fmtMin(e.prepMin) : ''}</div></div><div class="r">${e.result ? `<span class="tag ${e.result.passed ? 'good' : 'bad'}">${e.result.passed ? tr('сдан') : tr('не сдан')}${e.result.grade ? ' · ' + esc(e.result.grade) : ''}</span>` : '<span class="hint">—</span>'}</div></div>`).join('')}</div></section>`;
 }
 
 /* ============ init ============ */

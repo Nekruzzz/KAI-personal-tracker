@@ -1436,7 +1436,7 @@ function hTrain(){
     const open = S.open['ex_'+e.id];
     return `<section class="card" style="padding:14px 16px">
       <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;min-width:0"><div class="t" style="font-weight:700">${esc(e.name)}</div><div class="hint">${setsFor(e, logDate)} × ${e.lo}–${e.hi}${e.unit?' '+e.unit:tr(' повт.')} ${tr("· отдых")} ${esc(e.rest)}</div>${hint}</div>
-      <div style="display:flex;gap:14px;align-items:center;flex:none"><button class="link" data-act="toggleOpen" data-k="ex_${e.id}">${open?tr('Скрыть'):tr('Как делать')}</button><button class="link" data-act="restStart" data-r="${esc(e.rest)}" data-n="${esc(e.name)}">${tr("Отдых")}</button></div></div>
+      <div style="display:flex;gap:14px;align-items:center;flex:none"><button class="link" data-act="toggleOpen" data-k="ex_${e.id}">${open?tr('Скрыть'):tr('Как делать')}</button>${e.unit ? `<button class="link" data-act="holdStart" data-ex="${esc(e.id)}">${tr("Таймер")}</button>` : `<button class="link" data-act="restStart" data-r="${esc(e.rest)}" data-n="${esc(e.name)}">${tr("Отдых")}</button>`}</div></div>
       ${open?`<div class="note" style="margin-top:8px">${esc(e.how)}</div>`:''}
       <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit||e.bw?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit||e.bw?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
     </section>`;
@@ -1995,6 +1995,7 @@ let AUDIO = null;
 function beep(){ try { if (!AUDIO) return; [0, .35, .7].forEach(t => { const o = AUDIO.createOscillator(), g = AUDIO.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.001, AUDIO.currentTime+t); g.gain.exponentialRampToValueAtTime(.4, AUDIO.currentTime+t+.02); g.gain.exponentialRampToValueAtTime(.001, AUDIO.currentTime+t+.25); o.connect(g).connect(AUDIO.destination); o.start(AUDIO.currentTime+t); o.stop(AUDIO.currentTime+t+.3); }); } catch {} }
 function restSeconds(rest){ const t = String(rest||'').replace(',', '.'), m = t.match(/[\d.]+/); if (!m) return 90; return Math.round(parseFloat(m[0]) * (/сек|sec/.test(t) ? 1 : 60)); }
 async function startRest(sec, label){
+  if (HOLD) holdEnd(false);
   TIMER.end = Date.now() + sec*1000; TIMER.total = sec; TIMER.label = label;
   clearInterval(TIMER.iv); TIMER.iv = setInterval(tickRest, 500); document.body.classList.add('resting'); tickRest();
   try { if (!TIMER.wake && navigator.wakeLock) TIMER.wake = await navigator.wakeLock.request('screen'); } catch {}
@@ -5518,6 +5519,44 @@ function eveningNudge(date){
     title: trf('Ещё {n} {t}, и день засчитан', {n: need, t: plural(need, tr('задача'), tr('задачи'), tr('задач'))}),
     body: open.slice(0, 3).join(' · ') + (open.length > 3 ? ' …' : '')};
 }
+
+/* ============ hold timer for timed exercises (plank, side plank, holds) ============ */
+// "Get ready" for 3 seconds, then a countdown to the top of the range. "Done" early records the seconds actually held.
+// The seconds go into the next empty set, and the rest timer starts by itself, as when a set is typed in.
+let HOLD = null;
+const holdEx = id => Object.values(plan().workouts).flatMap(w => w.ex).find(x => x.id === id);
+A.holdStart = el => {
+  const e = holdEx(el.dataset.ex); if (!e) return;
+  const sets = getDay(todayISO()).sets?.[e.id] || [], n = setsFor(e, todayISO());
+  let i = sets.findIndex(x => !x || !+x.r); if (i < 0) i = sets.length;
+  if (TIMER.end) stopRest();
+  if (HOLD) holdEnd(false);
+  const now = Date.now();
+  HOLD = {ex: e.id, name: e.name, i: Math.min(i, n - 1), n, target: +e.hi || +e.lo || 30, go: now + 3000, iv: setInterval(holdTick, 250)};
+  document.body.classList.add('resting'); haptic('light'); holdTick();
+  try { if (!TIMER.wake && navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { TIMER.wake = w; }).catch(() => {}); } catch {}
+};
+function holdTick(){
+  const h = HOLD, bar = $('#restBar'); if (!h || !bar) return;
+  const now = Date.now(), prep = now < h.go, held = Math.max(0, (now - h.go) / 1000), left = Math.ceil(h.target - held);
+  if (!prep && !h.started){ h.started = true; beep(); haptic('medium'); }
+  if (!prep && left <= 0) return holdEnd(true);
+  bar.hidden = false;
+  bar.innerHTML = `<div class="rb-in"><div style="flex:1;min-width:0"><div class="rb-t">${prep ? Math.ceil((h.go - now) / 1000) : `${Math.floor(left / 60)}:${pad(left % 60)}`}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prep ? tr('Приготовься ·') : tr('Держи ·')} ${esc(h.name)} · ${trf('подход {i} из {n}', {i: h.i + 1, n: h.n})}</div></div>${prep ? '' : `<button class="btn ghost" data-act="holdDone">${tr('Готово')}</button>`}<button class="btn ghost" data-act="holdStop">${tr('Стоп')}</button></div>`;
+}
+/* record = true: the hold counts (the full time, or what was held when "Done" was tapped) */
+function holdEnd(record){
+  const h = HOLD; if (!h) return;
+  HOLD = null; clearInterval(h.iv);
+  const held = Math.min(h.target, Math.round((Date.now() - h.go) / 1000));
+  if (!TIMER.end){ document.body.classList.remove('resting'); const bar = $('#restBar'); if (bar) bar.hidden = true; try { TIMER.wake?.release(); } catch {} TIMER.wake = null; }
+  if (!record || held < 1) return;
+  mutDay(todayISO(), d => { d.sets = d.sets || {}; const a = d.sets[h.ex] = d.sets[h.ex] || []; for (let k = 0; k <= h.i; k++) a[k] = a[k] || {}; a[h.i] = {...a[h.i], r: held}; });
+  beep(); haptic('success'); toast(trf('Записано: {s} сек', {s: held}));
+  const e = holdEx(h.ex); if (e && h.i < h.n - 1) startRest(restSeconds(e.rest), e.name);
+}
+A.holdDone = () => holdEnd(true);
+A.holdStop = () => holdEnd(false);
 
 /* ============ init ============ */
 async function init(){

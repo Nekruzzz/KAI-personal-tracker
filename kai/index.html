@@ -748,6 +748,9 @@ p,.hint,.s{text-wrap:pretty}
 /* Focus: the session bar sits where the rest timer does, above it if both run */
 body.focusing .app{padding-bottom:calc(196px + env(safe-area-inset-bottom,0px))}
 body.resting.focusing #focusBar{bottom:calc(158px + env(safe-area-inset-bottom,0px))}
+/* a toast sits above the rest and focus bars instead of covering their buttons */
+body.resting .toast,body.focusing .toast{bottom:calc(160px + env(safe-area-inset-bottom,0px))}
+body.resting.focusing .toast{bottom:calc(232px + env(safe-area-inset-bottom,0px))}
 .rb-in > .ic{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent)}
 .rb-in > .ic svg{width:20px;height:20px}
 .nowc > .btn{align-self:flex-start}

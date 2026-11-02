@@ -1326,7 +1326,7 @@ function taskRow(t, d){
   const sub = taskSub(t,d);
   return `<div class="row task ${t.done?'done':''} ${just?'just':''}">
     <span class="tic" style="--tc:var(--${TASK_COLOR[t.cat]||'c0'})">${ic(TASK_ICON[t.cat]||'list')}</span>
-    <button class="mid" data-act="openTask" data-id="${esc(t.id)}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}</div>${sub?`<div class="s">${esc(sub)}</div>`:''}</button>
+    <button class="mid" data-act="openTask" data-id="${esc(t.id)}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}</div>${(st => sub || st ? `<div class="s">${sub ? esc(sub) : ''}${st}</div>` : '')(habitStreakHTML(t, !!sub))}</button>
     <button class="chk ${t.done?'on':''} ${just?'just-on':''}" data-act="toggleTask" data-id="${esc(t.id)}" aria-pressed="${t.done}" aria-label="${tr("Отметить:")} ${esc(t.title)}">${ic('check')}</button>
   </div>${open?`<div class="detail">${taskDetail(t,d)}</div>`:''}`;
 }
@@ -5660,6 +5660,26 @@ A.tkReopen = el => {
   if (t.every){ const nx = out.find(x => x.id !== t.id && !x.done && x.title === t.title && x.every === t.every && x.created === t.doneAt); if (nx) out = out.filter(x => x !== nx); } // the next one, made when this was checked off
   saveTasks(out); haptic('light'); toast(tr('Снова в списке'));
 };
+
+/* ============ a streak for each daily task: "5 days in a row" ============ */
+// days the task wasn't on the list (a rest day for the workout) and sick days don't break it; today still open doesn't either
+function habitStreak(id, today = todayISO()){
+  const key = 'hab:' + id + ':' + today; if (ADAPT.has(key)) return ADAPT.get(key); // cleared whenever data changes
+  let n = 0, k = today, gap = 0;
+  for (let i = 0; i < 400 && gap < 30; i++, k = addDays(k, -1)){
+    const d = S.docs['days/' + k], t = d?.tasks?.find(x => x.id === id);
+    if (!t || d.status === 'sick'){ if (k !== today && !d) break; gap++; continue; }
+    gap = 0;
+    if (t.done) n++; else if (k !== today) break;
+  }
+  ADAPT.set(key, n);
+  return n;
+}
+function habitStreakHTML(t, after){
+  const n = habitStreak(t.id); if (n < 2) return '';
+  const unit = t.id === 'gym' ? plural(n, tr('тренировка'), tr('тренировки'), tr('тренировок')) : plural(n, tr('день'), tr('дня'), tr('дней')); // workouts aren't daily
+  return `${after ? ' · ' : ''}<span class="hab-st">${ic('flame', 'hab-ic')}${n} ${unit} ${tr('подряд')}</span>`;
+}
 
 /* ============ init ============ */
 async function init(){

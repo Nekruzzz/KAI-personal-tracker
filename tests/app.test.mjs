@@ -2107,3 +2107,18 @@ test('to-dos done today can be shown and reopened; a repeating one takes back it
     assert.equal(run(`smartTasks().filter(t => !t.done).length`), 2);
   } finally { run(`S.open.tk_done = false; toast = toastR; saveTasks(tasks16)`); }
 });
+
+test('each daily task keeps its own streak; days without it and sick days do not break it, nor today still open', () => {
+  const base = '2031-05-20', day = i => run(`addDays('${base}', -${i})`);
+  run(`for (let i = 0; i < 7; i++){ const k = addDays('${base}', -i); save('days/' + k, {date: k, tasks: [{id: 'hab', title: 'Posture', done: i !== 5}]}); }`);
+  try {
+    assert.equal(run(`habitStreak('hab', '${base}')`), 5, 'five done days, then a missed one');
+    run(`mutDay('${base}', d => { d.tasks[0].done = false; })`);
+    assert.equal(run(`habitStreak('hab', '${base}')`), 4, 'today not done yet does not break it');
+    run(`mutDay('${day(5)}', d => { d.status = 'sick'; })`);
+    assert.equal(run(`habitStreak('hab', '${base}')`), 5, 'a sick day is skipped');
+    run(`mutDay('${day(2)}', d => { d.tasks = []; })`);
+    assert.equal(run(`habitStreak('hab', '${base}')`), 4, 'a day without the task is skipped, not counted');
+    assert.equal(run(`habitStreakHTML({id: 'hab'}, false)`), '', 'shown only from today: the test days are in the future');
+  } finally { run(`for (let i = 0; i < 7; i++) remove('days/' + addDays('${base}', -i))`); }
+});

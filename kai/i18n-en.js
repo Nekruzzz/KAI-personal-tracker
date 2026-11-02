@@ -2072,4 +2072,8 @@ window.I18N_EN = {
 "Сделано сегодня: {n}":"Done today: {n}",
 "Открыть снова: {t}":"Reopen: {t}",
 "Снова в списке":"Back on the list",
+"подряд":"in a row",
+"тренировка":"workout",
+"тренировки":"workouts",
+"тренировок":"workouts",
 };

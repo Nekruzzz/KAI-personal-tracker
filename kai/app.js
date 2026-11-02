@@ -2066,7 +2066,7 @@ function budgetCard(m, spentMonth){
     <div class="bar"><i style="width:${pct}%;background:${over?'var(--bad)':pct>85?'var(--warn)':'var(--accent)'}"></i></div>
     <div class="hint">${over ? `${tr("Перерасход:")} ${money(-left)}` : `${tr("Осталось:")} ${money(left)}${pend ? ` ${trf(free < 0 ? '· регулярные платежи ({s}) больше остатка' : '· из них {s} на регулярные платежи', {s: money(pend)})}` : ''}${isCur && daysLeft && free > 0 ? ` ${trf('· в день можно {d} до конца месяца', {d: money(Math.floor(free/daysLeft))})}` : ''}`}</div></section>`;
 }
-A.budgetSet = () => openSheet(tr('Бюджет на месяц'), `<div class="field"><label for="bgV">${tr("Сколько можно тратить в месяц")}</label><input class="in" id="bgV" inputmode="decimal" value="${esc(S.docs['app/budget']?.monthly||'')}"></div><button class="btn block" data-act="budgetSave">${tr("Сохранить")}</button>`, b => $('#bgV', b).focus());
+A.budgetSet = () => openSheet(tr('Бюджет на месяц'), `<div class="field"><label for="bgV">${tr("Сколько можно тратить в месяц")}</label><input class="in" id="bgV" inputmode="decimal" value="${esc(S.docs['app/budget']?.monthly||'')}"></div><button class="btn block" data-act="budgetSave">${tr("Сохранить")}</button>${budgetBillsHint()}`, b => $('#bgV', b).focus());
 A.budgetSave = () => { const v = toNum(val('bgV')); save('app/budget', {monthly: v || null}); closeSheet(); };
 
 /* ============ reminders → iPhone Calendar (.ics) ============ */
@@ -5565,6 +5565,9 @@ A.holdStop = () => holdEnd(false);
 /* ============ awards follow the modules: a switched-off module's awards are hidden, not lost ============ */
 const BADGE_MODULE = {posts: 'content'};
 const badgesShown = () => BADGES.filter(b => !BADGE_MODULE[b.k] || modOn(BADGE_MODULE[b.k]) || meta().badges?.[b.id]);
+
+/* ============ the budget sheet points to regular payments, which it sets aside ============ */
+const budgetBillsHint = () => `<div class="hint">${bills().some(b => b.type !== 'in') ? trf('Регулярные платежи ({s} в месяц) уже учтены: бюджет откладывает то, что ещё не оплачено.', {s: money(bills().filter(b => b.type !== 'in').reduce((a, b) => a + (+b.amount || 0), 0))}) : tr('Аренду, телефон и подписки удобно добавить как регулярные платежи: бюджет будет откладывать их заранее.')}</div><button class="btn ghost block" data-act="billNew">${ic('repeat')}${tr('Регулярный платёж')}</button>`;
 
 /* ============ init ============ */
 async function init(){

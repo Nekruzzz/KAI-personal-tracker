@@ -2048,4 +2048,6 @@ window.I18N_EN = {
 "Фокус от 45 минут, ни разу не выйдя из KAI":"Focus for 45 minutes or more without leaving KAI once",
 "Глубокая работа":"Deep work",
 "10 часов в фокусе":"10 hours of focus",
+"Регулярные платежи ({s} в месяц) уже учтены: бюджет откладывает то, что ещё не оплачено.":"Regular payments ({s} a month) are already counted: the budget sets aside what isn't paid yet.",
+"Аренду, телефон и подписки удобно добавить как регулярные платежи: бюджет будет откладывать их заранее.":"Add rent, a phone plan and subscriptions as regular payments, and the budget sets them aside in advance.",
 };

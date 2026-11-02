@@ -74,6 +74,10 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
 - **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
 - **A first currency from the phone's region** ($, €, £, ₽ and others), filled in during onboarding and changeable; before, money showed as bare numbers until someone typed a symbol.
+- **Calorie advice, accurate wording:** on a weight-loss goal with weight going up, the card said loss was "too slow"; it now says weight is going up, with a "Going up" badge. The advice itself is unchanged (about 150 kcal less, never under the floor).
+- **Charts:** bar chart axes use round numbers (2,500 and 1,250, not 2,343 and 1,172), and zero reads 0.
+- **Nothing cut off:** a scan of every dropdown and text on every screen and settings section, in both languages, at the size of an iPhone 13 mini, found three truncated choices; the profile form now gives long choices a full row, and two English labels are shorter ("Keep weight", "Not specified"). Headings wrap into even lines.
+- **App Store screenshots:** `node tools/app-store-screenshots.mjs` makes twelve ready-to-upload 6.9-inch screenshots (six per language) from the real app with invented sample data. `docs/app-store.md` also explains how to give the icon the iOS 26 Liquid Glass look in Icon Composer.
 - **Tell KAI, smoother:** after Analyze, what was understood and its Apply button scroll into view (they used to sit below the fold); after the first message, the long "without AI I understand…" box shrinks to one line.
 - **Security check:** every place names, titles and notes go into the page was audited and found escaped; a test now plants markup in all kinds of typed text and checks no screen renders it.
 - **Text size:** follows the iPhone's text size up to 120%, or pick 100%, 110% or 120% in More. Small screens keep enough room that nothing clips (an iPhone SE stays at 100%).
@@ -116,7 +120,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 115 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 117 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

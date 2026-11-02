@@ -2086,9 +2086,10 @@ const ICS_ITEMS = [
   ['bed', tr('Готовиться ко сну'), '23:00'],
   ['week', tr('Воскресенье: итоги недели, копия, статистика соцсетей'), '20:00'],
   ['posts', tr('Запланированные ролики'), '17:00'],
+  ['bills', tr('Регулярные платежи (в день платежа)'), '10:00'],
 ];
 A.ics = () => openSheet(tr('Напоминания в Календарь'), () => `<div class="hint">${tr("Приложение создаст файл календаря. Напоминания будут приходить от Календаря iPhone, даже когда приложение закрыто и нет интернета.")}</div>
-  <section class="card" style="padding:4px 16px"><div class="list">${ICS_ITEMS.map(([id,l,t])=>`<label class="row"><input type="checkbox" data-ics="${id}" ${id!=='posts'||posts().some(p=>p.date>=todayISO())?'checked':''} style="width:20px;height:20px"><div class="mid"><div class="t">${l}</div></div>${t?`<input class="in" type="time" id="icsT_${id}" value="${t}" style="width:110px" aria-label="${tr("Время:")} ${l}">`:''}</label>`).join('')}</div></section>
+  <section class="card" style="padding:4px 16px"><div class="list">${ICS_ITEMS.filter(([id]) => id !== 'bills' || billsForIcs().length).map(([id,l,t])=>`<label class="row"><input type="checkbox" data-ics="${id}" ${id!=='posts'||posts().some(p=>p.date>=todayISO())?'checked':''} style="width:20px;height:20px"><div class="mid"><div class="t">${l}</div></div>${t?`<input class="in" type="time" id="icsT_${id}" value="${t}" style="width:110px" aria-label="${tr("Время:")} ${l}">`:''}</label>`).join('')}</div></section>
   <button class="btn block" data-act="icsGo">${ic('day')}${tr("Создать файл календаря")}</button>
   <div class="note">${tr("Открой файл и нажми «Добавить все». Совет: сначала создай в Календаре отдельный календарь «KAI» и выбери его — тогда при обновлении расписания старые напоминания легко удалить одним действием.")}</div>`);
 function icsText(){
@@ -2109,6 +2110,7 @@ function icsText(){
   if (on('prep')) { const [h,m] = tm('prep'); add('prep', tr('Приготовить еду на завтра'), today, h, m, 45, 'FREQ=DAILY', 0); }
   if (on('bed')) { const [h,m] = tm('bed'); add('bed', tr('Через 30 минут спать: экран прочь'), today, h, m, 30, 'FREQ=DAILY', 0); }
   if (on('week')) { const [h,m] = tm('week'); add('week', tr('Итоги недели: разбор, резервная копия, статистика соцсетей'), nextDow(7), h, m, 30, 'FREQ=WEEKLY;BYDAY=SU', 0); }
+  if (on('bills')) { const [h,m] = tm('bills'); billsForIcs().forEach(b => add('bill-' + b.id, trf('Платёж: {b} · {s}', {b: b.title, s: money(b.amount)}), billFirstDue(b), h, m, 15, billRule(b.day), 0)); }
   if (on('posts')) { const [h,m] = tm('posts'); posts().filter(p=>p.date>=today && p.status!=='Опубликовано').forEach(p => add('post-'+p.id, tr('Ролик: ')+p.title, p.date, h, m, 60, '', 60, [p.location?tr('Где: ')+p.location:'', p.hook?tr('Хук: ')+p.hook:''].filter(Boolean).join('\n'))); }
   const enc = new TextEncoder();
   const fold = line => { let out = '', cur = '', bytes = 0; for (const ch of line){ const b = enc.encode(ch).length; if (bytes + b > 73){ out += cur + '\r\n '; cur = ''; bytes = 1; } cur += ch; bytes += b; } return out + cur; };
@@ -5828,6 +5830,17 @@ function localExamResult(c, date){
 
 /* ============ a repeating to-do repeats in the iPhone Calendar too ============ */
 const ICS_FREQ = {day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY'};
+
+/* ============ regular payments in the calendar file (web app reminders) ============ */
+const billsForIcs = () => modOn('money') ? bills().filter(b => b.type !== 'in') : [];
+/* the next due date from today on: this month's, or next month's once it has passed */
+function billFirstDue(b, today = todayISO()){
+  const due = billDue(b, today.slice(0, 7)); if (due >= today) return due;
+  const [y, m] = today.slice(0, 7).split('-').map(Number), n = new Date(y, m, 1);
+  return billDue(b, n.getFullYear() + '-' + pad(n.getMonth() + 1));
+}
+/* the 29th to 31st fall on a short month's last day, like in the app */
+const billRule = day => +day <= 28 ? `FREQ=MONTHLY;BYMONTHDAY=${+day}` : `FREQ=MONTHLY;BYMONTHDAY=${Array.from({length: +day - 27}, (_, i) => 28 + i).join(',')};BYSETPOS=-1`;
 
 /* ============ init ============ */
 async function init(){

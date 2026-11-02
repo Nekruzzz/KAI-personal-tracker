@@ -2106,4 +2106,6 @@ window.I18N_EN = {
 "подготовка":"prep",
 "Результат «{e}»: сдан{g}":"Result for “{e}”: passed{g}",
 "Результат «{e}»: не сдан{g}":"Result for “{e}”: not passed{g}",
+"Регулярные платежи (в день платежа)":"Regular payments (on the day)",
+"Платёж: {b} · {s}":"Payment: {b} · {s}",
 };

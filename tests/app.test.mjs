@@ -2287,3 +2287,13 @@ test('a repeating to-do sent to the Calendar repeats there too', () => {
   assert.match(ev[0], /RRULE:FREQ=WEEKLY/);
   assert.doesNotMatch(ev[1], /RRULE/);
 });
+
+test('regular payments go into the web app\\u2019s calendar file as monthly events', () => {
+  assert.equal(run(`billRule(5)`), 'FREQ=MONTHLY;BYMONTHDAY=5');
+  assert.equal(run(`billRule(31)`), 'FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1', 'the last day of a short month');
+  assert.equal(run(`billRule(29)`), 'FREQ=MONTHLY;BYMONTHDAY=28,29;BYSETPOS=-1');
+  assert.equal(run(`billFirstDue({day: 10}, '2030-01-15')`), '2030-02-10');
+  assert.equal(run(`billFirstDue({day: 20}, '2030-01-15')`), '2030-01-20');
+  assert.equal(run(`billFirstDue({day: 31}, '2030-01-31')`), '2030-01-31');
+  assert.equal(run(`billFirstDue({day: 31}, '2030-02-01')`), '2030-02-28');
+});

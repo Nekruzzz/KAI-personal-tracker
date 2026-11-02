@@ -2122,4 +2122,5 @@ window.I18N_EN = {
 "Что нового":"What's new",
 "Бюджет на месяц (необязательно)":"Monthly budget (optional)",
 "За {d}:":"For {d}:",
+"Вчера гулял час":"Walked for an hour yesterday",
 };

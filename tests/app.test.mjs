@@ -2165,3 +2165,15 @@ test('money search finds entries by name, category or amount in every month', ()
     assert.deepEqual(f('').list, []);
   } finally { run(`remove('money/2030-10'); remove('money/2030-11')`); }
 });
+
+test('links from quick actions: #todo shows the Day with the to-do field, #focus opens Focus', () => {
+  run(`globalThis.meta18 = clone(meta()); setMeta({welcomed: true}); globalThis.focused = 0; globalThis.qs18 = document.querySelector`);
+  try {
+    run(`location.hash = '#focus'; S.tab = 'money'; SH = null; openFromLink()`);
+    assert.equal(run(`S.tab`), 'day');
+    assert.ok(run(`!!SH && typeof SH.body === 'function' && SH.body().includes('data-act="focusGo"')`), 'the Focus sheet is open');
+    run(`closeSheetQuiet(); S.tab = 'money'; location.hash = '#todo'; openFromLink()`);
+    assert.equal(run(`S.tab`), 'day');
+    assert.equal(run(`SH`), null, 'no sheet over the to-do field');
+  } finally { run(`location.hash = ''; closeSheetQuiet(); setMeta(meta18)`); }
+});

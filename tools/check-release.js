@@ -39,6 +39,7 @@ for (const [key, why] of [
 // people using the app in Russian see the permission texts in Russian
 const ruStrings = fs.existsSync(path.join(root, 'native/ios/App/App/ru.lproj/InfoPlist.strings')) ? read('native/ios/App/App/ru.lproj/InfoPlist.strings') : '';
 for (const [, key] of plist.matchAll(/<key>(NS\w+UsageDescription)<\/key>/g)) if (!new RegExp(`^${key} = "`, 'm').test(ruStrings)) blockers.push(`ru.lproj/InfoPlist.strings: no Russian text for ${key}`);
+for (const [, title] of plist.matchAll(/<key>UIApplicationShortcutItemTitle<\/key>\s*<string>([^<]+)<\/string>/g)) if (!ruStrings.includes(`"${title}" = "`)) blockers.push(`ru.lproj/InfoPlist.strings: no Russian title for the quick action "${title}"`);
 
 // App Store Connect refuses an upload whose code reads file dates or stored settings without saying why (the Filesystem and Apple sign-in plugins do)
 const manifest = fs.existsSync(path.join(root, 'native/ios/App/App/PrivacyInfo.xcprivacy')) ? read('native/ios/App/App/PrivacyInfo.xcprivacy') : '';

@@ -48,6 +48,26 @@
           "sizes": "192x192"
         }
       ]
+    },
+    {
+      "name": "New to-do",
+      "url": "./#todo",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Focus",
+      "url": "./#focus",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

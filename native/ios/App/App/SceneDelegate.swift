@@ -24,11 +24,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         completionHandler(openQuickAction(shortcutItem))
     }
 
-    // the web app opens Tell KAI or the Day for #tell and #day, the same links as its own web shortcuts
+    // the web app opens Tell KAI, the Day, a new to-do or a Focus session for #tell, #day, #todo and #focus, the same links as its own web shortcuts
     @discardableResult
     private func openQuickAction(_ item: UIApplicationShortcutItem) -> Bool {
         let key = item.type.components(separatedBy: ".").last ?? ""
-        guard ["tell", "day"].contains(key), let bridge = window?.rootViewController as? CAPBridgeViewController else { return false }
+        guard ["tell", "day", "todo", "focus"].contains(key), let bridge = window?.rootViewController as? CAPBridgeViewController else { return false }
         bridge.webView?.evaluateJavaScript("location.hash = '#\(key)'", completionHandler: nil)
         return true
     }

@@ -1509,3 +1509,18 @@ test('the budget card says what is left and roughly how much a day, in plain Eng
     assert.match(run(`budgetCard('${m}', 700)`), /Over budget|Overspent|−\$100|-\$100/);
   } finally { run(`remove('app/budget')`); }
 });
+
+test('numbers and labels read cleanly: thousands separators, true minus signs, no stray separators, no supplements while off', () => {
+  setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'keep', activity: 1.45, units: 'metric'});
+  const d = run(`todayISO()`);
+  run(`mutDay('${d}', x => { x.meals = [{id: 'nm', name: 'Soup', kcal: 300, p: 10, f: 5, c: 40}]; })`);
+  const food = run(`(S.sub.health = 'food', viewHealth())`);
+  assert.match(food, /<div class="s">P 10 · F 5 · C 40/, 'no leading separator without a portion');
+  assert.match(run(`taskSub({cat: 'food'}, getDay('${d}'))`), /^300 \/ \d,\d{3} kcal · protein 10 \/ \d+ g$/, 'the target has a thousands separator');
+  run(`globalThis.wt2 = weightTrend; weightTrend = () => ({rate: -0.18, perWeek: -0.14})`);
+  try { setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'keep', units: 'metric'}); assert.match(run(`adaptiveAdvice().text`), /changing by −0\.18% a week \(−0\.14 kg\)/); }
+  finally { run(`weightTrend = wt2`); }
+  run(`save('app/plan', {...clone(plan()), dailyTasks: [...plan().dailyTasks.filter(t => t.cat !== 'supps'), {id: 'supps', title: 'Take supplements', cat: 'supps'}]}); S.open = {acc_tasks: true}`);
+  assert.doesNotMatch(run(`viewMore()`), /Take supplements/, 'switched off, so not listed');
+  run(`S.open = {}`);
+});

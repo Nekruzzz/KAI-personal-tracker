@@ -1277,7 +1277,7 @@ function viewDay(){
   h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card"><div class="week">${[0,1,2,3,4,5,6].map(i=>{
     const ds = addDays(mon,i), dd = S.docs['days/'+ds], s = dd ? dayScore(dd) : null, past = ds < date;
     let bg = 'var(--track)', txt = '';
-    if (dd?.status==='sick') { bg='var(--sick)'; txt=tr('Б'); }
+    if (dd?.status==='sick') { bg='var(--sick)'; txt=`<span aria-label="${tr('Болею')}" role="img">${ic('sick')}</span>`; } // an icon: a letter here clashed with protein's in English
     else if (s!=null && (past || ds===date)) { bg = s>=.7?'var(--good)':s>0?'var(--warn)':'var(--bad)'; txt = s>=.7 ? ic('check') : Math.round(s*100); }
     else if (past && ds >= trackedFrom()) { bg='var(--bad-bg)'; txt='–'; } // days before KAI was installed aren't missed
     const w = workoutFor(ds);
@@ -1307,7 +1307,7 @@ const statsSummary = (st, avg7) => `${tr('Уровень')} ${levelOf(totalXP())
 function taskSub(t, d){
   const pl = plan(), tg = targets();
   if (t.cat==='gym'){ const w = pl.workouts[workoutFor(d.date)]; return w ? w.ex.length+tr(' упражнений · ')+w.ex.slice(0,2).map(e=>e.name.split(' ')[0]).join(', ')+'…' : ''; }
-  if (t.cat==='food'){ const e = eaten(d); return tg.ok ? `${num(e.kcal)} / ${tg.kcal} ${tr("ккал · белок")} ${num(e.p)} / ${tg.p} ${tr("г")}` : tr('заполни профиль для нормы'); }
+  if (t.cat==='food'){ const e = eaten(d); return tg.ok ? `${num(e.kcal)} / ${num(tg.kcal)} ${tr("ккал · белок")} ${num(e.p)} / ${tg.p} ${tr("г")}` : tr('заполни профиль для нормы'); }
   if (t.cat==='study'){ const c = (pl.classes||[]).filter(c=>Number(c.day)===dow(d.date)).sort((a,b)=>a.time.localeCompare(b.time)); return c.map(x=>x.time).join(', '); }
   if (t.cat==='content'){ const ps = posts().filter(p=>p.date===d.date); return ps.map(p=>p.title).join(' · '); }
   if (t.cat==='supps'){ const n = (pl.supps||[]).length, k = Object.values(d.supps||{}).filter(Boolean).length; return `${k} ${tr("из")} ${n}`; }
@@ -1336,7 +1336,7 @@ function taskDetail(t, d){
   if (t.cat==='food'){
     const e = eaten(d);
     if (!tg.ok) return `${tr("Чтобы рассчитать КБЖУ, заполни рост, вес и возраст.")}<div class="btnrow"><button class="btn" data-act="profile">${tr("Заполнить профиль")}</button></div>`;
-    return `<div><b>${tg.kcal} ${tr("ккал")}</b> ${tr("· Б")} ${tg.p} ${tr("г · Ж")} ${tg.f} ${tr("г · У")} ${tg.c} ${tr("г")}</div><div class="muted">${tr("Съедено:")} ${num(e.kcal)} ${tr("ккал · Б")} ${num(e.p)} ${tr("· Ж")} ${num(e.f)} ${tr("· У")} ${num(e.c)}${tr(". Осталось")} ${num(Math.max(0,tg.kcal-e.kcal))} ${tr("ккал и")} ${num(Math.max(0,tg.p-e.p))} ${tr("г белка.")}</div>
+    return `<div><b>${num(tg.kcal)} ${tr("ккал")}</b> ${tr("· Б")} ${tg.p} ${tr("г · Ж")} ${tg.f} ${tr("г · У")} ${tg.c} ${tr("г")}</div><div class="muted">${tr("Съедено:")} ${num(e.kcal)} ${tr("ккал · Б")} ${num(e.p)} ${tr("· Ж")} ${num(e.f)} ${tr("· У")} ${num(e.c)}${tr(". Осталось")} ${num(Math.max(0,tg.kcal-e.kcal))} ${tr("ккал и")} ${num(Math.max(0,tg.p-e.p))} ${tr("г белка.")}</div>
       <div class="btnrow" style="margin-top:6px"><button class="btn" data-act="foodPhoto">${ic('camera')}${tr("Сфоткать еду")}</button><button class="btn ghost" data-act="goFood">${tr("Дневник")}</button></div>`;
   }
   if (t.cat==='supps'){ const s = pl.supps||[]; return s.length ? s.map(x=>`<div><b>${esc(x.name)}</b> · ${esc(x.dose||'')} · <span class="muted">${esc(x.timing||'')}</span></div>`).join('') + `<div class="btnrow"><button class="btn ghost" data-act="goSupps">${tr("Отметить по отдельности")}</button></div>` : tr('Список БАДов пуст. Добавь их во вкладке Здоровье → БАДы.'); }
@@ -1391,7 +1391,7 @@ function hFood(){
     </div>
     <div class="actions"><button data-act="foodPhoto">${ic('camera')}${tr("Фото еды")}</button><button data-act="foodText">${ic('spark')}${tr("Описать")}</button><button data-act="foodManual">${ic('list')}${tr("Продукты")}</button></div></section>`;
   h += lowEatNote() + careNote(t) + quickMealsHTML();
-  h += `<div class="sec-h"><h2>${tr("Съедено сегодня")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${(d.meals||[]).map((m,i)=>`<div class="row"><span class="ic">${ic('food')}</span><div class="mid"><div class="t">${esc(m.name)}</div><div class="s">${esc(m.time||'')} ${tr("· Б")} ${num(m.p)} ${tr("· Ж")} ${num(m.f)} ${tr("· У")} ${num(m.c)}${m.verdict?' · '+esc(m.verdict):''}</div></div><div class="r">${num(m.kcal)}<small>${tr("ккал")}</small></div><button class="iconbtn" data-act="delMeal" data-i="${i}" aria-label="${tr("Удалить")}" style="color:var(--text-3)">${ic('x')}</button></div>`).join('') || emptyState('food',tr('Пока ничего. Сфоткай первый приём пищи или выбери продукты.'))}</div></section>`;
+  h += `<div class="sec-h"><h2>${tr("Съедено сегодня")}</h2></div><section class="card" style="padding:4px 18px"><div class="list">${(d.meals||[]).map((m,i)=>`<div class="row"><span class="ic">${ic('food')}</span><div class="mid"><div class="t">${esc(m.name)}</div><div class="s">${m.time ? esc(m.time) + ' · ' : ''}${trf('Б {p} · Ж {f} · У {c}', {p: num(m.p), f: num(m.f), c: num(m.c)})}${m.verdict?' · '+esc(m.verdict):''}</div></div><div class="r">${num(m.kcal)}<small>${tr("ккал")}</small></div><button class="iconbtn" data-act="delMeal" data-i="${i}" aria-label="${tr("Удалить")}" style="color:var(--text-3)">${ic('x')}</button></div>`).join('') || emptyState('food',tr('Пока ничего. Сфоткай первый приём пищи или выбери продукты.'))}</div></section>`;
   // 7 days
   const pts = [...Array(7)].map((_,i)=>addDays(todayISO(), i-6)).map(k=>({x:DOW[dow(k)], y: eaten(S.docs['days/'+k]||{meals:[]}).kcal, p: eaten(S.docs['days/'+k]||{meals:[]}).p}));
   if (!pts.some(p => p.y)) h += `<div class="sec-h"><h2>${tr("Неделя")}</h2></div><section class="card">${emptyState('activity', tr('Графики калорий и белка появятся, когда запишешь первую еду.'))}</section>`;
@@ -1841,7 +1841,7 @@ function weekReportText(){
   const days = [...Array(7)].map((_,i)=>addDays(todayISO(), i-6));
   const lines = [`${tr("Отчёт из KAI за")} ${fmtShort(days[0])}–${fmtShort(days[6])}.`, profileBrief(), ''];
   days.forEach(k => { const d = S.docs['days/'+k]; if (!d) { lines.push(`${fmtShort(k)}${tr(": нет записей")}`); return; } const e = eaten(d); lines.push(`${fmtShort(k)} (${DOW[dow(k)]}): ${d.status==='sick'?tr('болел; '):''}${tr("задачи")} ${d.tasks.filter(t=>t.done).length}/${d.tasks.length} ${tr("(не сделано:")} ${d.tasks.filter(t=>!t.done).map(t=>t.title).join(', ')||'—'}${tr("); еда")} ${d.meals?.length?num(e.kcal)+tr(' ккал, белок ')+num(e.p)+tr(' г'):tr('не записана')}${tr("; шаги")} ${d.steps||'—'}${tr("; сон")} ${d.sleep||'—'} ${tr("ч; вес")} ${d.weight||'—'}${d.face?tr('; отёк лица утром ')+d.face+'/3':''}${d.sets&&Object.keys(d.sets).length?tr('; подходы: ')+Object.entries(d.sets).map(([ex,s])=>ex+' '+s.filter(x=>x&&x.r).map(x=>(x.w?x.w+'×':'')+x.r).join(',')).join('; '):''}${d.note?tr('; заметка: ')+d.note:''}`); });
-  const trend = weightTrend(14); if (trend) lines.push('', `${tr("Тренд веса за 14 дней:")} ${trend.rate>0?'+':''}${num(trend.rate,2)}${tr("% в неделю.")}`);
+  const trend = weightTrend(14); if (trend) lines.push('', `${tr("Тренд веса за 14 дней:")} ${signed(trend.rate,2)}${tr("% в неделю.")}`);
   const w = weekStats(todayISO()); lines.push(`${tr("Потрачено за неделю:")} ${money(w.spent)}.`);
   return lines.join('\n');
 }
@@ -1860,14 +1860,15 @@ function weightTrend(days){
   const slope = pts.reduce((a,p)=>a+(p.x-mx)*(p.y-my),0) / pts.reduce((a,p)=>a+(p.x-mx)**2,0);
   return {n, avg: my, perWeek: slope*7, rate: slope*7/my*100};
 }
+const signed = (v, d) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v), d); // a true minus sign, like the goal range beside it
 function adaptiveAdvice(){
   const t = targets(); if (!t.ok || t.care) return null;
   const trend = weightTrend(14);
   if (!trend) return {state:'wait', text:tr('Взвешивайся каждое утро: через 2 недели здесь появится подсказка, правильная ли норма калорий.')};
-  if (t.aim !== 'lose') return {state:'ok', rate:trend.rate, text:`${tr("Вес меняется на")} ${trend.rate>0?'+':''}${num(trend.rate,2)}${tr("% в неделю (")}${trend.perWeek>0?'+':''}${num(W(trend.perWeek),2)} ${kgU()}).`};
+  if (t.aim !== 'lose') return {state:'ok', rate:trend.rate, text:`${tr("Вес меняется на")} ${signed(trend.rate,2)}${tr("% в неделю (")}${signed(W(trend.perWeek),2)} ${kgU()}).`};
   const logged = [...Array(14)].map((_,i)=>addDays(todayISO(), -i)).filter(k=>S.docs['days/'+k]?.meals?.length).length;
   const since = dayDiff(season().start, todayISO());
-  const rateTxt = `${tr("Вес меняется на")} ${trend.rate>0?'+':''}${num(trend.rate,2)}${tr("% в неделю (")}${trend.perWeek>0?'+':''}${num(W(trend.perWeek),2)} ${kgU()}${tr("). Цель: −0,5…−0,7%.")}`;
+  const rateTxt = `${tr("Вес меняется на")} ${signed(trend.rate,2)}${tr("% в неделю (")}${signed(W(trend.perWeek),2)} ${kgU()}${tr("). Цель: −0,5…−0,7%.")}`;
   if (trend.rate > -0.25){
     const up = trend.rate > 0.1; // going up, not just slowly down: say so
     if (logged < 8) return {state:'log', rate:trend.rate, text: rateTxt + ` ${up ? tr("Вес растёт, но еда записана только за") : tr("Вес почти не снижается, но еда записана только за")} ${logged} ${tr("из 14 дней. Сначала 1–2 недели записывай всё, что ешь: часто лишние калории прячутся в перекусах и масле.")}`};
@@ -1884,10 +1885,10 @@ function adaptiveCard(){
   const tag = {ok:['good',tr('Темп в норме')], slow:['warn',a.up ? tr('Вес растёт') : tr('Медленно')], fast:['bad',tr('Слишком быстро')], log:['warn',tr('Мало данных о еде')], wait:['',tr('Копим данные')]}[a.state];
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${tr("Подстройка нормы по весу")}</b><span class="tag ${tag[0]}">${tag[1]}</span></div>
     <div class="hint">${esc(a.text)}</div>
-    ${a.kcal ? `<button class="btn" data-act="applyKcal" data-v="${a.kcal}">${tr("Сделать норму")} ${a.kcal} ${tr("ккал")}</button>` : ''}
+    ${a.kcal ? `<button class="btn" data-act="applyKcal" data-v="${a.kcal}">${tr("Сделать норму")} ${num(a.kcal)} ${tr("ккал")}</button>` : ''}
     ${t.adjusted ? `<div class="hint">${tr("Сейчас норма изменена вручную:")} ${t.kcal} ${tr("ккал вместо расчётных")} ${t.base}. <button class="link" data-act="resetKcal">${tr("Вернуть расчётную")}</button></div>` : ''}</section>`;
 }
-A.applyKcal = el => { haptic('medium'); const p = clone(profile()); p.override = {...(p.override||{}), kcal:+el.dataset.v, kcalDate:todayISO()}; save('app/profile', p); toast(tr('Новая норма: ')+el.dataset.v+tr(' ккал')); };
+A.applyKcal = el => { haptic('medium'); const p = clone(profile()); p.override = {...(p.override||{}), kcal:+el.dataset.v, kcalDate:todayISO()}; save('app/profile', p); toast(tr('Новая норма: ')+num(+el.dataset.v)+tr(' ккал')); };
 A.resetKcal = () => withUndo(['app/profile'], () => { const p = clone(profile()); if (p.override) delete p.override.kcal; save('app/profile', p); }, tr('Норма рассчитана заново'));
 
 /* ============ care: numbers about food and weight can hurt, so the app steps back when they might ============ */
@@ -2431,7 +2432,7 @@ A.addSuppPlain = el => { const name = el.dataset.n; if (!name) return; const p =
 async function showStorage(){
   showCopies();
   const el = $('#storeInfo'); if (!el || !navigator.storage?.estimate) return;
-  try { const e = await navigator.storage.estimate(); const persisted = await navigator.storage.persisted?.(); const gb = v => (v/1073741824).toFixed(v > 1073741824 ? 1 : 2); el.textContent = `${tr("Занято")} ${gb(e.usage||0)} ${tr("ГБ из доступных")} ${gb(e.quota||0)} ${tr("ГБ")}${persisted ? tr(' · iOS не удалит данные сама') : ''}.`; } catch {}
+  try { const e = await navigator.storage.estimate(); const persisted = await navigator.storage.persisted?.(); const size = v => v >= 1073741824 ? num(v / 1073741824, 1) + ' ' + tr('ГБ') : Math.max(1, Math.round(v / 1048576)) + ' ' + tr('МБ'); el.textContent = `${trf('Занято {u} из доступных {q}', {u: size(e.usage || 0), q: size(e.quota || 0)})}${persisted ? tr(' · iOS не удалит данные сама') : ''}.`; } catch {}
 }
 A.dtDel = el => withUndo(['app/plan'], () => { const p = clone(plan()); p.dailyTasks.splice(+el.dataset.i,1); save('app/plan', p); drawSheet(); });
 A.dtAdd = () => { const t = val('dtNew'); if (!t) return; const p = clone(plan()); p.dailyTasks.push({id:uid(), title:t, cat:'custom'}); save('app/plan', p); drawSheet(); };
@@ -3188,13 +3189,13 @@ function viewMore(){
       <div class="field" style="grid-column:1/-1"><label for="pfUn">${tr('Единицы')}</label><select class="in" id="pfUn" data-ch="pf" data-k="units">${[['metric', tr('Килограммы и сантиметры')], ['us', tr('Фунты и дюймы')]].map(([v, l]) => `<option value="${v}" ${(p.units || 'metric') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="field" style="grid-column:1/-1"><label for="pfAc">${tr("Активность")}</label><select class="in" id="pfAc" data-ch="pf" data-k="activity">${[[1.35, tr('Учёба сидя + 3 тренировки')], [1.45, tr('+ 8–10 тыс. шагов')], [1.6, tr('+ 12 тыс. шагов и больше')]].map(([v, l]) => `<option value="${v}" ${(+p.activity || 1.45) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
       <div class="field" style="grid-column:1/-1"><label for="pfAb">${tr("О себе: это учитывает ИИ")}</label><textarea class="in" id="pfAb" rows="2" data-ch="pf" data-k="about" placeholder="${tr("Питание, ограничения, чем занимаешься")}">${esc(p.about || '')}</textarea></div>
-    ${t.ok ? `<div class="note">${tr("Норма:")} <b>${t.kcal} ${tr("ккал")}</b> ${tr("· белок")} ${t.p} ${tr("г · жиры")} ${t.f} ${tr("г · углеводы")} ${t.c} ${tr("г.")}</div>${careNote(t)}` : `<div class="hint">${tr("Сохраняется само, когда выходишь из поля.")}</div>`}<div class="hint">${NOT_MED()}</div>`);
+    ${t.ok ? `<div class="note">${tr("Норма:")} <b>${num(t.kcal)} ${tr("ккал")}</b> ${tr("· белок")} ${t.p} ${tr("г · жиры")} ${t.f} ${tr("г · углеводы")} ${t.c} ${tr("г.")}</div>${careNote(t)}` : `<div class="hint">${tr("Сохраняется само, когда выходишь из поля.")}</div>`}<div class="hint">${NOT_MED()}</div>`);
   h += acc('train', 'gym', tr('Тренировки'), esc((pr?.name || tr('Своя программа')) + (days ? ' · ' + days : '')), `${pl.programs ? `<div class="hint">${esc(pr?.info || '')}</div><button class="btn ghost" data-act="programSheet">${ic('swap')}${tr("Сменить программу")}</button>` : ''}
     <div class="hint">${tr("Дни недели")}</div><div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(88px,1fr))">${[1, 2, 3, 4, 5, 6, 7].map(n => `<div class="field"><label for="sch${n}">${DOW[n]}</label><select class="in" id="sch${n}" data-ch="sch" data-n="${n}"><option value="">${tr("отдых")}</option>${programKeys().map(k => `<option value="${k}" ${pl.schedule?.[n] === k ? 'selected' : ''}>${tr(k)}</option>`).join('')}</select></div>`).join('')}</div>`);
   h += acc('day', 'day', tr('Расписание дня'), trf('Прогулки {m} мин в день · событий впереди: {n}', {m: pl.routine?.walkGoal || 120, n: (pl.routine?.events || []).filter(e => (e.toDate || e.date) >= todayISO()).length}), `<div class="field"><label for="walkGoal">${tr("Цель по прогулкам, минут в день")}</label><input class="in" id="walkGoal" inputmode="numeric" data-ch="walkGoal" value="${pl.routine?.walkGoal || 120}"></div>
     <button class="btn ghost" data-act="evSheet">${ic('star')}${tr("События: фест, экзамены, поездки")}</button>`);
   const cls = (pl.classes || []).map((c, i) => ({...c, i})).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
-  h += acc('tasks', 'list', tr('Ежедневные задачи'), shownDaily(pl).length + ' ' + plural(shownDaily(pl).length, tr('задача'), tr('задачи'), tr('задач')), `<div class="list">${(pl.dailyTasks || []).map((tk, i) => `<div class="row"><div class="mid"><div class="t">${esc(tk.title)}</div></div><button class="iconbtn" data-act="dtDel" data-i="${i}" aria-label="${tr("Убрать")} ${esc(tk.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
+  h += acc('tasks', 'list', tr('Ежедневные задачи'), shownDaily(pl).length + ' ' + plural(shownDaily(pl).length, tr('задача'), tr('задачи'), tr('задач')), `<div class="list">${(pl.dailyTasks || []).map((tk, i) => !SUPPS_ON && tk.cat === 'supps' ? '' : `<div class="row"><div class="mid"><div class="t">${esc(tk.title)}</div></div><button class="iconbtn" data-act="dtDel" data-i="${i}" aria-label="${tr("Убрать")} ${esc(tk.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div style="display:flex;gap:8px"><input class="in" id="dtNew" placeholder="${tr("Новая ежедневная задача")}"><button class="btn" data-act="dtAdd" aria-label="${tr("Добавить")}">${ic('plus')}</button></div>`);
   h += isNative() ? acc('remind', 'bell', tr('Напоминания'), m.remindAsked ? tr('Включены') : tr('Не настроены'), `<button class="btn" data-act="notifSheet">${ic('bell')}${tr('Настроить напоминания')}</button>`) + healthRow() : acc('remind', 'bell', tr('Напоминания'), m.icsAt ? tr('Календарь iPhone настроен') : tr('Не настроены'), `<div class="hint">${tr("Календарь iPhone напомнит о тренировке, еде и сне, даже когда приложение закрыто.")}</div><button class="btn" data-act="ics">${ic('day')}${tr("Настроить напоминания в Календарь")}</button>`);
   if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>

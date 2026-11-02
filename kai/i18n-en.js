@@ -2006,7 +2006,7 @@ window.I18N_EN = {
 "Регулярный платёж":"Regular payment",
 "Назови платёж":"Give the payment a name",
 "Число месяца: от 1 до 31":"Day of the month: 1 to 31",
-"Сохранено. В этом месяце уже записано {d}":"Saved. This month's is already recorded, on {d}",
+"Сохранено. В этом месяце уже записано {d}":"Saved. This month's payment is already recorded ({d})",
 "Снова ждёт оплаты в этом месяце":"Due again this month",
 "В этом месяце пропущен":"Skipped this month",
 "Добавлено в регулярные: {b}":"Added to regular payments: {b}",

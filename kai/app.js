@@ -3969,12 +3969,12 @@ function obBody(){
     <div class="btnrow"><button class="btn ghost" data-act="obBack">${tr("Назад")}</button><button class="btn" data-act="obNext">${tr("Дальше")}</button></div>`;
   return `${dots}<div class="t" style="font-weight:700;font-size:17px">${tr("Твой обычный день")}</div>
     <div class="fgrid"><div class="field"><label for="obW">${tr("Встаю в")}</label><input class="in" type="time" id="obW" value="${esc(o.wake)}"></div><div class="field"><label for="obS">${tr("Ложусь в")}</label><input class="in" type="time" id="obS" value="${esc(o.sleep)}"></div></div>
-    ${o.goals.includes('money') ? `<div class="field"><label for="obC">${tr("Валюта")}</label><input class="in" id="obC" value="${esc(o.cur)}" placeholder="${tr("например, ₽, $, €, RM")}"></div>` : ''}
+    ${o.goals.includes('money') ? `<div class="fgrid"><div class="field"><label for="obC">${tr("Валюта")}</label><input class="in" id="obC" value="${esc(o.cur)}" placeholder="${tr("например, ₽, $, €, RM")}"></div><div class="field"><label for="obB">${tr("Бюджет на месяц (необязательно)")}</label><input class="in" id="obB" inputmode="decimal" value="${esc(o.budget || '')}"></div></div>` : ''}
     <div class="field"><label for="obA">${tr("О себе (необязательно)")}</label><textarea class="in" id="obA" style="min-height:80px" placeholder="${tr("Например: не ем свинину, учусь на медицинском, больное колено. ИИ будет это учитывать.")}">${esc(o.about)}</textarea></div>
     <div class="hint">${NOT_MED()}</div>
     <div class="btnrow"><button class="btn ghost" data-act="obBack">${tr("Назад")}</button><button class="btn" data-act="obDone">${tr("Готово")}</button></div>`;
 }
-const obRead = () => { const o = SH.ob; [['obN', 'name'], ['obW', 'wake'], ['obS', 'sleep'], ['obC', 'cur'], ['obA', 'about']].forEach(([id, k]) => { if ($('#' + id)) o[k] = val(id); }); };
+const obRead = () => { const o = SH.ob; [['obN', 'name'], ['obW', 'wake'], ['obS', 'sleep'], ['obC', 'cur'], ['obB', 'budget'], ['obA', 'about']].forEach(([id, k]) => { if ($('#' + id)) o[k] = val(id); }); };
 A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: profile().currency || guessCurrency(), about: '', where: 'home'}; return obBody(); });
 A.obWhere = el => { SH.ob.where = el.dataset.v; drawSheet(); };
 A.obRole = el => { obRead(); SH.ob.role = el.dataset.v; drawSheet(); };
@@ -5876,7 +5876,12 @@ function whatsNewShow(){
   return true;
 }
 const obDoneNew = A.obDone;
-A.obDone = (...a) => { setMeta({seenNew: WHATS_NEW_ID}); return obDoneNew(...a); }; // a new install already starts with all of it
+A.obDone = (...a) => {
+  setMeta({seenNew: WHATS_NEW_ID}); // a new install already starts with all of it
+  const b = Math.abs(toNum(($('#obB')?.value) || SH?.ob?.budget || '')); // a monthly budget, if one was given
+  if (b > 0 && SH?.ob?.goals?.includes('money')) save('app/budget', {...(S.docs['app/budget'] || {}), monthly: b});
+  return obDoneNew(...a);
+};
 
 /* ============ init ============ */
 async function init(){

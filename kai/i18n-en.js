@@ -2121,4 +2121,5 @@ window.I18N_EN = {
 "KAI понимает больше без ИИ":"KAI understands more without AI",
 "Бег и плавание, сон «с часу до 9», еду без граммов, «через 2 недели», экранное время.":"Running and swimming, sleep “from 1 to 9”, food without grams, “in 2 weeks”, screen time.",
 "Что нового":"What's new",
+"Бюджет на месяц (необязательно)":"Monthly budget (optional)",
 };

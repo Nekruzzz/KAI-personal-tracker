@@ -3363,9 +3363,10 @@ A.qaAdd = () => {
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target?.id === 'qa'){ e.preventDefault(); A.qaAdd(); } if (e.key === 'Enter' && e.target?.id === 'ciPlan'){ e.preventDefault(); A.ciPlan(); } });
 A.tkOpen = el => { const k = 'tk_' + el.dataset.id; S.open[k] = !S.open[k]; render(); };
 A.tkDone = el => {
-  creditStudy(smartTasks().find(t => t.id === el.dataset.id && !t.done));
+  const t = smartTasks().find(x => x.id === el.dataset.id && !x.done); if (!t) return;
   burstAt(el); haptic('light'); sound('pop');
-  saveTasks(tasksDone(smartTasks(), el.dataset.id, todayISO()));
+  // a mistaken tap can be taken back: the to-do, the next one of a repeating to-do, and any study time it added
+  withUndo(['app/tasks', 'days/' + todayISO(), 'app/plan'], () => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }, trf('Готово: {t}', {t: t.title.length > 40 ? t.title.slice(0, 39) + '…' : t.title}));
 };
 A.tkDel = el => withUndo(['app/tasks'], () => saveTasks(smartTasks().filter(t => t.id !== el.dataset.id)));
 A.tkPri = el => saveTasks(smartTasks().map(t => t.id === el.dataset.id ? {...t, pri: t.pri === 1 ? 2 : 1} : t));

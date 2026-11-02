@@ -136,6 +136,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **Tell KAI on the phone, second round (another 46 everyday messages tried):** "рейс 20 декабря в 6 утра" became a to-do at 18:00 titled "Рейс утра"; it's now an event at 06:00, and "в 9 вечера", "в 3 дня" and "в 11 ночи" work too (while "через 2 дня" stays days). Also new: "midterm in 2 weeks", "через 3 дня", "через неделю", "в следующий понедельник" (no stray "следующий" in the title), flights, weddings and matches as events, "пропустил зал", "10к шагов", reps without commas ("жим 60 на 8 8 6"), a second amount in one sentence ("spent 30 on books and 12 on lunch") and "slept badly, 5 hours".
 - **Food without AI, third round:** a food named on its own ("яблоко и банан", "apple", "сникерс") counts one piece when the table knows a piece's weight; vague amounts ("had some soup") still need grams, and in the to-do field "молоко" stays something to buy. "Coffee with milk" is one drink, not coffee plus a glass of milk. New in the table: black coffee, coffee with milk, a protein shake, a chocolate bar and a cutlet. A short Russian word now matches a food only when just its ending differs, so "у меня 2 кота" is no longer two cutlets.
 - **Screen time in words:** "screen time 3h 20m", "экранное время 4 часа" or "провёл 2 часа в телефоне" fills in the day's screen time without a screenshot or an AI, while the Screen time module is on.
+- **"Yesterday" in Tell KAI:** "вчера потратил 500 на такси" or "yesterday walked 40 minutes" records the spending, walks, workouts and meals on yesterday (two days back for "позавчера"), and the preview starts with "For yesterday:". A message that also mentions tomorrow keeps today. Fixed: "ran 5k yesterday morning" became a to-do for tomorrow at 09:00.
 - **AI answers get repeats and screen time from the phone:** with an AI connected, its answer had no place for "every month", repeating to-dos or screen time (its prompt is unchanged). The phone reads the same message and adds just those to the AI's answer, shown before Apply. A long mixed message ("slept 7 hours, ran 5 km in 30 minutes, spent 12 on lunch and 5 on coffee, Netflix 11 every month, exam on Friday at 10, take out the trash every Monday, screen time 3h 20m") was checked end to end in both languages: every part is read and applied.
 
 **Around the app**
@@ -180,7 +181,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 167 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 168 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

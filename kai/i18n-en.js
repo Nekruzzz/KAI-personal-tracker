@@ -2067,4 +2067,5 @@ window.I18N_EN = {
 "порция":"serving",
 "Шоколадный батончик":"Chocolate bar",
 "Котлета":"Meat patty (cutlet)",
+"Экранное время: {t}":"Screen time: {t}",
 };

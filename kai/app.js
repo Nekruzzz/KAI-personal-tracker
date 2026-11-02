@@ -2320,6 +2320,7 @@ function tellLines(r, date){
   (r.sets||[]).forEach(s=>lines.push(`${tr("Подход:")} ${allEx.find(e=>e.id===s.ex)?.name||s.ex} ${s.w?W(s.w)+' '+kgU()+' × ':''}${s.r}`));
   (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}`));
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
+  if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   return lines;
 }
 function tellView(it){
@@ -2341,6 +2342,7 @@ A.tellApply = el => {
     d.supps = d.supps||{}; (r.supps_taken||[]).forEach(s => { const m = (plan().supps||[]).find(x=>x.name.toLowerCase()===String(s).toLowerCase()); if (m) d.supps[m.name] = true; });
     d.sets = d.sets||{}; (r.sets||[]).forEach(s => { const a = d.sets[s.ex] = d.sets[s.ex]||[]; let i = a.findIndex(x=>!x || (!x.r && !x.w)); if (i<0) i = a.length; a[i] = {w:toNum(s.w), r:toNum(s.r)}; });
     if (r.sick) d.status = 'sick'; if (r.rating) d.rating = +r.rating;
+    if (r.screen_min > 0 && r.screen_min <= 1440 && modOn('screentime')) d.screen = {total: Math.round(r.screen_min), apps: d.screen?.apps || [], pickups: d.screen?.pickups ?? null, src: 'tell'};
     d.log = (d.log||[]).concat([{t:now.toISOString(), text:(it.meta.text||'').slice(0,2000)}]).slice(-20);
   });
   tellPlanApply(r);
@@ -4712,6 +4714,7 @@ function localTellParse(text, date, opts = {}){
   for (const c of parts){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
+    if (modOn('screentime') && (m = c.match(SCREEN_A) || c.match(SCREEN_B))){ const v = parseDur(m[1]); if (v > 0 && v <= 1440){ r.screen_min = v; hit = true; } }
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
     if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
     if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
@@ -5639,6 +5642,11 @@ A.tkStopRepeat = el => { saveTasks(smartTasks().map(t => { if (t.id !== el.datas
 
 /* ============ food named in a few words: "coffee with milk" is one drink ============ */
 const foodPrep = text => String(text).replace(/(?:кофе|coffee)\s+(?:с|со|with)\s+(?:молоком|milk)(?![а-яёa-z])/ig, 'капучино');
+
+/* ============ Tell KAI: screen time in words ("screen time 3h 20m", "провёл 4 часа в телефоне") ============ */
+const SCREEN_W = '(?:screen\\s*time|экранн(?:ое|ого)\\s+врем[яеи]|в\\s+телефоне|on\\s+(?:my\\s+|the\\s+)?phone|в\\s+соцсетях|on\\s+social\\s+media)';
+const SCREEN_D = '(\\d+(?:[.,]\\d+)?\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?:\\s*\\d+\\s*(?:м|мин[а-яё]*|m|mins?|minutes?))?|\\d+\\s*(?:мин[а-яё]*|mins?|minutes?)|\\d{1,2}:\\d\\d)(?![a-zа-яё])';
+const SCREEN_A = new RegExp(SCREEN_W + '\\D{0,14}?' + SCREEN_D, 'i'), SCREEN_B = new RegExp(SCREEN_D + '\\s+' + SCREEN_W, 'i');
 
 /* ============ init ============ */
 async function init(){

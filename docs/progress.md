@@ -74,6 +74,8 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
 - **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
 - **A first currency from the phone's region** ($, €, £, ₽ and others), filled in during onboarding and changeable; before, money showed as bare numbers until someone typed a symbol.
+- **Focus on a to-do:** any to-do's details have a Focus button; the session is named after it and offers to mark it done at the end. A study-plan topic's planned time now counts once (focus minutes count toward it; marking it done adds only what's left; before, the full hour was added on top). Sessions are recorded, the Focus sheet shows the last 7 days, and the weekly summary image shows focus sessions.
+- **Morning plan reminder (new, off until turned on):** at wake-up, the day in one line, for example "2 classes · workout at 17:15 · 1 task · "Chemistry" in 3 days". Nothing on an empty day.
 - **Focus sessions (new):** from the Now card during study, a project or a free slot: 25, 45 or 60 minutes, counted down in a glass bar on every screen. Leaving KAI for more than 3 seconds counts as a distraction and the time away is measured; with reminders on, the iPhone app calls you back after 40 seconds away and says when it's done. Only focused minutes become study time for the day (hours, active days, the weekly summary). Sessions survive the app being closed. It's the part of distraction blocking that needs no Screen Time permission; `docs/screen-time-blocking.md` explains how blocking would plug into it later. The rest and focus bars are no longer read out by VoiceOver every second.
 - **Cleaner numbers and labels:** thousands separators on every calorie figure, true minus signs, no stray separator before a meal's macros, storage in MB or GB, AI notes that fit the setup (sign in, or connect Claude or ChatGPT) instead of naming only Claude, a natural budget sentence ("about $2 a day until the end of the month"), and no supplements task in the list while supplements are off. A sick day in the week strip showed "P" in English (its letter clashed with protein's); it's now the thermometer icon. A read-through of every screen's text in both languages found nothing else.
 - **Calorie advice, accurate wording:** on a weight-loss goal with weight going up, the card said loss was "too slow"; it now says weight is going up, with a "Going up" badge. The advice itself is unchanged (about 150 kcal less, never under the floor).
@@ -122,7 +124,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 122 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 124 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

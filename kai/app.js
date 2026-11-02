@@ -3551,6 +3551,7 @@ function nowCard(){
     ${cur ? `<div class="nc-l">${tr("Сейчас")}</div><div class="nc-row"><span class="tic" style="--tc:var(--${col})">${ic(icn)}</span><div class="mid"><div class="t">${esc(cur.title)}</div><div class="s">${tr("до")} ${hmStr(endOf(cur))} ${tr("· ещё")} ${inMin(endOf(cur) - nowM)}</div></div><button class="chk ${st(cur) === 'done' ? 'on' : ''}" data-act="tlToggle" data-id="${esc(cur.id)}" aria-pressed="${st(cur) === 'done'}" aria-label="${tr("Отметить:")} ${esc(cur.title)}">${ic('check')}</button></div>
       ${st(cur) !== 'done' && !['sleep', 'wake', 'rest'].includes(cur.kind) ? `<div class="nc-ext"><span>${tr("Задержался?")}</span>${[15, 30].map(m => `<button data-act="tlExtend" data-id="${esc(cur.id)}" data-m="${m}">+${m} ${tr("мин")}</button>`).join('')}</div>` : ''}`
     : `<div class="nc-l">${tr("Свободное окно")}</div><div class="t">${tr("Ничего не запланировано")}</div>`}
+    ${!FOCUS && focusFits(cur) && (!cur || st(cur) !== 'done') ? `<button class="btn ghost" data-act="focusSheet" data-l="${esc(cur?.title || '')}">${ic('target')}${cur ? tr('Фокус на этом') : tr('Начать фокус')}</button>` : ''}
     ${next ? `<div class="nc-next">${tr("Дальше ·")} <b>${hmStr(next.s)}</b> ${esc(next.title)} <span>${tr("через")} ${inMin(next.s - nowM)}</span></div>` : ''}
   </section>`;
 }
@@ -4430,6 +4431,10 @@ const atMin = (date, min) => { const [y, m, d] = date.split('-').map(Number); re
 function buildReminders(now = Date.now()){
   const out = [], today = todayISO();
   const add = (key, at, title, body, must, go = 'day') => { if (at > now + 30000) out.push({id: remindId(key), key, at, title, body, must: !!must, go}); };
+  if (FOCUS){
+    add('focus_end', FOCUS.end, tr('Фокус закончен'), tr('Открой KAI, чтобы засчитать время.'), true);
+    if (FOCUS.hiddenAt) add('focus_back', FOCUS.hiddenAt + 40000, tr('Фокус ещё идёт'), trf('Осталось {m} мин. Вернись, чтобы не сбить сессию.', {m: Math.max(1, Math.ceil((FOCUS.end - FOCUS.hiddenAt) / 60000))}), true);
+  }
   if (remindOn('exams')) allEvents().filter(e => (e.kind === 'exam' || e.kind === 'deadline') && e.date >= today).forEach(e => {
     const start = atMin(e.date, hm(e.from || '09:00')), open = planTasks(e.id).filter(t => !t.done).length;
     const steps = e.kind === 'exam' ? [[14, tr('через 2 недели')], [7, tr('через неделю')], [3, tr('через 3 дня')], [1, tr('завтра')]] : [[3, tr('через 3 дня')], [1, tr('завтра')]];
@@ -5146,6 +5151,84 @@ const textSeg = () => `<div class="seg" role="group" aria-labelledby="textL">${[
 A.setText = el => { try { if (el.dataset.v === 'system') localStorage.removeItem('kai_text'); else localStorage.setItem('kai_text', el.dataset.v); } catch {} applyTextSize(); haptic('selection'); render(); };
 applyTextSize();
 
+/* ============ Focus: study sessions that notice when you leave ============ */
+/* No Screen Time permission needed: KAI can't block other apps, but it can tell you, honestly, how long you were away,
+   nudge you back while a session runs (iPhone app, with reminders on), and log only the focused minutes as study. */
+const FOCUS_KEY = 'kai_focus';
+let FOCUS = (() => { try { return JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null'); } catch { return null; } })(), FOCUS_IV = 0, FOCUS_WAKE = null;
+const focusSave = () => { try { if (FOCUS) localStorage.setItem(FOCUS_KEY, JSON.stringify(FOCUS)); else localStorage.removeItem(FOCUS_KEY); } catch {} };
+/* time away: what's on record, plus the stretch still running if the app is hidden right now */
+const focusAway = (f, now) => f.away + (f.hiddenAt ? Math.max(0, Math.min(now, f.end) - f.hiddenAt) : 0);
+function focusMinutes(now = Date.now()){
+  const f = FOCUS; if (!f) return 0;
+  return Math.max(0, Math.floor((Math.min(now, f.end) - f.start - focusAway(f, now)) / 60000));
+}
+function focusStart(min, label){
+  const now = Date.now();
+  FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба')};
+  focusSave(); focusRun(); syncReminders(); haptic('medium');
+}
+function focusRun(){
+  clearInterval(FOCUS_IV); if (!FOCUS) return;
+  FOCUS_IV = setInterval(focusTick, 1000); document.body.classList.add('focusing'); focusTick();
+  try { if (!FOCUS_WAKE && navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { FOCUS_WAKE = w; }).catch(() => {}); } catch {}
+}
+function focusTick(){
+  if (!FOCUS) return;
+  const now = Date.now(); if (now >= FOCUS.end) return focusFinish(true);
+  const bar = $('#focusBar'); if (!bar) return;
+  const left = Math.ceil((FOCUS.end - now) / 1000);
+  bar.hidden = false;
+  bar.innerHTML = `<div class="rb-in"><span class="ic" aria-hidden="true">${ic('target')}</span><div style="flex:1;min-width:0"><div class="rb-t">${Math.floor(left / 60)}:${pad(left % 60)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tr('Фокус')} · ${esc(FOCUS.label)}${FOCUS.leaves ? ' · ' + FOCUS.leaves + ' ' + plural(FOCUS.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')) : ''}</div></div><button class="btn ghost" data-act="focusEnd">${tr('Завершить')}</button></div>`;
+}
+function focusFinish(complete){
+  const f = FOCUS; if (!f) return;
+  const now = Date.now(), mins = focusMinutes(now), awayMin = Math.round(focusAway(f, now) / 60000);
+  const leaves = f.leaves + (f.hiddenAt && now - f.hiddenAt >= 3000 ? 1 : 0);
+  FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing');
+  const bar = $('#focusBar'); if (bar) bar.hidden = true;
+  try { FOCUS_WAKE?.release(); } catch {} FOCUS_WAKE = null;
+  if (mins > 0) mutDay(iso(f.start), d => { d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + mins}; });
+  syncReminders();
+  if (complete){ haptic('success'); sound('badge'); }
+  const said = leaves ? trf('Фокус: {m} из {t} мин · {n} {w}, {a} мин вне приложения', {m: mins, t: f.min, n: leaves, w: plural(leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')), a: awayMin})
+    : complete ? trf('Фокус: {m} мин без единого отвлечения', {m: mins}) : trf('Фокус: {m} мин', {m: mins});
+  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 6000});
+  scheduleRender();
+}
+/* leaving the app counts from 3 seconds: a glance at a notification isn't a distraction */
+function focusVisibility(hidden){
+  if (!FOCUS) return;
+  const now = Date.now();
+  if (hidden){ if (!FOCUS.hiddenAt){ FOCUS.hiddenAt = now; focusSave(); syncReminders(); } return; }
+  if (!FOCUS.hiddenAt) return;
+  const away = Math.max(0, Math.min(now, FOCUS.end) - FOCUS.hiddenAt);
+  if (away >= 3000){ FOCUS.away += away; FOCUS.leaves++; }
+  FOCUS.hiddenAt = null; focusSave(); syncReminders();
+  if (now >= FOCUS.end) return focusFinish(true);
+  if (away >= 20000) toast(trf('Тебя не было {m} мин. Фокус продолжается.', {m: Math.max(1, Math.round(away / 60000))}), {icon: 'target'});
+  focusTick();
+}
+document.addEventListener('visibilitychange', () => focusVisibility(document.visibilityState === 'hidden'));
+/* reopened after iOS closed the app: the time it was gone counts as away, then the session carries on or ends */
+function focusResume(){
+  if (!FOCUS) return;
+  const now = Date.now();
+  if (FOCUS.hiddenAt){ const away = Math.max(0, Math.min(now, FOCUS.end) - FOCUS.hiddenAt); if (away >= 3000){ FOCUS.away += away; FOCUS.leaves++; } FOCUS.hiddenAt = null; focusSave(); }
+  if (now >= FOCUS.end) focusFinish(true); else focusRun();
+}
+const focusFits = b => !b || ['study', 'project', 'free'].includes(b.kind);
+A.focusSheet = el => {
+  openSheet(tr('Фокус'), () => FOCUS ? `<div class="hint">${trf('Идёт фокус: {l}. Сделано {m} мин.', {l: esc(FOCUS.label), m: focusMinutes()})}</div><button class="btn block danger" data-act="focusEnd">${tr('Завершить сейчас')}</button>`
+    : `<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
+    <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
+    <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
+    <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);
+};
+A.focusMin = el => { SH.fl = val('fcL'); SH.fm = +el.dataset.v; haptic('selection'); drawSheet(); };
+A.focusGo = () => { const l = val('fcL'), m = SH?.fm || 25; closeSheet(); focusStart(m, l); };
+A.focusEnd = () => { closeSheet(); focusFinish(false); };
+
 /* ============ init ============ */
 async function init(){
   render();
@@ -5168,5 +5251,6 @@ async function init(){
   }
   render();
   openFromLink();
+  focusResume(); // a focus session from before the app was closed
 }
 init();

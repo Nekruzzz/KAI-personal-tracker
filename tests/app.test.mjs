@@ -15,7 +15,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 function load(language){
   const store = new Map([['kai_lang', language]]);
   const c = {
-    console, URL, URLSearchParams, Blob, Promise, setTimeout: (f, ms) => { const t = setTimeout(f, ms); t.unref?.(); return t; }, clearTimeout, setInterval: () => 0,
+    console, URL, URLSearchParams, Blob, Promise, setTimeout: (f, ms) => { const t = setTimeout(f, ms); t.unref?.(); return t; }, clearTimeout, setInterval: () => 0, clearInterval: () => {},
     requestAnimationFrame: () => 0, queueMicrotask, performance, matchMedia: () => ({matches: false}), navigator: {language: 'en-US', onLine: true},
     localStorage: {getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k)},
     document: Object.assign(stub(), {documentElement: {}, body: stub(), hidden: false, activeElement: null, addEventListener() {}, querySelector: () => stub(), querySelectorAll: () => [], createElement: () => stub()}),
@@ -1523,4 +1523,42 @@ test('numbers and labels read cleanly: thousands separators, true minus signs, n
   run(`save('app/plan', {...clone(plan()), dailyTasks: [...plan().dailyTasks.filter(t => t.cat !== 'supps'), {id: 'supps', title: 'Take supplements', cat: 'supps'}]}); S.open = {acc_tasks: true}`);
   assert.doesNotMatch(run(`viewMore()`), /Take supplements/, 'switched off, so not listed');
   run(`S.open = {}`);
+});
+
+test('Focus: only focused minutes count as study, time away is measured, and a glance away is not a distraction', () => {
+  const T0 = Date.UTC(2030, 0, 9, 9, 0);
+  run(`globalThis.now0 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toasts = []; globalThis.toast1 = toast; toast = m => toasts.push(m)`);
+  const day = run(`iso(${T0})`), studyBefore = run(`getDay('${day}').timeExtra?.study || 0`);
+  try {
+    run(`focusStart(25, 'Algebra')`);
+    assert.equal(run(`FOCUS.label`), 'Algebra');
+    assert.ok(run(`JSON.parse(localStorage.getItem('kai_focus')).end`) > 0, 'kept across restarts');
+    run(`T += 5 * 60000; focusVisibility(true); T += 2000; focusVisibility(false)`);
+    assert.equal(run(`FOCUS.leaves`), 0, 'two seconds away is a glance');
+    run(`T += 3 * 60000; focusVisibility(true)`);
+    assert.ok(run(`buildReminders(T).some(r => r.key === 'focus_back')`), 'a nudge back while away');
+    assert.ok(run(`buildReminders(T).some(r => r.key === 'focus_end')`));
+    run(`T += 4 * 60000; focusVisibility(false)`);
+    assert.equal(run(`FOCUS.leaves`), 1);
+    assert.ok(!run(`buildReminders(T).some(r => r.key === 'focus_back')`), 'back: no nudge');
+    assert.equal(run(`focusMinutes()`), 8, '12 minutes passed, 4 of them away');
+    run(`T += 20 * 60000; focusTick()`);
+    assert.equal(run(`FOCUS`), null, 'ends on its own');
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - studyBefore, 21, '25 minutes, 4 away');
+    assert.match(run(`toasts.join(' | ')`), /Focus: 21 of 25 min · 1 distraction, 4 min away from the app/);
+  } finally { run(`Date.now = now0; toast = toast1; FOCUS = null; focusSave()`); }
+});
+
+test('Focus: a session survives the app being closed, and the time it was closed counts as away', () => {
+  const T0 = Date.UTC(2030, 0, 10, 9, 0);
+  run(`globalThis.now0 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toast2 = toast; toast = () => {}`);
+  const day = run(`iso(${T0})`), before = run(`getDay('${day}').timeExtra?.study || 0`);
+  try {
+    run(`focusStart(45, 'Essay'); T += 10 * 60000; focusVisibility(true); FOCUS_IV && clearInterval(FOCUS_IV); FOCUS = JSON.parse(localStorage.getItem('kai_focus'))`);
+    run(`T += 60 * 60000; focusResume()`);
+    assert.equal(run(`FOCUS`), null);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - before, 10, 'only the ten minutes before leaving count');
+    run(`focusStart(25, 'x'); T += 6 * 60000; A.focusEnd()`);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - before, 16, 'ending early keeps what was done');
+  } finally { run(`Date.now = now0; toast = toast2; FOCUS = null; focusSave()`); }
 });

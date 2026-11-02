@@ -744,6 +744,13 @@ h1,h2,h3,.t,.hero-num{text-wrap:balance} /* headings wrap into even lines, never
 p,.hint,.s{text-wrap:pretty}
 #tellOut,#foodOut{scroll-margin-top:84px} /* clear of the sheet's title bar when brought into view */
 
+/* Focus: the session bar sits where the rest timer does, above it if both run */
+body.focusing .app{padding-bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+body.resting.focusing #focusBar{bottom:calc(158px + env(safe-area-inset-bottom,0px))}
+.rb-in > .ic{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;flex:none;background:var(--accent-soft);color:var(--accent)}
+.rb-in > .ic svg{width:20px;height:20px}
+.nowc > .btn{align-self:flex-start}
+
 /* rows and card buttons answer a touch the iOS way: a quick highlight for a row, a slight press for a whole card */
 .acc-h{transition:background-color .15s}
 .acc-h:active{background-color:var(--fill-1)}
@@ -781,7 +788,8 @@ button.card:active,.navrow:active,.onbc:active{transform:scale(.98)}
   <span class="nav-ind" aria-hidden="true"></span>
   <div class="nav-in" id="nav"></div>
 </nav>
-<div id="restBar" class="restbar" hidden aria-live="polite"></div>
+<div id="restBar" class="restbar" hidden></div>
+<div id="focusBar" class="restbar" hidden></div>
 <div id="sheetRoot"></div>
 <input type="file" id="filePick" accept="image/*" hidden>
 

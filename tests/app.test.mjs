@@ -22,6 +22,9 @@ function load(language){
     location: {hash: '', pathname: '/', search: '', protocol: 'http:', reload() {}}, history: {replaceState() {}}, innerWidth: 400, innerHeight: 800, devicePixelRatio: 1,
     addEventListener() {}, scrollTo() {}, scrollY: 0, AbortController,
   };
+  // while a test sets globalThis.FORM ({'#id': value}, true for a switch that is on), the sheet's fields read from it
+  const doc = c.document;
+  c.document = new Proxy(doc, {get: (t, k) => k === 'querySelector' && c.FORM ? (s => s in c.FORM ? {value: String(c.FORM[s]), checked: c.FORM[s] === true} : t.querySelector(s)) : t[k], set: () => true});
   c.window = c; c.self = c; c.top = c;
   vm.createContext(c);
   const root = new URL('../kai/', import.meta.url);
@@ -1645,4 +1648,150 @@ test('Focus from an exam card adds the focused minutes to that exam\'s preparati
     run(`T += 45 * 60000; focusTick()`);
     assert.equal(run(`allEvents().find(e => e.id === 'ex9').prepMin`), 45);
   } finally { run(`Date.now = now0; toast = toast4; FOCUS = null; focusSave(); SH = null`); }
+});
+
+// form fields for handlers that read the sheet: {'#id': value}, and true for a switch that is on
+const withForm = (vals, fn) => {
+  run(`globalThis.FORM = ${JSON.stringify(vals)}`);
+  try { return fn(); } finally { run(`delete globalThis.FORM`); }
+};
+const monthsAgo = n => run(`(() => { const [y, m] = curMonth().split('-').map(Number), d = new Date(y, m - 1 - ${n}, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); })()`);
+
+test('Regular payments: due, still to come, paid and skipped, with the 31st falling on the last day of a short month', () => {
+  run(`save('app/bills', {list: [{id: 'b1', title: 'Rent', amount: 400, type: 'out', cat: 'Жильё и коммуналка', day: 31}]}); save('money/2030-02', {tx: []}); save('money/2030-03', {tx: []})`);
+  try {
+    assert.equal(run(`billDue(bills()[0], '2030-02')`), '2030-02-28');
+    assert.equal(run(`billState(bills()[0], '2030-02-27')`), 'soon');
+    assert.equal(run(`billState(bills()[0], '2030-02-28')`), 'due');
+    assert.equal(run(`billsPending('2030-02-10')`), 400);
+    run(`addTx([{id: 'p1', type: 'out', amount: 400, date: '2030-02-28', cat: 'Жильё и коммуналка', note: 'Rent', bill: 'b1'}])`);
+    assert.equal(run(`billState(bills()[0], '2030-02-28')`), 'paid');
+    assert.equal(run(`billsPending('2030-02-28')`), 0);
+    assert.equal(run(`billState(bills()[0], '2030-03-31')`), 'due', 'the next month is due again');
+    run(`save('app/bills', {list: [{...bills()[0], skip: ['2030-03']}]})`);
+    assert.equal(run(`billState(bills()[0], '2030-03-31')`), 'skip');
+    assert.equal(run(`billsPending('2030-03-31')`), 0);
+  } finally { run(`remove('money/2030-02'); remove('money/2030-03'); save('app/bills', {list: []})`); }
+});
+
+test('Regular payments: one tap records the payment once, on its due day, and Undo takes it back', () => {
+  const m = run(`curMonth()`);
+  run(`globalThis.money0 = clone(S.docs['money/${m}'] || {tx: []}); save('money/${m}', {tx: []}); save('app/bills', {list: [{id: 'b2', title: 'Phone plan', amount: 15, type: 'out', cat: 'Связь и интернет', day: 1}]}); globalThis.toastB = toast; toast = () => {}`);
+  try {
+    assert.equal(run(`billState(bills()[0])`), 'due');
+    run(`A.billPay({dataset: {id: 'b2'}}); A.billPay({dataset: {id: 'b2'}})`);
+    const tx = JSON.parse(run(`JSON.stringify(monthTx('${m}'))`));
+    assert.equal(tx.length, 1, 'a double tap records it once');
+    assert.deepEqual([tx[0].date, tx[0].amount, tx[0].bill, tx[0].note, tx[0].type], [m + '-01', 15, 'b2', 'Phone plan', 'out']);
+    assert.equal(run(`billState(bills()[0])`), 'paid');
+    run(`A.undoApply()`);
+    assert.equal(run(`monthTx('${m}').length`), 0);
+    assert.equal(run(`billState(bills()[0])`), 'due');
+  } finally { run(`toast = toastB; save('money/${m}', money0); save('app/bills', {list: []})`); }
+});
+
+test('Regular payments: a new one is linked to the entry already written this month, and "Every month" on an entry makes one', () => {
+  const m = run(`curMonth()`), d = run(`todayISO()`);
+  run(`globalThis.money1 = clone(S.docs['money/${m}'] || {tx: []}); save('money/${m}', {tx: [{id: 'r0', type: 'out', amount: 400, date: '${m}-01', cat: 'Другое', note: 'Rent'}]}); save('app/bills', {list: []}); globalThis.toastC = toast; toast = () => {}`);
+  try {
+    withForm({'#blT': 'Rent', '#blA': '400', '#blD': '1', '#blC': 'Жильё и коммуналка'}, () => run(`A.billNew(); A.billSave()`));
+    const b = JSON.parse(run(`JSON.stringify(bills())`));
+    assert.equal(b.length, 1);
+    assert.deepEqual([b[0].title, b[0].amount, b[0].day, b[0].cat], ['Rent', 400, 1, 'Жильё и коммуналка']);
+    assert.equal(run(`monthTx('${m}').length`), 1, 'not recorded twice');
+    assert.equal(run(`monthTx('${m}')[0].bill`), b[0].id);
+    assert.equal(run(`billState(bills()[0])`), 'paid');
+    withForm({'#txA': '9.99', '#txD': d, '#txC': 'Подписки', '#txN': 'Music', '#txRep': true}, () => run(`A.txAdd(); A.txSave()`));
+    const music = JSON.parse(run(`JSON.stringify(bills().find(x => x.title === 'Music'))`));
+    assert.deepEqual([music.day, music.amount, music.cat], [+d.slice(8), 9.99, 'Подписки']);
+    const id = run(`monthTx('${m}').find(t => t.note === 'Music').id`);
+    assert.equal(run(`monthTx('${m}').find(t => t.note === 'Music').bill`), music.id);
+    withForm({'#txA': '10.99', '#txD': d, '#txC': 'Подписки', '#txN': 'Music'}, () => run(`S.moneyMonth = '${m}'; A.txEdit({dataset: {id: '${id}'}}); A.txSave()`));
+    assert.equal(run(`monthTx('${m}').find(t => t.note === 'Music').bill`), music.id, 'editing the entry keeps it linked');
+    assert.equal(run(`bills().length`), 2, 'and makes no second payment');
+    withForm({'#blT': '', '#blA': '5', '#blD': '3'}, () => run(`A.billNew(); A.billSave()`));
+    withForm({'#blT': 'Gym', '#blA': '30', '#blD': '32'}, () => run(`A.billNew(); A.billSave()`));
+    assert.equal(run(`bills().length`), 2, 'no name or a day past 31 is refused');
+  } finally { run(`toast = toastC; SH = null; save('money/${m}', money1); save('app/bills', {list: []})`); }
+});
+
+test('Regular payments: the budget sets aside what is still to pay', () => {
+  const m = run(`curMonth()`), d = +run(`todayISO()`).slice(8), days = +run(`new Date(${m.slice(0, 4)}, ${+m.slice(5)}, 0).getDate()`);
+  run(`globalThis.budget0 = S.docs['app/budget']; save('app/budget', {monthly: 1000}); save('app/bills', {list: [{id: 'b5', title: 'Rent', amount: 600, type: 'out', cat: 'Жильё и коммуналка', day: 28}]})`);
+  try {
+    let h = run(`budgetCard('${m}', 100)`);
+    assert.ok(h.includes(run(`trf('· из них {s} на регулярные платежи', {s: money(600)})`)));
+    assert.ok(h.includes(run(`trf('· в день можно {d} до конца месяца', {d: money(${Math.floor(300 / (days - d + 1))})})`)), 'the daily amount leaves the rent aside');
+    run(`save('app/budget', {monthly: 500})`);
+    h = run(`budgetCard('${m}', 100)`);
+    assert.ok(h.includes(run(`trf('· регулярные платежи ({s}) больше остатка', {s: money(600)})`)));
+    assert.ok(!h.includes(run(`tr('· в день можно {d} до конца месяца').split('{d}')[0]`)), 'no daily amount when the payments take it all');
+  } finally { run(`budget0 ? save('app/budget', budget0) : remove('app/budget'); save('app/bills', {list: []})`); }
+});
+
+test('Regular payments: what is paid once a month around the same day is suggested; daily coffee and turned-down ideas are not', () => {
+  const ms = ['2030-03', '2030-04', '2030-05'];
+  run(`save('app/bills', {list: []}); ${JSON.stringify(ms)}.forEach((m, i) => save('money/' + m, {tx: [
+    {id: 'n' + i, type: 'out', amount: 11, date: m + '-0' + (4 + i), cat: 'Подписки', note: 'Netflix'},
+    {id: 'c' + i, type: 'out', amount: 3, date: m + '-10', cat: 'Кафе и рестораны', note: 'Coffee'},
+    {id: 'd' + i, type: 'out', amount: 3, date: m + '-11', cat: 'Кафе и рестораны', note: 'Coffee'},
+    {id: 'v' + i, type: 'out', amount: 20 + i, date: m + '-12', cat: 'Другое', note: 'Haircut'},
+    ...(i ? [{id: 'g' + i, type: 'in', amount: 900, date: m + '-0' + i, cat: 'Доход', note: 'Allowance'}] : []),
+  ]}))`);
+  try {
+    const notes = () => JSON.parse(run(`JSON.stringify(billIdeas('2030-06-15').map(x => x.t.note))`));
+    assert.deepEqual(notes(), ['Allowance', 'Netflix'], 'the biggest first; coffee twice a month and a changing amount are not monthly');
+    run(`A.billNo({dataset: {k: billIdeas('2030-06-15')[1].key}})`);
+    assert.deepEqual(notes(), ['Allowance'], 'turned down once, not offered again');
+    assert.ok(!run(`billIdeas('2030-09-15').length`), 'nothing from months too long ago');
+  } finally { run(`${JSON.stringify(ms)}.forEach(m => remove('money/' + m)); save('app/bills', {list: []})`); }
+});
+
+test('Regular payments: taking a suggestion adds it with its usual day and links this month\'s entry', () => {
+  const m = run(`curMonth()`), a = monthsAgo(1), b = monthsAgo(2);
+  run(`globalThis.money2 = clone(S.docs['money/${m}'] || {tx: []}); save('app/bills', {list: []}); globalThis.toastD = toast; toast = () => {};
+    save('money/${b}', {tx: [{id: 'k1', type: 'out', amount: 25, date: '${b}-05', cat: 'Связь и интернет', note: 'Internet'}]});
+    save('money/${a}', {tx: [{id: 'k2', type: 'out', amount: 25, date: '${a}-06', cat: 'Связь и интернет', note: 'Internet'}]});
+    save('money/${m}', {tx: [{id: 'k3', type: 'out', amount: 25, date: '${m}-01', cat: 'Связь и интернет', note: 'internet'}]})`);
+  try {
+    const it = JSON.parse(run(`JSON.stringify(billIdeas()[0])`));
+    assert.equal(it.t.note, 'Internet');
+    assert.ok(run(`billsCard(curMonth())`).includes('data-act="billIdea"'), 'the Money tab offers it');
+    run(`A.billIdea({dataset: {k: ${JSON.stringify(it.key)}}})`);
+    const bl = JSON.parse(run(`JSON.stringify(bills())`));
+    assert.deepEqual([bl.length, bl[0].title, bl[0].day, bl[0].amount], [1, 'Internet', 6, 25]);
+    assert.equal(run(`monthTx('${m}')[0].bill`), bl[0].id, 'this month\'s entry is the payment');
+    assert.equal(run(`billIdeas().length`), 0);
+    assert.ok(!run(`billsCard(curMonth())`).includes('data-act="billIdea"'));
+  } finally { run(`toast = toastD; remove('money/${a}'); remove('money/${b}'); save('money/${m}', money2); save('app/bills', {list: []})`); }
+});
+
+test('Regular payments: a reminder at 10:00 on the day and a mention in the morning plan, until it is paid', () => {
+  const tmr = run(`addDays(todayISO(), 1)`), m = tmr.slice(0, 7);
+  run(`globalThis.money3 = clone(S.docs['money/${m}'] || {tx: []}); globalThis.mods3 = meta().modules; setMeta({modules: {...(mods3 || {}), money: true}}); save('money/${m}', {tx: []}); save('app/bills', {list: [{id: 'b7', title: 'Gym membership', amount: 30, type: 'out', cat: 'Спорт и здоровье', day: ${+tmr.slice(8)}}, {id: 'b8', title: 'Allowance', amount: 900, type: 'in', cat: 'Доход', day: ${+tmr.slice(8)}}]})`);
+  try {
+    const rem = () => JSON.parse(run(`JSON.stringify(buildReminders().filter(r => r.key.startsWith('p')))`));
+    let r = rem();
+    assert.equal(r.length, 1, 'money coming in needs no reminder');
+    assert.equal(r[0].key, `p${tmr}_b7`);
+    assert.equal(r[0].at, run(`atMin('${tmr}', 600)`));
+    assert.equal(r[0].go, 'money');
+    assert.ok(run(`morningLine('${tmr}')`).includes(run(`trf('платёж «{b}»', {b: 'Gym membership'})`)));
+    run(`setMeta({modules: {...meta().modules, money: false}})`);
+    assert.equal(rem().length, 0, 'nothing while the Money module is off');
+    run(`setMeta({modules: {...meta().modules, money: true}})`);
+    run(`addTx([{id: 'q1', type: 'out', amount: 30, date: '${tmr}', cat: 'Спорт и здоровье', note: 'Gym membership', bill: 'b7'}])`);
+    assert.equal(rem().length, 0, 'paid early: no reminder');
+    run(`S.tab = 'day'; openFromReminder('money')`);
+    assert.equal(run(`S.tab`), 'money');
+  } finally { run(`S.tab = 'day'; setMeta({modules: mods3}); save('money/${m}', money3); save('app/bills', {list: []})`); }
+});
+
+test('rent, subscriptions and phone bills get their own categories when read on the phone', () => {
+  const cat = t => run(`localTellParse(${JSON.stringify(t)}, todayISO()).r.money?.[0]?.cat`);
+  assert.equal(cat('paid rent 400'), 'Жильё и коммуналка');
+  assert.equal(cat('заплатил за квартиру аренду 30000'), 'Жильё и коммуналка');
+  assert.equal(cat('spent 11 on netflix subscription'), 'Подписки');
+  assert.equal(cat('phone bill 15'), 'Связь и интернет');
+  assert.equal(cat('spent 12 on lunch'), 'Кафе и рестораны');
 });

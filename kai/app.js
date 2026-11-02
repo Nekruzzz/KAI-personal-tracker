@@ -181,7 +181,7 @@ const PL = Object.fromEntries(PLATFORMS.map(p=>[p.id,p]));
 const OUT_CATS = [
   ['Переводы','c1','swap'],['Кафе и рестораны','c2','coffee'],['Рассрочка','c3','percent'],['Связь и интернет','c4','phone'],
   ['Супермаркеты','c5','cart'],['Электроника','c6','laptop'],['Транспорт','c7','activity'],['Онлайн-покупки','c8','bag'],
-  ['Финансовые услуги','c0','cash'],['Спорт и здоровье','c0','heart'],['Учёба','c0','cap'],['Другое','c0','list'],
+  ['Финансовые услуги','c0','cash'],['Спорт и здоровье','c0','heart'],['Учёба','c0','cap'],['Жильё и коммуналка','c0','home'],['Подписки','c0','repeat'],['Другое','c0','list'],
 ];
 const IN_CATS = [['Пополнение','c4','down'],['Переводы входящие','c1','swap'],['Доход','c3','cash'],['Бонусы','c6','gift'],['Другое','c0','list']];
 const catInfo = (type, name) => (type==='in'?IN_CATS:OUT_CATS).find(c=>c[0]===name) || [tr('Другое'),'c0','list'];
@@ -1590,6 +1590,7 @@ function viewMoney(){
   <div class="grid2"><button class="mini ${sel==='out'?'on':''}" aria-pressed="${sel==='out'}" data-act="sub" data-k="money" data-v="out"><div style="flex:1;min-width:0"><div class="lbl">${tr("Расходы")}</div><div class="val">${money(so)}</div></div>${donut(segsFor(go,'out'),46,7)}</button>
   <button class="mini ${sel==='in'?'on':''}" aria-pressed="${sel==='in'}" data-act="sub" data-k="money" data-v="in"><div style="flex:1;min-width:0"><div class="lbl">${tr("Доходы")}</div><div class="val">${money(si)}</div></div>${donut(segsFor(gi,'in'),46,7)}</button></div>
   ${budgetCard(m, so)}
+  ${billsCard(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>
@@ -2055,10 +2056,10 @@ function budgetCard(m, spentMonth){
   if (!b) return isCur ? `<button class="btn ghost block" data-act="budgetSet">${tr("Задать бюджет на месяц")}</button>` : '';
   const [y, mm] = m.split('-').map(Number), daysIn = new Date(y, mm, 0).getDate();
   const left = b - spentMonth, daysLeft = isCur ? daysIn - new Date().getDate() + 1 : 0;
-  const pct = Math.min(100, spentMonth/b*100), over = left < 0;
+  const pct = Math.min(100, spentMonth/b*100), over = left < 0, pend = isCur ? billsPending() : 0, free = left - pend;
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>${tr("Бюджет")} ${money(b)}</b><button class="link" data-act="budgetSet">${tr("Изменить")}</button></div>
     <div class="bar"><i style="width:${pct}%;background:${over?'var(--bad)':pct>85?'var(--warn)':'var(--accent)'}"></i></div>
-    <div class="hint">${over ? `${tr("Перерасход:")} ${money(-left)}` : `${tr("Осталось:")} ${money(left)}${isCur && daysLeft ? ` ${trf('· в день можно {d} до конца месяца', {d: money(Math.floor(left/daysLeft))})}` : ''}`}</div></section>`;
+    <div class="hint">${over ? `${tr("Перерасход:")} ${money(-left)}` : `${tr("Осталось:")} ${money(left)}${pend ? ` ${trf(free < 0 ? '· регулярные платежи ({s}) больше остатка' : '· из них {s} на регулярные платежи', {s: money(pend)})}` : ''}${isCur && daysLeft && free > 0 ? ` ${trf('· в день можно {d} до конца месяца', {d: money(Math.floor(free/daysLeft))})}` : ''}`}</div></section>`;
 }
 A.budgetSet = () => openSheet(tr('Бюджет на месяц'), `<div class="field"><label for="bgV">${tr("Сколько можно тратить в месяц")}</label><input class="in" id="bgV" inputmode="decimal" value="${esc(S.docs['app/budget']?.monthly||'')}"></div><button class="btn block" data-act="budgetSave">${tr("Сохранить")}</button>`, b => $('#bgV', b).focus());
 A.budgetSave = () => { const v = toNum(val('bgV')); save('app/budget', {monthly: v || null}); closeSheet(); };
@@ -2658,11 +2659,11 @@ function txForm(t={}){
   return `<div class="seg"><button class="${type==='out'?'on':''}" data-act="txType" data-v="out">${tr("Расход")}</button><button class="${type==='in'?'on':''}" data-act="txType" data-v="in">${tr("Доход")}</button></div>
     <div class="fgrid"><div class="field"><label for="txA">${tr("Сумма")}</label><input class="in" id="txA" inputmode="decimal" value="${t.amount??''}"></div><div class="field"><label for="txD">${tr("Дата")}</label><input class="in" type="date" id="txD" value="${esc(t.date||todayISO())}"></div></div>
     <div class="field"><label for="txC">${tr("Категория")}</label><select class="in" id="txC">${cats.map(c=>`<option value="${c[0]}" ${t.cat===c[0]?'selected':''}>${tr(c[0])}</option>`).join('')}</select></div>
-    <div class="field"><label for="txN">${tr("Описание")}</label><input class="in" id="txN" value="${esc(t.note||'')}" placeholder="${tr("кафе, такси, перевод…")}"></div>`;
+    <div class="field"><label for="txN">${tr("Описание")}</label><input class="in" id="txN" value="${esc(t.note||'')}" placeholder="${tr("кафе, такси, перевод…")}"></div>${billRepRow(t)}`;
 }
 A.txAdd = () => { SH = null; openSheet(tr('Новая операция'), () => txForm(SH.tx) + `<button class="btn block" data-act="txSave">${tr("Добавить")}</button>`); SH.tx = {type:'out'}; drawSheet(); };
-A.txType = el => { SH.tx = {...SH.tx, type:el.dataset.v, amount:val('txA'), date:val('txD'), note:val('txN')}; drawSheet(); };
-A.txSave = () => { const a = toNum(val('txA')); if (!a) return toast(tr('Введи сумму')); const t = {id:SH.tx.id||uid(), type:SH.tx.type, amount:Math.abs(a), date:val('txD')||todayISO(), cat:val('txC'), note:val('txN')}; if (SH.tx.id) removeTx(SH.tx.id, SH.tx.date); addTx([t]); closeSheet(); toast(tr('Сохранено')); };
+A.txType = el => { SH.tx = {...SH.tx, type:el.dataset.v, amount:val('txA'), date:val('txD'), note:val('txN'), rep:!!$('#txRep')?.checked}; drawSheet(); };
+A.txSave = () => { const a = toNum(val('txA')); if (!a) return toast(tr('Введи сумму')); const t = {id:SH.tx.id||uid(), type:SH.tx.type, amount:Math.abs(a), date:val('txD')||todayISO(), cat:val('txC'), note:val('txN')}; const rep = !SH.tx.bill && $('#txRep')?.checked; if (SH.tx.bill) t.bill = SH.tx.bill; if (SH.tx.id) removeTx(SH.tx.id, SH.tx.date); if (rep) t.bill = billFromTx(t); addTx([t]); closeSheet(); toast(rep ? tr('Сохранено, повтор каждый месяц') : tr('Сохранено')); };
 function removeTx(id, date){ const m = (date||'').slice(0,7) || S.moneyMonth; const doc = clone(S.docs['money/'+m] || {tx:[]}); doc.tx = doc.tx.filter(x=>x.id!==id); save('money/'+m, doc); }
 A.txEdit = el => { const t = monthTx(S.moneyMonth).find(x=>x.id===el.dataset.id); if (!t) return; SH = null; openSheet(tr('Операция'), () => txForm(SH.tx) + `<div class="btnrow"><button class="btn" data-act="txSave">${tr("Сохранить")}</button><button class="btn danger" data-act="txDel">${ic('trash')}${tr("Удалить")}</button></div>`); SH.tx = {...t}; drawSheet(); };
 A.txDel = () => { const m = (SH.tx.date || '').slice(0, 7) || S.moneyMonth; withUndo(['money/' + m], () => { removeTx(SH.tx.id, SH.tx.date); closeSheet(); }); };
@@ -4425,7 +4426,7 @@ function recapBanner(){
 A.recapOpen = () => { setMeta({recapSeen: recapRange()[0]}); A.recap(); };
 
 /* ============ v8: the iPhone app. The native wrapper adds its plugins to window.Capacitor; in a browser none of this runs ============ */
-const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')]];
+const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')]];
 const REMIND_OFF = new Set(['bed', 'morning']); // off until the person turns them on
 const remindOn = k => { const v = (meta().remind || {})[k]; return v === undefined ? !REMIND_OFF.has(k) : v !== false; };
 const REMIND_MAX = 60; // iOS keeps only 64 pending notifications per app
@@ -4454,6 +4455,7 @@ function buildReminders(now = Date.now()){
     });
     const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym);
     if (gym && remindOn('gym') && !getDay(date).tasks.some(t => t.id === 'gym' && t.done)) add(`g${date}`, atMin(date, gym.s - 30), tr('Скоро тренировка'), tr('Через 30 минут'), false, 'train');
+    if (remindOn('bills')) billsOn(date).forEach(b => add(`p${date}_${b.id}`, atMin(date, 10 * 60), trf('Сегодня платёж: {b}', {b: b.title}), trf('{s}. Отметь в KAI, когда оплатишь.', {s: money(b.amount)}), false, 'money'));
     if (i < 7 && remindOn('morning')){ const wk = dayBlocks(date).find(b => b.id === 'wake'), line = morningLine(date); if (wk && line) add(`m${date}`, atMin(date, wk.s + 5), tr('План на день'), line); }
     const bed = i < 7 && remindOn('bed') && bedMin(date);
     if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
@@ -4487,6 +4489,8 @@ function morningLine(date){
   if (gym) parts.push(trf('тренировка в {t}', {t: hmStr(gym.s)}));
   const tk = smartTasks().filter(t => !t.done && t.due === date).length;
   if (tk) parts.push(`${tk} ${plural(tk, tr('задача'), tr('задачи'), tr('задач'))}`);
+  const due = billsOn(date);
+  if (due.length) parts.push(due.length === 1 ? trf('платёж «{b}»', {b: due[0].title}) : `${due.length} ${plural(due.length, tr('платёж'), tr('платежа'), tr('платежей'))}`);
   const ex = allEvents().filter(e => (e.kind === 'exam' || e.kind === 'deadline') && e.date >= date).sort((a, b) => a.date.localeCompare(b.date))[0];
   if (ex){ const n = dayDiff(date, ex.date); parts.push(n === 0 ? trf('сегодня «{e}»', {e: ex.title}) : trf('«{e}» через {n} {d}', {e: ex.title, n, d: plural(n, tr('день'), tr('дня'), tr('дней'))})); }
   return parts.join(' · ');
@@ -4502,6 +4506,7 @@ function openFromReminder(go){
   if (!S.ready) return setTimeout(() => openFromReminder(go), 200);
   closeSheetQuiet(); window.scrollTo(0, 0);
   if (go === 'train') return A.goTrain();
+  if (go === 'money' && modOn('money')){ S.tab = 'money'; S.moneyMonth = todayISO().slice(0, 7); return render(); }
   S.tab = 'day'; render();
   if (go === 'recap') A.recap();
 }
@@ -4644,7 +4649,7 @@ const NUM = '(\\d+(?:[.,]\\d+)?)';
 const toN = x => +String(x).replace(',', '.');
 const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*)';
 const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
-const MONEY_CAT = [[/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
+const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
 const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл/i;
@@ -4652,7 +4657,7 @@ const EVENT_RE = /защит[аеуы]|презентац|presentation|встр�
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
 const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
 const amountOf = (whole, cents) => +(whole.replace(/[\s ]/g, '') + (cents ? '.' + cents : ''));
-const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|gas|fuel|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
+const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|phone bill|internet|netflix|spotify|gas|fuel|квартплата|коммуналка|интернет|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
 function localMoney(c){
   const cat = () => (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1];
   // income first: "got paid" also contains "paid"
@@ -5334,6 +5339,139 @@ A.icsApply = () => {
   closeSheet();
 };
 const icsPick = () => `<label class="btn ghost">${ic('day')}${tr('Из календаря (.ics)')}<input type="file" accept=".ics,text/calendar" hidden data-ch="icsImport"></label>`;
+
+/* ============ regular payments: rent, the phone plan, subscriptions, an allowance ============ */
+// app/bills: {list: [{id, title, amount, type, cat, day, skip: ['YYYY-MM']}], no: [suggestions turned down]}.
+// A month counts as paid when one of its money entries carries the payment's id, so deleting that entry makes it due again.
+// Nothing is recorded on its own: a payment is marked paid with a tap, and the budget sets aside what is still to come.
+P.home = '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
+const billsDoc = () => S.docs['app/bills'] || {list: []};
+const bills = () => billsDoc().list || [];
+const billSaveList = (list, extra = {}) => save('app/bills', {...billsDoc(), ...extra, list});
+const billNorm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const billKey = x => `${x.type === 'in' ? 'in' : 'out'}|${billNorm(x.title ?? x.note)}|${+x.amount}`;
+const curMonth = () => todayISO().slice(0, 7);
+const nth = n => LANG === 'ru' ? String(n) : n + ([11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+function billDue(b, m){ const [y, mm] = m.split('-').map(Number); return `${m}-${pad(Math.min(Math.max(1, Math.round(+b.day) || 1), new Date(y, mm, 0).getDate()))}`; }
+const billTx = (b, m) => monthTx(m).find(t => t.bill === b.id);
+function billState(b, today = todayISO()){
+  const m = today.slice(0, 7);
+  if (billTx(b, m)) return 'paid';
+  if ((b.skip || []).includes(m)) return 'skip';
+  return billDue(b, m) <= today ? 'due' : 'soon';
+}
+/* outgoing payments still to make this month */
+const billsPending = (today = todayISO()) => bills().filter(b => b.type !== 'in' && ['due', 'soon'].includes(billState(b, today))).reduce((a, b) => a + (+b.amount || 0), 0);
+/* outgoing payments falling due on a date, not yet paid or skipped: reminders and the morning plan */
+const billsOn = date => modOn('money') ? bills().filter(b => b.type !== 'in' && billDue(b, date.slice(0, 7)) === date && billState(b, date) === 'due') : [];
+/* an entry already written this month that is this payment: the same direction and amount, and the same name (or no name and the same category) */
+const billMatch = (b, m) => monthTx(m).find(t => !t.bill && !t.summary && t.status !== 'fail' && (t.type === 'in') === (b.type === 'in') && +t.amount === +b.amount && (billNorm(t.note) === billNorm(b.title) || (!billNorm(t.note) && t.cat === b.cat)));
+function billLink(b, m){
+  const t = billMatch(b, m); if (!t) return null;
+  const doc = clone(S.docs['money/' + m]); doc.tx = doc.tx.map(x => x.id === t.id ? {...x, bill: b.id} : x); save('money/' + m, doc);
+  return t;
+}
+/* a category from the name, for a new payment left on "Other" */
+const BILL_CAT = [[/аренд|квартплат|коммунал|общежит|\brent\b|utilit|electric|электр|dorm/i, 'Жильё и коммуналка'], [/телефон|phone|mobile|мобил|связь|интернет|internet|wi-?fi|тариф/i, 'Связь и интернет'],
+  [/подписк|subscri|netflix|spotify|icloud|youtube|music|музык|кинопоиск|плюс|prime|disney|game pass|playstation|chatgpt|claude/i, 'Подписки'], [/\bgym\b|зал|фитнес|fitness|бассейн|pool/i, 'Спорт и здоровье'],
+  [/учёб|учеб|курс|course|tuition|school|univers|репетитор|tutor/i, 'Учёба'], [/рассрочк|кредит|loan|instal/i, 'Рассрочка'], [/проездн|transit|travel card|metro card|bus pass/i, 'Транспорт']];
+const billGuess = title => (BILL_CAT.find(([re]) => re.test(title)) || [])[1];
+/* entries that look regular: the same name and amount once a month, around the same day, in 2 of the last 3 months */
+function billIdeas(today = todayISO()){
+  const no = new Set([...bills().map(billKey), ...(billsDoc().no || [])]), seen = {};
+  const [y, mm] = today.slice(0, 7).split('-').map(Number);
+  for (let i = 1; i <= 3; i++){
+    const d = new Date(y, mm - 1 - i, 1), m = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+    monthTx(m).forEach(t => {
+      if (t.summary || t.status === 'fail' || t.bill || !billNorm(t.note) || !(+t.amount > 0)) return;
+      const k = billKey(t), s = seen[k] = seen[k] || {t, months: {}, days: []};
+      s.months[m] = (s.months[m] || 0) + 1; s.days.push(+t.date.slice(8));
+      if (t.date > s.t.date) s.t = t;
+    });
+  }
+  return Object.entries(seen).filter(([k, s]) => !no.has(k) && Object.keys(s.months).length >= 2 && Object.values(s.months).every(n => n === 1) && Math.max(...s.days) - Math.min(...s.days) <= 6)
+    .map(([key, s]) => ({key, t: s.t})).sort((a, b) => b.t.amount - a.t.amount);
+}
+function billsCard(m){
+  if (m !== curMonth()) return '';
+  const today = todayISO(), list = bills().slice().sort((a, b) => a.day - b.day || a.title.localeCompare(b.title)), idea = billIdeas(today)[0];
+  if (!list.length && !idea) return '';
+  const rows = list.map(b => {
+    const st = billState(b, today), due = billDue(b, m), inc = b.type === 'in', inf = catInfo(inc ? 'in' : 'out', b.cat);
+    const when = st === 'paid' ? trf(inc ? 'получено {d}' : 'оплачено {d}', {d: fmtShort(billTx(b, m).date)}) : st === 'skip' ? tr('в этом месяце пропущен') : st === 'soon' ? fmtShort(due) : due === today ? tr('сегодня') : trf('с {d}', {d: fmtShort(due)});
+    return `<div class="row bill"><span class="ic" style="background:var(--${inf[1]});color:#fff">${ic(inf[2])}</span>
+      <button class="mid" data-act="billEdit" data-id="${esc(b.id)}"><div class="t">${esc(b.title)}</div><div class="s">${inc ? '+' : ''}${money(b.amount)} · ${when}</div></button>
+      ${st === 'due' ? `<button class="btn ghost sm" data-act="billPay" data-id="${esc(b.id)}" aria-label="${esc(trf(inc ? 'Получено: {b}' : 'Оплачено: {b}', {b: b.title}))}">${inc ? tr('Получено') : tr('Оплачено')}</button>` : st === 'paid' ? `<span class="bill-ok" role="img" aria-label="${tr('Отмечено')}">${ic('check')}</span>` : ''}</div>`;
+  }).join('');
+  const pend = billsPending(today), t = idea?.t;
+  return `<div class="sec-h"><h2>${tr('Регулярные платежи')}</h2><button class="link" data-act="billNew">${tr('+ Добавить')}</button></div>
+    <section class="card bills">${rows ? `<div class="list">${rows}</div>` : ''}
+    ${pend && !S.docs['app/budget']?.monthly ? `<div class="hint bills-left">${trf('Ещё заплатить в этом месяце: {s}', {s: money(pend)})}</div>` : ''}
+    ${t ? `<div class="bill-idea"><div>${trf(t.type === 'in' ? '«{b}» на {s} приходит каждый месяц. Добавить в регулярные?' : '«{b}» на {s} повторяется каждый месяц. Добавить в регулярные платежи?', {b: esc(t.note.trim()), s: money(t.amount)})}</div>
+      <div class="btnrow"><button class="btn ghost" data-act="billIdea" data-k="${esc(idea.key)}">${ic('repeat')}${tr('Добавить')}</button><button class="btn ghost" data-act="billNo" data-k="${esc(idea.key)}">${tr('Не надо')}</button></div></div>` : ''}</section>`;
+}
+function billSheetBody(){
+  const b = SH.bill || {}, inc = b.type === 'in', cats = inc ? IN_CATS : OUT_CATS, old = bills().some(x => x.id === b.id), st = old && billState(b);
+  return `<div class="seg"><button class="${inc ? '' : 'on'}" data-act="billType" data-v="out">${tr('Расход')}</button><button class="${inc ? 'on' : ''}" data-act="billType" data-v="in">${tr('Доход')}</button></div>
+    <div class="field"><label for="blT">${tr('Название')}</label><input class="in" id="blT" maxlength="60" data-ch="billTitle" value="${esc(b.title || '')}" placeholder="${esc(tr(inc ? 'стипендия, зарплата…' : 'аренда, телефон, подписка…'))}"></div>
+    <div class="fgrid"><div class="field"><label for="blA">${tr('Сумма')}</label><input class="in" id="blA" inputmode="decimal" value="${esc(b.amount ?? '')}"></div><div class="field"><label for="blD">${tr('Число месяца')}</label><input class="in" id="blD" type="number" inputmode="numeric" min="1" max="31" value="${esc(b.day ?? '')}"></div></div>
+    <div class="field"><label for="blC">${tr('Категория')}</label><select class="in" id="blC" data-ch="billCat">${cats.map(c => `<option value="${c[0]}" ${(b.cat || (inc ? 'Доход' : 'Другое')) === c[0] ? 'selected' : ''}>${tr(c[0])}</option>`).join('')}</select></div>
+    <div class="hint">${tr(inc ? 'Когда деньги придут, отметь одним касанием: KAI запишет доход.' : 'KAI напомнит в этот день и отложит сумму из бюджета месяца. Оплату отметишь одним касанием.')}</div>
+    <button class="btn block" data-act="billSave">${tr('Сохранить')}</button>
+    ${old ? `<div class="btnrow">${st !== 'paid' ? `<button class="btn ghost" data-act="billSkip">${st === 'skip' ? tr('Не пропускать') : tr('Пропустить месяц')}</button>` : ''}<button class="btn danger" data-act="billDel">${ic('trash')}${tr('Удалить')}</button></div>
+    <div class="hint">${tr('Уже записанные операции при удалении останутся.')}</div>` : ''}`;
+}
+const billRead = () => ({...SH.bill, title: val('blT').trim(), amount: val('blA'), day: val('blD'), cat: val('blC')});
+A.billNew = () => { SH = null; openSheet(tr('Регулярный платёж'), billSheetBody); SH.bill = {type: 'out', day: +todayISO().slice(8)}; drawSheet(); };
+A.billEdit = el => { const b = bills().find(x => x.id === el.dataset.id); if (!b) return; SH = null; openSheet(tr('Регулярный платёж'), billSheetBody); SH.bill = clone(b); drawSheet(); };
+A.billType = el => { const b = billRead(); SH.bill = {...b, type: el.dataset.v, cat: el.dataset.v === b.type ? b.cat : undefined, catSet: false}; drawSheet(); };
+CH.billCat = () => { if (SH?.bill) SH.bill.catSet = true; };
+CH.billTitle = el => { const g = SH?.bill && !SH.bill.catSet && SH.bill.type !== 'in' && billGuess(el.value), sel = $('#blC'); if (g && sel) sel.value = g; };
+A.billSave = () => {
+  const b = billRead(), amount = Math.abs(toNum(b.amount)), day = Math.round(toNum(b.day));
+  if (!b.title) return toast(tr('Назови платёж'));
+  if (!amount) return toast(tr('Введи сумму'));
+  if (!(day >= 1 && day <= 31)) return toast(tr('Число месяца: от 1 до 31'));
+  const item = {id: b.id || uid(), title: b.title.slice(0, 60), amount, type: b.type === 'in' ? 'in' : 'out', cat: b.cat, day, ...(b.skip?.length ? {skip: b.skip} : {})};
+  const list = bills(), isNew = !list.some(x => x.id === item.id);
+  billSaveList(isNew ? [...list, item] : list.map(x => x.id === item.id ? item : x));
+  const linked = isNew && billLink(item, curMonth());
+  closeSheet(); haptic('success');
+  toast(linked ? trf('Сохранено. В этом месяце уже записано {d}', {d: fmtShort(linked.date)}) : tr('Сохранено'));
+};
+A.billDel = () => { const id = SH?.bill?.id; if (!id) return; withUndo(['app/bills'], () => { billSaveList(bills().filter(x => x.id !== id)); closeSheet(); }); };
+A.billSkip = () => {
+  const b = bills().find(x => x.id === SH?.bill?.id); if (!b) return;
+  const m = curMonth(), on = (b.skip || []).includes(m);
+  billSaveList(bills().map(x => x.id === b.id ? {...x, skip: on ? x.skip.filter(k => k !== m) : [...(x.skip || []), m].slice(-12)} : x));
+  closeSheet(); toast(on ? tr('Снова ждёт оплаты в этом месяце') : tr('В этом месяце пропущен'));
+};
+A.billPay = el => {
+  const b = bills().find(x => x.id === el.dataset.id), today = todayISO(), m = today.slice(0, 7);
+  if (!b || billTx(b, m)) return; // a double tap records it once
+  const due = billDue(b, m), inc = b.type === 'in';
+  withUndo(['money/' + m], () => { if (!billLink(b, m)) addTx([{id: uid(), type: inc ? 'in' : 'out', amount: +b.amount, date: due <= today ? due : today, cat: b.cat, note: b.title, bill: b.id}]); }, trf(inc ? 'Получено: {b}' : 'Оплачено: {b}', {b: b.title}));
+  haptic('success');
+};
+A.billIdea = el => {
+  const it = billIdeas().find(x => x.key === el.dataset.k); if (!it) return;
+  const t = it.t, item = {id: uid(), title: t.note.trim().slice(0, 60), amount: +t.amount, type: t.type === 'in' ? 'in' : 'out', cat: t.cat, day: +t.date.slice(8)};
+  withUndo(['app/bills', 'money/' + curMonth()], () => { billSaveList([...bills(), item]); billLink(item, curMonth()); }, trf('Добавлено в регулярные: {b}', {b: item.title}));
+  haptic('success');
+};
+A.billNo = el => billSaveList(bills(), {no: [...(billsDoc().no || []), el.dataset.k].slice(-50)});
+/* in a money entry's form: repeat it every month, or the regular payment it belongs to */
+function billRepRow(t){
+  const b = t.bill && bills().find(x => x.id === t.bill);
+  if (b) return `<button class="row bill-link" data-act="billEdit" data-id="${esc(b.id)}">${ic('repeat')}<div class="mid"><div class="t">${tr('Регулярный платёж')}</div><div class="s">${trf('каждый месяц, {d} числа', {d: nth(b.day)})}</div></div>${ic('chevR')}</button>`;
+  return `<label class="row bill-link"><div class="mid"><div class="t">${tr('Каждый месяц')}</div><div class="s">${tr('Напомнить в этот день и учесть в бюджете')}</div></div><input type="checkbox" switch class="sw" id="txRep" ${t.rep ? 'checked' : ''}></label>`;
+}
+/* a new regular payment from a money entry being saved with "Every month" on; returns its id */
+function billFromTx(t){
+  const item = {id: uid(), title: (t.note || tr(t.cat)).trim().slice(0, 60), amount: +t.amount, type: t.type === 'in' ? 'in' : 'out', cat: t.cat, day: +t.date.slice(8)};
+  billSaveList([...bills(), item]);
+  return item.id;
+}
 
 /* ============ init ============ */
 async function init(){

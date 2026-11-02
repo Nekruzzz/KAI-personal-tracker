@@ -132,10 +132,10 @@ Nothing in the app depends on this; it only changes how the icon looks on the Ho
 
 ## Screenshots
 
-Check Apple's current required sizes in App Store Connect. Suggested order:
+`node tools/app-store-screenshots.mjs` makes twelve ready-to-upload screenshots at 1320×2868 (the 6.9-inch iPhone size; App Store Connect scales them for smaller iPhones), six in English and six in Russian: Day, Tell KAI, Food, a home workout, Money and Body. They come from the real app with invented sample data, at 9:41 on a weekday morning, light and dark alternating. It needs Playwright with Chromium and the app served on port 8123 (the script's first lines say how). Run it again after design changes.
 
-1. One message becomes a checked plan ("Tell KAI")
-2. A conflict warning with its fix
-3. An exam countdown with a study plan
-4. Progress: hours, active days, level
-5. The weekly recap
+Other screens worth showing:
+
+1. A conflict warning with its fix
+2. An exam countdown with a study plan
+3. The weekly summary image

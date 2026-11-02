@@ -17,6 +17,13 @@ for (const f of ['kai/privacy.html', 'kai/terms.html']) {
 }
 
 const store = read('docs/app-store.md');
+// App Store Connect won't save a listing over these limits
+const field = label => (store.match(new RegExp('\\*\\*' + label + '(?::\\*\\*|\\*\\*[^:\\n]*:)\\s*`?([^`\\n]+)`?')) || [])[1]?.trim();
+for (const [label, max] of [['Name', 30], ['Subtitle', 30], ['Keywords', 100], ['Promotional text', 170], ['Название', 30], ['Подзаголовок', 30], ['Ключевые слова', 100], ['Промотекст', 170]]) {
+  const v = field(label);
+  if (!v) blockers.push(`docs/app-store.md: "${label}" is missing`);
+  else if ([...v].length > max) blockers.push(`docs/app-store.md: "${label}" is ${[...v].length} characters, over Apple's ${max}`);
+}
 const storeGaps = [...new Set(store.match(/\[[^\]`]{3,60}\]/g) || [])].filter(g => g !== '[bracket]'); // the doc's own instructions mention [bracket]
 if (storeGaps.length) blockers.push(`docs/app-store.md: blanks to fill in: ${storeGaps.join(', ')}`);
 

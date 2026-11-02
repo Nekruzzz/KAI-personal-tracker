@@ -1457,3 +1457,34 @@ test('Tell KAI explains what works without AI the first time, then keeps it to o
   assert.doesNotMatch(h, /Without AI I understand/);
   assert.match(h, /Reading on the phone: simple messages\..*data-act="aiConnect"/);
 });
+
+test('on a weight-loss goal, rising weight is called rising, not "too slow", and the advice stays a small, floored cut', () => {
+  setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'lose', activity: 1.45, units: 'metric'});
+  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'r${i}', name: 'Soup', kcal: 600, p: 30, f: 20, c: 60}]; })`);
+  run(`globalThis.wt1 = weightTrend`);
+  try {
+    run(`weightTrend = () => ({rate: 0.45, perWeek: 0.35})`);
+    const up = JSON.parse(run(`JSON.stringify(adaptiveAdvice())`));
+    assert.match(up.text, /Weight is going up while the goal is to lose/);
+    assert.equal(up.up, true);
+    assert.equal(up.kcal, run(`targets().kcal`) - 150, 'about 150 kcal less');
+    assert.ok(up.kcal >= 1200, 'never below the floor');
+    assert.match(run(`adaptiveCard()`), />Going up</);
+    run(`weightTrend = () => ({rate: -0.1, perWeek: -0.08})`);
+    const slow = JSON.parse(run(`JSON.stringify(adaptiveAdvice())`));
+    assert.match(slow.text, /too slow/); assert.ok(!slow.up);
+    assert.match(run(`adaptiveCard()`), />Slow</);
+  } finally { run(`weightTrend = wt1`); setProfile({age: 30, height: 175, weight: 80, goal: 'keep', units: 'metric'}); }
+});
+
+test('bar charts label their axis with round numbers', () => {
+  const t = v => run(`niceTop(${v})`);
+  assert.equal(t(2130 * 1.05), 2500);
+  assert.equal(t(12000 * 1.05), 15000);
+  assert.equal(t(8.5 * 1.05), 10);
+  assert.equal(t(0.7), 0.8);
+  assert.equal(t(1), 1);
+  assert.equal(t(0), 1);
+  const svg = run(`barChart([{x: 'Mon', y: 1240}, {x: 'Tue', y: 1300}], {target: 2130})`);
+  assert.match(svg, />2,500</); assert.match(svg, />1,250</);
+});

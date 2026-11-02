@@ -1940,4 +1940,7 @@ window.I18N_EN = {
 "Как на телефоне":"As on the phone",
 "Читаю на телефоне: простые сообщения.":"Reading on the phone: simple messages.",
 "Войти для ИИ":"Sign in for AI",
+"Вес растёт, но еда записана только за":"Weight is going up, but food is logged for only",
+"Вес растёт, а цель — снижение. Убери примерно 150 ккал в день, белок не трогай.":"Weight is going up while the goal is to lose. Cut about 150 kcal a day and leave protein as it is.",
+"Вес растёт":"Going up",
 };

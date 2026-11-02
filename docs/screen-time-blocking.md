@@ -2,6 +2,10 @@
 
 KAI can already log screen time from a screenshot. Blocking apps (social media, games and similar) during focus hours is a separate, native-only feature. This page describes what it needs, because none of it can be built or tested without a real iPhone and an approved entitlement.
 
+## Already in the app: Focus sessions
+
+Until the entitlement is approved, KAI has the part that needs no permission. A Focus session (from the Now card, 25, 45 or 60 minutes) counts down in a bar on every screen. Leaving KAI for more than 3 seconds counts as a distraction and the time away is measured. With reminders on, the iPhone app calls the person back after 40 seconds away. Only focused minutes are added to the day's study time. When blocking arrives, a Focus session is the natural moment to shield the chosen apps: `startFocus` below would be called from the same button.
+
 ## What Apple requires
 
 1. **The Family Controls entitlement.** In the Apple Developer account, request "Family Controls (Distribution)" for the app ID. Apple reviews the request; development builds can use the development version of the entitlement straight away, but App Store builds need the approved distribution one.

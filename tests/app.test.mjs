@@ -2297,3 +2297,15 @@ test('regular payments go into the web app\\u2019s calendar file as monthly even
   assert.equal(run(`billFirstDue({day: 31}, '2030-01-31')`), '2030-01-31');
   assert.equal(run(`billFirstDue({day: 31}, '2030-02-01')`), '2030-02-28');
 });
+
+test("a season's archive keeps its focus time and exam results", () => {
+  run(`globalThis.plan25 = clone(plan())`);
+  setPlan([{id: 'sa', date: '2030-02-10', title: 'A', kind: 'exam', result: {passed: true}}, {id: 'sb', date: '2030-02-12', title: 'B', kind: 'exam', result: {passed: false}}, {id: 'sc', date: '2029-12-01', title: 'C', kind: 'exam', result: {passed: true}}, {id: 'sd', date: '2030-02-14', title: 'D', kind: 'exam'}]);
+  try {
+    const x = JSON.parse(run(`JSON.stringify(seasonExtra('2030-01-01', [{focus: [{min: 50}, {min: 25}]}, {focus: [{min: 45}]}, {}], '2030-03-01'))`));
+    assert.deepEqual(x, {focusMin: 120, examsPassed: 1, examsKnown: 2}, 'only this season, and only exams with a result');
+    const line = run(`seasonExtraLine(${JSON.stringify(x)})`);
+    assert.ok(line.includes(run(`fmtMin(120)`)) && line.includes(run(`trf('· экзамены: сдано {n} из {k}', {n: 1, k: 2})`)));
+    assert.equal(run(`seasonExtraLine({focusMin: 20, examsKnown: 0})`), '', 'little to say: nothing added');
+  } finally { run(`save('app/plan', plan25)`); }
+});

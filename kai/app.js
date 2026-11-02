@@ -2520,7 +2520,7 @@ function seasonBody(){
     <button class="btn block" data-act="seasonSave">${tr("Сохранить")}</button></section>
   <section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("Завершить сезон")}</b><div class="hint">${tr("Итоги сохранятся в архив, дневник дней очистится, и начнётся новый сезон с сегодняшнего дня. Деньги, контент и база знаний останутся. Копия дней останется на этом телефоне, и их можно будет вернуть из архива.")}</div>
     <button class="btn danger" data-act="seasonEnd" id="snEnd">${tr("Завершить и начать новый")}</button></section>
-  ${Object.keys(S.docs).some(k=>k.startsWith('seasons/'))?`<section class="card"><b>${tr("Архив")}</b>${Object.entries(S.docs).filter(([k])=>k.startsWith('seasons/')).map(([k,v])=>`<div class="row"><div class="mid"><div class="t">${esc(v.title)}</div><div class="s">${fmtShort(v.start)} — ${fmtShort(v.end)} ${tr("· выполнение")} ${v.avg}${tr("% · тренировок")} ${v.gym}${v.w0&&v.w1?` ${tr("· вес")} ${W(v.w0)} → ${W(v.w1)} ${kgU()}`:''}</div></div>${COPIES?.includes('season_'+k.slice(8))?`<button class="link" data-act="seasonBack" data-id="${esc(k.slice(8))}" aria-label="${esc(tr('Вернуть дни') + ': ' + v.title)}">${tr("Вернуть дни")}</button>`:''}</div>`).join('')}</section>`:''}`;
+  ${Object.keys(S.docs).some(k=>k.startsWith('seasons/'))?`<section class="card"><b>${tr("Архив")}</b>${Object.entries(S.docs).filter(([k])=>k.startsWith('seasons/')).map(([k,v])=>`<div class="row"><div class="mid"><div class="t">${esc(v.title)}</div><div class="s">${fmtShort(v.start)} — ${fmtShort(v.end)} ${tr("· выполнение")} ${v.avg}${tr("% · тренировок")} ${v.gym}${v.w0&&v.w1?` ${tr("· вес")} ${W(v.w0)} → ${W(v.w1)} ${kgU()}`:''}${seasonExtraLine(v)}</div></div>${COPIES?.includes('season_'+k.slice(8))?`<button class="link" data-act="seasonBack" data-id="${esc(k.slice(8))}" aria-label="${esc(tr('Вернуть дни') + ': ' + v.title)}">${tr("Вернуть дни")}</button>`:''}</div>`).join('')}</section>`:''}`;
 }
 A.seasonSave = () => { save('app/season', {...season(), title:val('snT'), start:val('snS')||season().start, length:toNum(val('snL'))||90, goals:val('snG').split('\n').map(x=>x.trim()).filter(Boolean)}); closeSheet(); toast(tr('Сезон сохранён')); };
 A.seasonEnd = async el => {
@@ -2534,7 +2534,7 @@ A.seasonEnd = async el => {
   try { await keepCopy('season_'+id, Object.fromEntries(keys.map(k => ['days/'+k, S.docs['days/'+k]]))); }
   catch { busy(el, false); toast(tr('Не получилось сохранить копию дней, поэтому ничего не удалено. Освободи место на телефоне и попробуй снова.'), {ms: 5000}); return; }
   const snap = [...keys.map(k => 'days/'+k), 'app/season', 'seasons/'+id].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
-  save('seasons/'+id, {title:s.title, start:s.start, end:todayISO(), goals:s.goals||[], avg: scored.length?Math.round(scored.reduce((a,d)=>a+dayScore(d),0)/scored.length*100):0, gym: ds.filter(d=>d.tasks?.some(t=>t.id==='gym'&&t.done)).length, w0: ws[0]?.weight||null, w1: ws[ws.length-1]?.weight||null});
+  save('seasons/'+id, {title:s.title, start:s.start, end:todayISO(), goals:s.goals||[], avg: scored.length?Math.round(scored.reduce((a,d)=>a+dayScore(d),0)/scored.length*100):0, gym: ds.filter(d=>d.tasks?.some(t=>t.id==='gym'&&t.done)).length, w0: ws[0]?.weight||null, w1: ws[ws.length-1]?.weight||null, ...seasonExtra(s.start, ds)});
   for (const k of keys) remove('days/'+k);
   const n = Object.keys(S.docs).filter(k=>k.startsWith('seasons/')).length + 1;
   save('app/season', {title:tr('Сезон ')+n, start:todayISO(), length:90, goals:s.goals||[]});
@@ -5841,6 +5841,14 @@ function billFirstDue(b, today = todayISO()){
 }
 /* the 29th to 31st fall on a short month's last day, like in the app */
 const billRule = day => +day <= 28 ? `FREQ=MONTHLY;BYMONTHDAY=${+day}` : `FREQ=MONTHLY;BYMONTHDAY=${Array.from({length: +day - 27}, (_, i) => 28 + i).join(',')};BYSETPOS=-1`;
+
+/* ============ a season's archive also keeps its focus time and exam results ============ */
+function seasonExtra(start, ds, today = todayISO()){
+  const focusMin = ds.reduce((a, d) => a + (d?.focus || []).reduce((b, f) => b + (f.min || 0), 0), 0);
+  const ex = allEvents().filter(e => e.kind === 'exam' && e.date >= (start || '') && e.date <= today && e.result);
+  return {focusMin, examsPassed: ex.filter(e => e.result.passed).length, examsKnown: ex.length};
+}
+const seasonExtraLine = v => `${v.focusMin >= 60 ? ' ' + trf('· фокус {t}', {t: fmtMin(v.focusMin)}) : ''}${v.examsKnown ? ' ' + trf('· экзамены: сдано {n} из {k}', {n: v.examsPassed, k: v.examsKnown}) : ''}`;
 
 /* ============ init ============ */
 async function init(){

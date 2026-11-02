@@ -2108,4 +2108,6 @@ window.I18N_EN = {
 "Результат «{e}»: не сдан{g}":"Result for “{e}”: not passed{g}",
 "Регулярные платежи (в день платежа)":"Regular payments (on the day)",
 "Платёж: {b} · {s}":"Payment: {b} · {s}",
+"· фокус {t}":"· focus {t}",
+"· экзамены: сдано {n} из {k}":"· exams: {n} of {k} passed",
 };

@@ -2268,3 +2268,15 @@ test('Tell KAI on the phone: an exam result in words, for a recent exam with tha
     assert.deepEqual(JSON.parse(run(`JSON.stringify(allEvents().find(e => e.id === 'ys').result)`)), {passed: true, grade: '5', at: d});
   } finally { run(`toast = toastY; remove('inbox/te1'); save('app/plan', plan23)`); }
 });
+
+test("Focus history keeps each session's name, and the week is shown by subject", () => {
+  const d = run(`todayISO()`);
+  run(`globalThis.day24 = S.docs['days/${d}'] ? clone(S.docs['days/${d}']) : undefined; mutDay('${d}', x => { x.focus = [{at: '09:00', min: 50, of: 50, leaves: 0, l: 'Statistics'}, {at: '11:00', min: 25, of: 25, leaves: 1, l: 'Chemistry'}, {at: '13:00', min: 20, of: 25, leaves: 0, l: 'Statistics'}, {at: '15:00', min: 10, of: 25, leaves: 2}]; })`);
+  try {
+    const w = JSON.parse(run(`JSON.stringify(focusWeek())`));
+    assert.deepEqual(w.by.filter(([l]) => ['Statistics', 'Chemistry'].includes(l)), [['Statistics', 70], ['Chemistry', 25]]);
+    assert.ok(w.by.some(([l, m]) => l === run(`tr('Учёба')`) && m >= 10), 'an old session without a name counts as study');
+    run(`A.focusSheet({dataset: {}})`);
+    assert.ok(run(`SH.body()`).includes('Statistics ' + run(`fmtMin(70)`)));
+  } finally { run(`closeSheetQuiet(); day24 ? save('days/${d}', day24) : remove('days/${d}')`); }
+});

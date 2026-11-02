@@ -5258,7 +5258,7 @@ function focusFinish(complete){
   const hhmm = (t => pad(t.getHours()) + ':' + pad(t.getMinutes()))(new Date(f.start));
   mutDay(iso(f.start), d => {
     if (mins > 0) d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + mins};
-    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves}].slice(-20);
+    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves, l: String(f.label || '').slice(0, 60)}].slice(-20);
   });
   const task = f.task && smartTasks().find(t => t.id === f.task);
   if (task && mins > 0){
@@ -5279,8 +5279,9 @@ A.focusTaskDone = () => { const id = FOCUS_TASK; FOCUS_TASK = null; hideToast();
 A.focusTask = el => { const t = smartTasks().find(x => x.id === el.dataset.id); if (t) A.focusSheet({dataset: {l: t.title, task: t.id}}); };
 /* the last 7 days of focus, for the sheet */
 function focusWeek(){
-  const ss = [...Array(7)].flatMap((_, i) => S.docs['days/' + addDays(todayISO(), -i)]?.focus || []);
-  return {n: ss.length, min: ss.reduce((a, x) => a + (x.min || 0), 0), leaves: ss.reduce((a, x) => a + (x.leaves || 0), 0)};
+  const ss = [...Array(7)].flatMap((_, i) => S.docs['days/' + addDays(todayISO(), -i)]?.focus || []), by = {};
+  ss.forEach(x => { if (x.min > 0){ const k = x.l || tr('Учёба'); by[k] = (by[k] || 0) + x.min; } }); // sessions before names were kept count as study
+  return {n: ss.length, min: ss.reduce((a, x) => a + (x.min || 0), 0), leaves: ss.reduce((a, x) => a + (x.leaves || 0), 0), by: Object.entries(by).sort((a, b) => b[1] - a[1])};
 }
 /* leaving the app counts from 3 seconds: a glance at a notification isn't a distraction */
 function focusVisibility(hidden){
@@ -5307,7 +5308,7 @@ const focusFits = b => !b || ['study', 'project', 'free'].includes(b.kind);
 A.focusSheet = el => {
   const task = el?.dataset?.task || null, exam = el?.dataset?.exam || null;
   openSheet(tr('Фокус'), () => FOCUS ? `<div class="hint">${trf('Идёт фокус: {l}. Сделано {m} мин.', {l: esc(FOCUS.label), m: focusMinutes()})}</div><button class="btn block danger" data-act="focusEnd">${tr('Завершить сейчас')}</button>`
-    : `${(w => w.n ? `<div class="note">${trf('За 7 дней: {n} {s}, {t} фокуса, {d} {w}', {n: w.n, s: plural(w.n, tr('сессия'), tr('сессии'), tr('сессий')), t: w.min >= 60 ? num(w.min / 60, 1) + ' ' + tr('ч') : w.min + ' ' + tr('мин'), d: w.leaves, w: plural(w.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений'))})}</div>` : '')(focusWeek())}<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
+    : `${(w => w.n ? `<div class="note">${trf('За 7 дней: {n} {s}, {t} фокуса, {d} {w}', {n: w.n, s: plural(w.n, tr('сессия'), tr('сессии'), tr('сессий')), t: w.min >= 60 ? num(w.min / 60, 1) + ' ' + tr('ч') : w.min + ' ' + tr('мин'), d: w.leaves, w: plural(w.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений'))})}${w.by.length > 1 ? `<br>${w.by.slice(0, 4).map(([l, m]) => `${esc(l)} ${fmtMin(m)}`).join(' · ')}` : ''}</div>` : '')(focusWeek())}<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
     <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
     <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
     <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);

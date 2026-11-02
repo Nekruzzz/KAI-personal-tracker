@@ -22,9 +22,9 @@ function load(language){
     location: {hash: '', pathname: '/', search: '', protocol: 'http:', reload() {}}, history: {replaceState() {}}, innerWidth: 400, innerHeight: 800, devicePixelRatio: 1,
     addEventListener() {}, scrollTo() {}, scrollY: 0, AbortController,
   };
-  // while a test sets globalThis.FORM ({'#id': value}, true for a switch that is on), the sheet's fields read from it
-  const doc = c.document;
-  c.document = new Proxy(doc, {get: (t, k) => k === 'querySelector' && c.FORM ? (s => s in c.FORM ? {value: String(c.FORM[s]), checked: c.FORM[s] === true} : t.querySelector(s)) : t[k], set: () => true});
+  // while a test sets globalThis.FORM ({'#id': value}, true for a switch that is on, or an object to inspect later), the sheet's fields read from it
+  const doc = c.document, field = v => v && typeof v === 'object' ? v : {value: String(v), checked: v === true};
+  c.document = new Proxy(doc, {get: (t, k) => k === 'querySelector' && c.FORM ? (s => s in c.FORM ? field(c.FORM[s]) : t.querySelector(s)) : t[k], set: () => true});
   c.window = c; c.self = c; c.top = c;
   vm.createContext(c);
   const root = new URL('../kai/', import.meta.url);
@@ -1794,4 +1794,21 @@ test('rent, subscriptions and phone bills get their own categories when read on 
   assert.equal(cat('spent 11 on netflix subscription'), 'Подписки');
   assert.equal(cat('phone bill 15'), 'Связь и интернет');
   assert.equal(cat('spent 12 on lunch'), 'Кафе и рестораны');
+});
+
+test('a new money entry takes its category from the description, until one is picked', () => {
+  assert.equal(run(`txGuess('Internet')`), 'Связь и интернет');
+  assert.equal(run(`txGuess('Room rent')`), 'Жильё и коммуналка');
+  assert.equal(run(`txGuess('Spotify')`), 'Подписки');
+  assert.equal(run(`txGuess('lunch with friends')`), 'Кафе и рестораны');
+  assert.equal(run(`txGuess('something else')`), undefined);
+  assert.match(run(`txForm({type: 'out', note: 'Netflix'})`), /<option value="Подписки" selected>/);
+  assert.match(run(`txForm({type: 'out', note: 'Netflix', cat: 'Другое'})`), /<option value="Другое" selected>/, 'a saved category stays');
+  withForm({'#txC': {value: 'Переводы'}}, () => {
+    run(`SH = {tx: {type: 'out'}}; CH.txNote({value: 'Netflix'})`);
+    assert.equal(run(`FORM['#txC'].value`), 'Подписки');
+    run(`CH.txCat(); FORM['#txC'].value = 'Учёба'; CH.txNote({value: 'Internet'})`);
+    assert.equal(run(`FORM['#txC'].value`), 'Учёба', 'a picked category is kept');
+  });
+  run(`SH = null`);
 });

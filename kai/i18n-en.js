@@ -793,7 +793,6 @@ window.I18N_EN = {
 "Пока приложение открыто, я напомню. Чтобы звонило и в кармане, нажми «Напомнить через Календарь».":"I'll remind you while the app is open. To get alerts in your pocket too, tap Remind me via Calendar.",
 "Пока пусто":"Nothing yet",
 "Пока пусто. Впиши, когда придёт расписание":"Nothing yet. Add it when you get your timetable",
-"Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30»: срок и время я пойму сам.":"Nothing yet. Write it however you like, such as “call mom tomorrow at 18:30”: I'll work out the date and time.",
 "Полезен при дефиците, без дефицита на мышцы и жир не влияет.":"Useful if you're deficient. Without a deficiency it doesn't affect muscle or fat.",
 "Польза для сердца и сосудов; на сжигание жира и рост мышц влияние слабое.":"Good for the heart and blood vessels; little effect on fat loss or muscle growth.",
 "Помидор":"Tomato",
@@ -2086,4 +2085,6 @@ window.I18N_EN = {
 "Поиск по операциям":"Search transactions",
 "например, зал или 12":"for example, gym or 12",
 "Задачи выключены: включи их в «Ещё» → «Модули»":"To-dos are off: turn them on in More → Modules",
+"Выносить мусор по понедельникам":"Take out the trash every Monday",
+"Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30» или «стирка каждую субботу»: срок, время и повтор я пойму сам.":"Nothing yet. Write it your way, like “call mom tomorrow at 18:30” or “laundry every Saturday”: I'll work out the date, time and repeat.",
 };

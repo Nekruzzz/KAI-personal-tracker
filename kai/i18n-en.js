@@ -2068,4 +2068,8 @@ window.I18N_EN = {
 "Шоколадный батончик":"Chocolate bar",
 "Котлета":"Meat patty (cutlet)",
 "Экранное время: {t}":"Screen time: {t}",
+"Скрыть сделанное":"Hide done",
+"Сделано сегодня: {n}":"Done today: {n}",
+"Открыть снова: {t}":"Reopen: {t}",
+"Снова в списке":"Back on the list",
 };

@@ -2091,3 +2091,19 @@ test('Tell KAI on the phone: screen time in words, saved on Apply while the modu
     assert.equal(sm('screen time 3h'), undefined, 'not while the module is off');
   } finally { run(`toast = toastS; remove('inbox/ts1'); setMeta({modules: mods15}); day15 ? save('days/${d}', day15) : remove('days/${d}')`); }
 });
+
+test('to-dos done today can be shown and reopened; a repeating one takes back its next', () => {
+  const today = run(`todayISO()`);
+  run(`globalThis.tasks16 = clone(smartTasks()); globalThis.toastR = toast; toast = () => {}; saveTasks([{id: 'd1', title: 'Water plants', due: '${today}', time: null, pri: 2, done: false, created: '${today}', every: 'week'}, {id: 'd2', title: 'Email tutor', due: '${today}', time: null, pri: 2, done: false, created: '${today}'}])`);
+  try {
+    run(`A.tkDone({dataset: {id: 'd1'}}); A.tkDone({dataset: {id: 'd2'}})`);
+    assert.ok(run(`taskCard()`).includes(run(`trf('Сделано сегодня: {n}', {n: 2})`)));
+    run(`S.open.tk_done = true`);
+    assert.ok(run(`taskCard()`).includes('data-act="tkReopen"'));
+    run(`A.tkReopen({dataset: {id: 'd1'}})`);
+    const open = JSON.parse(run(`JSON.stringify(smartTasks().filter(t => !t.done).map(t => t.id))`));
+    assert.deepEqual(open, ['d1'], "reopened, and the next week's one is gone");
+    run(`A.tkReopen({dataset: {id: 'd2'}})`);
+    assert.equal(run(`smartTasks().filter(t => !t.done).length`), 2);
+  } finally { run(`S.open.tk_done = false; toast = toastR; saveTasks(tasks16)`); }
+});

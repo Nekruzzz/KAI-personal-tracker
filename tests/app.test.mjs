@@ -2358,3 +2358,23 @@ test('Tell KAI on the phone: "yesterday" puts the day’s records on yesterday, 
     assert.ok(run(`monthTx('${m}').some(t => t.date === '${y}' && +t.amount === 20)`));
   } finally { run(`toast = toastZ; SH = SH0; save('money/${m}', money28); day28 ? save('days/${y}', day28) : remove('days/${y}')`); }
 });
+
+test('a regular payment that is due is asked about on the Day tab: paid, skipped, or later', () => {
+  const d = run(`todayISO()`), m = d.slice(0, 7);
+  run(`globalThis.money29 = clone(S.docs['money/${m}'] || {tx: []}); globalThis.mods29 = meta().modules; globalThis.day29 = S.docs['days/${d}'] ? clone(S.docs['days/${d}']) : undefined; globalThis.toastP = toast; toast = () => {};
+    setMeta({modules: {...(mods29 || {}), money: true}}); save('money/${m}', {tx: []});
+    save('app/bills', {list: [{id: 'pb1', title: 'Rent', amount: 400, type: 'out', cat: 'Жильё и коммуналка', day: 1}, {id: 'pb2', title: 'Phone', amount: 15, type: 'out', cat: 'Связь и интернет', day: 1}]})`);
+  try {
+    let qs = JSON.parse(run(`JSON.stringify(checkins().filter(q => q.type === 'bill'))`));
+    assert.equal(qs.length, 1, 'one at a time');
+    run(`A.ciAns({dataset: {k: 'p_' + ${JSON.stringify(qs[0].id)}, a: 'paid', id: ${JSON.stringify(qs[0].id)}}})`);
+    assert.equal(run(`billState(bills().find(b => b.id === ${JSON.stringify(qs[0].id)}))`), 'paid');
+    qs = JSON.parse(run(`JSON.stringify(checkins().filter(q => q.type === 'bill'))`));
+    assert.equal(qs.length, 1, 'then the other one');
+    run(`A.ciAns({dataset: {k: 'p_' + ${JSON.stringify(qs[0].id)}, a: 'skip', id: ${JSON.stringify(qs[0].id)}}})`);
+    assert.equal(run(`billState(bills().find(b => b.id === ${JSON.stringify(qs[0].id)}))`), 'skip');
+    assert.equal(run(`checkins().filter(q => q.type === 'bill').length`), 0);
+    run(`setMeta({modules: {...meta().modules, money: false}}); save('money/${m}', {tx: []}); save('app/bills', {list: [{id: 'pb3', title: 'Gym', amount: 30, type: 'out', cat: 'Спорт и здоровье', day: 1}]})`);
+    assert.equal(run(`checkins().filter(q => q.type === 'bill').length`), 0, 'not while Money is off');
+  } finally { run(`toast = toastP; setMeta({modules: mods29}); save('money/${m}', money29); save('app/bills', {list: []}); day29 ? save('days/${d}', day29) : remove('days/${d}')`); }
+});

@@ -1739,6 +1739,11 @@ const PRODUCTS = [
   [tr('Апельсиновый сок'), 45, 0.7, 0.2, 10.4],
   [tr('Пиво'), 43, 0.5, 0, 3.6],
   [tr('Вино'), 83, 0.1, 0, 2.6],
+  [tr('Кофе чёрный'), 2, 0.1, 0, 0.3, [tr('чашка'), 250]],
+  [tr('Кофе с молоком (капучино, латте)'), 42, 2.2, 2.1, 3.6, [tr('чашка'), 250]],
+  [tr('Протеиновый коктейль на воде'), 36, 7.3, 0.6, 1, [tr('порция'), 330]],
+  [tr('Шоколадный батончик'), 490, 6, 24, 62, [tr('шт'), 50]],
+  [tr('Котлета'), 230, 15, 16, 8, [tr('шт'), 80]],
 ];
 // each food's name in the other language too, so "rice" and "рис" both find it
 const RU_OF = (() => { const ru = {}; Object.entries(window.I18N_EN || {}).forEach(([k, v]) => { ru[v] = ru[v] || k; }); return ru; })();
@@ -3345,7 +3350,7 @@ function taskCard(){
     ${smartTasks().some(t => !t.done && t.due && t.time && t.due >= today) ? `<button class="link" data-act="tasksIcs" style="padding:6px 0">${ic('bell')} ${tr("Напомнить через Календарь")}</button>` : ''}
   </section>`;
 }
-const isDayNote = raw => { const lp = localTellParse(raw, todayISO()).r; return !lp.new_tasks.length && !lp.events.length && tellLines(lp, todayISO()).length > 0 && !careSignal(raw); };
+const isDayNote = raw => { const lp = localTellParse(raw, todayISO(), {bare: false}).r; return !lp.new_tasks.length && !lp.events.length && tellLines(lp, todayISO()).length > 0 && !careSignal(raw); };
 A.qaAdd = () => {
   const el = $('#qa'); const raw = el?.value || ''; if (!raw.trim()) return;
   // "slept 7 hours" is a note about the day, not a to-do: it goes to Tell KAI, shown before anything changes
@@ -4685,7 +4690,7 @@ function localMoney(c){
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); }
   return null;
 }
-function localTellParse(text, date){
+function localTellParse(text, date, opts = {}){
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
   const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
@@ -4721,7 +4726,7 @@ function localTellParse(text, date){
     const mo = localMoney(c) || (r.money.length ? moneyMore(c) : null);
     if (mo){ r.money.push(mo); hit = true; }
     const future = !/(?:^|\s)(?:ate|had|съел[аи]?|выпил[аи]?|поел[аи]?|перекусил[аи]?)(?![a-zа-яё])/i.test(c) && (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal; "вечером съел…" already happened
-    if (!hit && !future){ const ms = c.split(/\s+(?:with|plus|с|со)\s+/i).map(localMeal).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
+    if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
     if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
@@ -4753,12 +4758,15 @@ const stem = w => w.toLowerCase().replace(/ё/g, 'е').slice(0, 5);
 const sameWord = (a, b) => {
   let i = 0; while (i < a.length && a[i] === b[i]) i++;
   if (i < 3) return false;
-  return /[a-z]/.test(a) ? i === Math.min(a.length, b.length) : i >= Math.min(a.length, b.length) - 1;
+  const n = Math.min(a.length, b.length);
+  if (/[a-z]/.test(a) || i >= n) return i >= n;
+  if (i < n - 1) return false;
+  return n > 4 || (/[аеиоуыэюяйь]/.test(a[i]) && /[аеиоуыэюяйь]/.test(b[i])); // a short word differs only in its ending: "яйца" is "яйцо", "кота" is not "котлета"
 };
 const RAW_RE = /сыр(?:ой|ая|ое|ые)|сух(?:ой|ая|ие|ое)|raw|dry|uncooked/i, COOKED_RE = /варён|варен|cooked|boiled/i;
 // everyday portions in grams, for "a cup of rice", "горсть орехов", "стакан кефира"
 const PORTIONS = [[/cups?|стакан[а-яё]*|кружк[а-яё]*|mugs?/i, 200], [/glass(?:es)?/i, 250], [/bowls?|тарелк[а-яё]*|миск[а-яё]*/i, 300], [/slices?|ломтик[а-яё]*|кус(?:ок|ка|очек|очка|ки)/i, 30], [/handfuls?|горст[а-яё]*/i, 30], [/tablespoons?|tbsp|столов[а-яё]* ложк[а-яё]*|ложк[а-яё]*/i, 15], [/teaspoons?|tsp|чайн[а-яё]* ложк[а-яё]*/i, 5], [/scoops?|мерн[а-яё]* ложк[а-яё]*/i, 30], [/servings?|portions?|порци[а-яё]*/i, 200]];
-const ALIAS = {toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи'};
+const ALIAS = {toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи', snickers: 'chocolate bar', twix: 'chocolate bar', mars: 'chocolate bar', bounty: 'chocolate bar', kitkat: 'chocolate bar', сникерс: 'батончик', твикс: 'батончик', марс: 'батончик', баунти: 'батончик', кофейку: 'кофе'};
 function portionOf(c){
   for (const [re, gr] of PORTIONS){
     const m = c.match(new RegExp('(?:(\\d{1,2}|a|an|one|two|three|один|одна|одну|два|две|три)\\s+)?(?:' + re.source + ')\\s+(?:of\\s+)?([a-zа-яё]{3,})', 'i'));
@@ -4766,7 +4774,8 @@ function portionOf(c){
   }
   return null;
 }
-function localMeal(c){
+function localMeal(c, opts){
+  const bareOk = opts?.bare !== false;
   const por = !/\d+\s*(?:г|гр|g|grams?)(?![a-zа-яё])/i.test(c) && portionOf(c);
   if (por) c = `${por.grams} g ${ALIAS[por.word.toLowerCase()] || por.word}`; // "a slice of toast" is 30 g of bread
   else c = c.replace(/[a-zа-яё]+/gi, w => ALIAS[w.toLowerCase()] || w);
@@ -4774,7 +4783,9 @@ function localMeal(c){
   const WORD_N = {a: 1, an: 1, one: 1, two: 2, three: 3, 'один': 1, 'одна': 1, 'одно': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'трёх': 3, 'трех': 3};
   const dn = !g && c.match(/(?:^|\s)(\d{1,2})\s+([a-zа-яё]{3,})/i), wn = !g && !dn && c.match(/(?:^|\s)(a|an|one|two|three|один|одна|одно|одну|два|две|три|трёх|трех)\s+([a-zа-яё]{3,})/i);
   // "съел банан": Russian has no "a", so eating words count as one piece
-  const n = dn ? dn : wn ? [0, WORD_N[wn[1].toLowerCase()]] : !g && /(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?)(?![a-zа-яё])/i.test(c) ? [0, 1] : null;
+  const eaten = !g && /(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?)(?![a-zа-яё])/i.test(c);
+  const bare = bareOk && !g && !dn && !wn && !eaten && !por && !/\d/.test(c) && (c.match(/[a-zа-яё]+/gi) || []).length <= 3; // "яблоко", "protein shake": one piece
+  const n = dn ? dn : wn ? [0, WORD_N[wn[1].toLowerCase()]] : eaten || bare ? [0, 1] : null;
   if (!g && !n) return null;
   // with a count, the food is the word right after it: "2 eggs", not "by 25 January"
   const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and'].includes(w));
@@ -4787,7 +4798,7 @@ function localMeal(c){
     const fits = g || p[5] ? 1 : 0; // a count needs a piece weight, so foods that have one win
     if (!best || score > best.score || (score === best.score && (fits > best.fits || fits === best.fits && pref > best.pref))) best = {p, score, pref, fits};
   });
-  if (!best) return null;
+  if (!best || (bare && (best.score < words.length || !best.p[5]))) return null; // on its own, every word must name the food, and it must come in pieces
   const [name, kcal, pr, fat, carb, unit] = best.p;
   const grams = por && por.piece && unit ? por.n * unit[1] : g ? toN(g[1]) : unit ? +n[1] * unit[1] : null; // a count needs a piece weight in the table; "a slice of pizza" uses the pizza's
   if (!grams || grams > 3000) return null;
@@ -4822,7 +4833,7 @@ function localSets(text, date, out){
 }
 /* the food sheet's "describe" without AI: only the meals, shown and confirmed like a Tell answer */
 function foodLocal(text, date){
-  const meals = String(text).split(/[;\n]+|,\s+|\s+(?:и|with|and|с)\s+/i).map(x => x.trim()).filter(Boolean).map(localMeal).filter(Boolean);
+  const meals = foodPrep(String(text)).split(/[;\n]+|,\s+|\s+(?:и|with|and|с)\s+/i).map(x => x.trim()).filter(Boolean).map(x => localMeal(x)).filter(Boolean);
   if (!meals.length) return false;
   const id = uid(), it = {id, kind: 'tell', result: {reply: tr('Посчитал по таблице продуктов, без ИИ. Проверь граммы и подтверди.'), meals: meals.length > 1 ? [joinMeals(meals)] : meals}, meta: {date, text, local: true}, provider: 'local', label: tr('КБЖУ · ') + String(text).slice(0, 30), date, created: new Date().toISOString(), done: false};
   save('inbox/' + id, it);
@@ -5625,6 +5636,9 @@ function tasksDone(list, id, date){
   return out;
 }
 A.tkStopRepeat = el => { saveTasks(smartTasks().map(t => { if (t.id !== el.dataset.id) return t; const x = {...t}; delete x.every; return x; })); toast(tr('Больше не повторяется')); };
+
+/* ============ food named in a few words: "coffee with milk" is one drink ============ */
+const foodPrep = text => String(text).replace(/(?:кофе|coffee)\s+(?:с|со|with)\s+(?:молоком|milk)(?![а-яёa-z])/ig, 'капучино');
 
 /* ============ init ============ */
 async function init(){

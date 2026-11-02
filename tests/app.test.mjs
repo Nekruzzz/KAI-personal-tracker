@@ -2057,3 +2057,18 @@ test('checking off a to-do by mistake can be undone, with the next one of a repe
     assert.deepEqual(list.map(t => [t.id, t.done]), [['u1', false]]);
   } finally { run(`saveTasks(tasks14)`); }
 });
+
+test('food named on its own is one piece, coffee with milk is one drink, and the to-do field keeps shopping items', () => {
+  const meals = t => JSON.parse(run(`JSON.stringify((localTellParse(${JSON.stringify(t)}, todayISO()).r.meals || []).map(m => m.name))`));
+  assert.equal(meals('яблоко и банан').length, 1, 'joined into one meal');
+  assert.match(meals('яблоко и банан')[0], /Яблоко|Apple/);
+  assert.match(meals('протеиновый коктейль')[0], /330/);
+  assert.match(meals('сникерс')[0], /50/);
+  assert.match(meals('выпил кофе с молоком')[0], /капучино|cappuccino/i);
+  assert.match(meals('выпил кофе')[0], /чёрный|Black coffee/i, 'coffee alone is black');
+  assert.match(meals('гречка 200 г с котлетой')[0], /\+/);
+  assert.deepEqual(meals('Had some soup'), [], 'a vague amount stays unread');
+  assert.deepEqual(meals('the gym was crowded'), []);
+  assert.equal(run(`isDayNote('молоко')`), false, 'in the to-do field, "молоко" is something to buy');
+  assert.equal(run(`isDayNote('slept 7 hours')`), true);
+});

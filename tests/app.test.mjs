@@ -2010,3 +2010,38 @@ test('Tell KAI on the phone: parts of the day, "in 2 weeks", "next Monday", flig
   assert.equal(p('slept badly, 5 hours').sleep_h, 5);
   assert.equal(p('плохо спал, 5 часов').sleep_h, 5);
 });
+
+test('repeating to-dos: understood when typed, the next one comes when one is checked off, and it can stop', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
+  const today = run(`todayISO()`);
+  let t = q('take out the trash every monday');
+  assert.deepEqual([t.title, t.every, run(`dow('${t.due}')`)], ['Take out the trash', 'week', 1]);
+  t = q('выносить мусор по понедельникам');
+  assert.deepEqual([t.title, t.every, run(`dow('${t.due}')`)], ['Выносить мусор', 'week', 1]);
+  assert.deepEqual([q('call grandma every sunday at 18:00').time, q('call grandma every sunday at 18:00').every], ['18:00', 'week']);
+  assert.deepEqual([q('pay rent every month').every, q('pay rent every month').due], ['month', today]);
+  assert.equal(q('каждое утро зарядка').every, 'day');
+  assert.equal(q('каждое утро зарядка').title, 'Зарядка');
+  assert.equal(q('review finances weekly').every, 'week');
+  assert.equal(q('monthly report due friday').every, undefined, '"monthly" before a noun is part of the name');
+  assert.equal(q('weekly review').every, undefined);
+  assert.equal(run(`nextDue('2030-01-31', 'month', '2030-01-31')`), '2030-02-28', 'the 31st falls on the last day of a short month');
+  assert.equal(run(`nextDue('2030-02-28', 'month', '2030-02-28')`), '2030-03-28');
+  assert.equal(run(`nextDue('2020-01-06', 'week', '2030-01-01')`), '2030-01-07', 'never in the past, on the same weekday');
+  run(`globalThis.tasks13 = clone(smartTasks()); saveTasks([{id: 'rp1', title: 'Laundry', due: '${today}', time: null, pri: 2, done: false, created: '${today}', every: 'week'}])`);
+  try {
+    run(`A.tkDone({dataset: {id: 'rp1'}})`);
+    const list = JSON.parse(run(`JSON.stringify(smartTasks())`));
+    assert.equal(list.length, 2);
+    assert.ok(list.find(x => x.id === 'rp1').done, 'this one stays done, in the history');
+    const next = list.find(x => x.id !== 'rp1');
+    assert.deepEqual([next.title, next.done, next.every, next.due], ['Laundry', false, 'week', run(`addDays('${today}', 7)`)]);
+    assert.ok(run(`taskCard()`).includes(run(`EVERY.week()`)), 'the list says it repeats');
+    run(`A.tkStopRepeat({dataset: {id: '${next.id}'}})`);
+    run(`A.tkDone({dataset: {id: '${next.id}'}})`);
+    assert.equal(run(`smartTasks().filter(x => !x.done).length`), 0, 'stopped: no next one');
+    const r = JSON.parse(run(`JSON.stringify(localTellParse('выносить мусор по понедельникам', todayISO()).r)`));
+    assert.equal(r.new_tasks[0].every, 'week');
+    assert.ok(run(`tellLines(localTellParse('выносить мусор по понедельникам', todayISO()).r, todayISO()).join(' ')`).includes(run(`EVERY.week()`)), 'Tell KAI shows the repeat before adding');
+  } finally { run(`saveTasks(tasks13)`); }
+});

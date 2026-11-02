@@ -717,6 +717,7 @@ window.addEventListener('offline', () => { S.online = false; scheduleRender(); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') processQueue(); });
 
 async function finishJob(job, result, prov){
+  if (job.kind === 'tell' && job.meta?.text) result = enrichTell(result, job.meta.text, job.meta.date);
   const item = {id: job.id, kind: job.kind, result, meta: job.meta, provider: prov, label: job.label, date: todayISO(), created: job.created, done: !NEEDS_CONFIRM.includes(job.kind)};
   if (item.done) try { JOB_APPLY[job.kind]?.(item); } catch(e){ item.done = false; item.applyError = String(e?.message||e); }
   save('inbox/'+job.id, item);
@@ -5764,6 +5765,21 @@ function catLimitBar(cat, sum){
   const L = catLimits()[cat]; if (!L) return '';
   const pct = sum / L * 100, over = sum - L;
   return `<div class="lim-bar"><div class="bar"><i style="width:${Math.min(100, pct)}%;background:var(--${pct > 100 ? 'bad' : pct >= 85 ? 'warn' : 'accent'})"></i></div><div class="s">${over > 0 ? `<span class="cat-d worse">${trf('лимит превышен на {s}', {s: money(over)})}</span>` : trf('{s} из {l}', {s: money(sum), l: money(L)})}</div></div>`;
+}
+
+/* ============ an AI answer to Tell KAI gets what the phone reads for sure and the answer's format has no place for ============ */
+// "every month" on money, repeating to-dos and screen time; the AI's prompt is unchanged, and it is all shown before Apply
+function enrichTell(r, text, date){
+  if (!r || typeof r !== 'object') return r;
+  let lp; try { lp = localTellParse(text, date || todayISO()).r; } catch { return r; }
+  const out = {...r, money: (r.money || []).map(m => ({...m})), new_tasks: (r.new_tasks || []).map(t => ({...t}))};
+  (lp.money || []).filter(m => m.rep).forEach(m => { const x = out.money.find(a => !a.rep && (a.type === 'in') === (m.type === 'in') && Math.abs(+a.amount - m.amount) < 0.01); if (x) x.rep = true; });
+  (lp.new_tasks || []).filter(t => t.every).forEach(t => {
+    const x = out.new_tasks.find(a => !a.every && wordsOf(a.title || '').some(w => wordsOf(t.title).some(v => sameWord(w, v))));
+    if (x){ x.every = t.every; if (!DATE_RE.test(x.date || '')) x.date = t.date; }
+  });
+  if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
+  return out;
 }
 
 /* ============ init ============ */

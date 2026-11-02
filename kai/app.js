@@ -3279,7 +3279,7 @@ function monthDate(m){
 }
 function parseQuick(raw, defDue){
   let t = ' ' + String(raw).trim() + ' ', due = null, time = null, pri = 2, parsed = false;
-  const today = todayISO();
+  const today = todayISO(), rp = repeatOf(t), every = rp.every; t = rp.text;
   if (/!/.test(t) || /срочно|\burgent\b/i.test(t)){ pri = 1; t = t.replace(/!+/g, ' ').replace(/срочно|\burgent\b/ig, ' '); }
   let m = t.match(/(^|\s)((?:в|к)\s+)?(\d{1,2})(?:[:.]([0-5]\d))?\s+(утра|дня|вечера|ночи)(?![а-яё])/i);
   if (m && (m[2] || m[5].toLowerCase() !== 'дня') && +m[3] >= 1 && +m[3] <= 12){ const n = +m[3], pt = m[5].toLowerCase(), h = pt === 'утра' ? n % 12 : pt === 'ночи' ? (n === 12 ? 0 : n <= 4 ? n : n + 12) : n === 12 ? 12 : n + 12; time = pad(h) + ':' + (m[4] || '00'); t = t.replace(m[0], m[1] + ' '); parsed = true; } // "в 6 утра" is 06:00, "в 11 ночи" is 23:00; "через 2 дня" is days, not 2 in the afternoon
@@ -3311,9 +3311,10 @@ function parseQuick(raw, defDue){
   if (parsed){ t = t.replace(/^\s*(?:в|во|к|на|до|at|on|by)\s+/i, ' ').replace(/\s+(?:в|к|на|до|at|on|by)\s*$/i, ' '); }
   if (time && !due) due = time <= nowHM() ? addDays(today, 1) : today;
   if (!due && defDue) due = defDue;
+  if (!due && every) due = today; // a repeating to-do starts today
   const title = t.replace(/\s+/g, ' ').trim();
   if (!title) return null;
-  return {id: uid(), title: title[0].toUpperCase() + title.slice(1), due, time, pri, done:false, created: today};
+  return {id: uid(), title: title[0].toUpperCase() + title.slice(1), due, time, pri, done:false, created: today, ...(every ? {every} : {})};
 }
 function dueLabel(t){
   if (!t.due) return tr('без срока');
@@ -3331,9 +3332,9 @@ function taskCard(){
   const row = t => {
     const open = S.open['tk_' + t.id], late = isOverdue(t);
     return `<div class="row task ${late ? 'late' : ''}"><span class="tic" style="--tc:var(--${late ? 'bad' : t.pri === 1 ? 'warn' : t.time ? 'c3' : 'c0'})">${ic(t.time ? 'bell' : 'list')}</span>
-      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
+      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${EVERY[t.every]()}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
     ${open ? `<div class="detail"><div class="hint">${tr("Перенести")}</div><div class="btnrow">${[['h1', tr('+1 час')], ['eve', tr('Вечером')], ['tom', tr('Завтра')], ['wk', tr('В выходные')], ['none', tr('Без срока')]].map(([w, l]) => `<button class="btn ghost" data-act="tkMove" data-id="${t.id}" data-w="${w}">${l}</button>`).join('')}</div>
-      <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
+      <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}${t.every ? `<button class="btn ghost" data-act="tkStopRepeat" data-id="${t.id}">${ic('repeat')}${tr('Не повторять')}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
   };
   const doneToday = smartTasks().filter(t => t.done && t.doneAt === today).length;
   return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) + (doneToday ? tr(' · готово ') + doneToday : '') : doneToday ? tr('всё сделано') : ''}</span></div>
@@ -3364,7 +3365,7 @@ A.tkOpen = el => { const k = 'tk_' + el.dataset.id; S.open[k] = !S.open[k]; rend
 A.tkDone = el => {
   creditStudy(smartTasks().find(t => t.id === el.dataset.id && !t.done));
   burstAt(el); haptic('light'); sound('pop');
-  saveTasks(smartTasks().map(t => t.id === el.dataset.id ? {...t, done:true, doneAt: todayISO()} : t));
+  saveTasks(tasksDone(smartTasks(), el.dataset.id, todayISO()));
 };
 A.tkDel = el => withUndo(['app/tasks'], () => saveTasks(smartTasks().filter(t => t.id !== el.dataset.id)));
 A.tkPri = el => saveTasks(smartTasks().map(t => t.id === el.dataset.id ? {...t, pri: t.pri === 1 ? 2 : 1} : t));
@@ -3462,7 +3463,7 @@ A.ciAns = el => {
     return;
   }
   if (k.startsWith('t_')){
-    if (a === 'yes'){ creditStudy(smartTasks().find(t => t.id === id && !t.done)); saveTasks(smartTasks().map(t => t.id === id ? {...t, done:true, doneAt: date} : t)); }
+    if (a === 'yes'){ creditStudy(smartTasks().find(t => t.id === id && !t.done)); saveTasks(tasksDone(smartTasks(), id, date)); }
     else if (a === 'tom') saveTasks(smartTasks().map(t => t.id === id ? moveTask(t, 'tom') : t));
     else if (a === 'del') saveTasks(smartTasks().filter(t => t.id !== id));
     return mark('answered');
@@ -3855,7 +3856,7 @@ function cleanEv(x){
 function cleanTask(x){
   if (!x || !x.title) return null;
   const today = todayISO(), due = x.date === 'today' ? today : x.date === 'tomorrow' ? addDays(today, 1) : DATE_RE.test(x.date || '') ? x.date : null;
-  return {id: uid(), title: String(x.title).slice(0, 160), due, time: due && HM_RE.test(x.time || '') ? x.time : null, pri: 2, done: false, created: today};
+  return {id: uid(), title: String(x.title).slice(0, 160), due, time: due && HM_RE.test(x.time || '') ? x.time : null, pri: 2, done: false, created: today, ...(EVERY[x.every] && due ? {every: x.every} : {})};
 }
 function tellPlan(r){
   const pl = clone(plan()); pl.routine = pl.routine || clone(DEFAULT_ROUTINE);
@@ -3884,7 +3885,7 @@ function tellPlanLines(r){
   (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(`+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
   (r.update_events || []).filter(u => allEvents().some(e => e.id === u?.id)).forEach(u => lines.push(`${tr("Изменить «")}${name(u.id)}${tr('»')}: ${[u.date && DATE_RE.test(u.date) ? fmtShort(u.date) : '', u.from || ''].filter(Boolean).join(tr(' в '))}`));
   (r.cancel_events || []).filter(id => allEvents().some(e => e.id === id)).forEach(id => lines.push(`${tr("Отменить «")}${name(id)}${tr('»')}`));
-  tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}`));
+  tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}${t.every ? ' · ' + EVERY[t.every]() : ''}`));
   moves.forEach(m => lines.push(m.to ? `${tr("Перенести тренировку:")} ${fmtShort(m.from)} → ${fmtShort(m.to)}` : `${tr("Убрать тренировку")} ${fmtShort(m.from)}`));
   const tn = {walk:tr('Ходьба'), gym:tr('Тренировка'), study:tr('Учёба')};
   (r.time_log || []).filter(x => tn[x?.kind] && +x.min > 0).forEach(x => lines.push(`${tn[x.kind]}: ${fmtMin(+x.min)}`));
@@ -4731,7 +4732,7 @@ function localTellParse(text, date){
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
-        else if (t.time || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null});
+        else if (t.time || t.every || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, ...(t.every ? {every: t.every} : {})});
         else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;
       } else if (INTENT_RE.test(c)){ // "remind me to buy a charger": a to-do without a date
@@ -5596,6 +5597,33 @@ function moneyMore(c){
   const amount = amountOf(m[1], m[2]), note = m[3].trim();
   return amount > 0 ? {type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(note)) || [0, 'Другое'])[1], note} : null;
 }
+
+/* ============ repeating to-dos: "every Monday", "каждый месяц", "по пятницам" ============ */
+// a to-do may carry every: 'day' | 'week' | 'month'. Checking it off keeps that one as done and adds the next, so the history stays.
+const EVERY = {day: () => tr('каждый день'), week: () => tr('каждую неделю'), month: () => tr('каждый месяц')};
+const WD_DAT = [['понедельникам', 'понедельник'], ['вторникам', 'вторник'], ['средам', 'среда'], ['четвергам', 'четверг'], ['пятницам', 'пятница'], ['субботам', 'суббота'], ['воскресеньям', 'воскресенье'], ['mondays', 'monday'], ['tuesdays', 'tuesday'], ['wednesdays', 'wednesday'], ['thursdays', 'thursday'], ['fridays', 'friday'], ['saturdays', 'saturday'], ['sundays', 'sunday']];
+function repeatOf(t){
+  for (const [pl, one] of WD_DAT){ const re = new RegExp('(^|\\s)(?:по|on)\\s+' + pl + '(?![а-яёa-z])', 'i'); if (re.test(t)) return {every: 'week', text: t.replace(re, '$1' + one)}; } // "по пятницам", "on Fridays"
+  const wd = t.match(/(^|\s)(?:every|each|каждый|каждую|каждое)\s+(?=(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень|monday|tuesday|wednesday|thursday|friday|saturday|sunday))/i);
+  if (wd) return {every: 'week', text: t.replace(wd[0], wd[1])};
+  const kinds = [['day', /(^|\s)(?:every\s+day|each\s+day|daily(?=\s*$)|каждый\s+день|ежедневно)(?![а-яёa-z])/i], ['day', /(^|\s)(?:every|each|каждое|каждый)\s+(?=(?:morning|evening|night|утро|вечер))/i], ['week', /(^|\s)(?:every\s+week|each\s+week|weekly(?=\s*$)|каждую\s+неделю|еженедельно|раз в неделю)(?![а-яёa-z])/i], ['month', /(^|\s)(?:every\s+month|each\s+month|monthly(?=\s*$)|каждый\s+месяц|ежемесячно|раз в месяц)(?![а-яёa-z])/i]];
+  for (const [every, re] of kinds){ const m = t.match(re); if (m) return {every, text: t.replace(re, '$1').replace(/(^|\s)утро(?![а-яё])/i, '$1утром').replace(/(^|\s)вечер(?![а-яё])/i, '$1вечером')}; }
+  return {every: null, text: t};
+}
+/* the next date after a done one, never in the past: a monthly one keeps its day, the 31st becomes the month's last day */
+function nextDue(from, every, today = todayISO()){
+  let d = from || today;
+  const step = x => { if (every === 'day') return addDays(x, 1); if (every === 'week') return addDays(x, 7); const [y, m, dd] = x.split('-').map(Number), n = new Date(y, m, 1), last = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(); return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(Math.min(+(from || today).slice(8), last))}`; };
+  do d = step(d); while (d <= today);
+  return d;
+}
+function tasksDone(list, id, date){
+  const t = list.find(x => x.id === id && !x.done); if (!t) return list;
+  const out = list.map(x => x.id === id ? {...x, done: true, doneAt: date} : x);
+  if (EVERY[t.every]){ const nt = {...t, id: uid(), done: false, due: nextDue(t.due, t.every), created: todayISO()}; delete nt.doneAt; delete nt.askedWhen; delete nt.focusMin; out.push(nt); }
+  return out;
+}
+A.tkStopRepeat = el => { saveTasks(smartTasks().map(t => { if (t.id !== el.dataset.id) return t; const x = {...t}; delete x.every; return x; })); toast(tr('Больше не повторяется')); };
 
 /* ============ init ============ */
 async function init(){

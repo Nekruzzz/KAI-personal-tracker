@@ -2055,4 +2055,8 @@ window.I18N_EN = {
 "Остальное":"Other",
 "Пробежал 5 км за 30 минут":"Ran 5 km in 30 minutes",
 "Получил 50 от мамы":"Got 50 from mom",
+"каждый день":"every day",
+"каждую неделю":"every week",
+"Не повторять":"Stop repeating",
+"Больше не повторяется":"It no longer repeats",
 };

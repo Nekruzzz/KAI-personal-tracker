@@ -104,6 +104,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **Budget limits for single categories:** the budget sheet takes optional limits per category ("cafes: 100 a month"), listing the categories used lately. Each limited category in the breakdown gets a small bar, orange from 85%, and "over the limit by $12" in red once it's passed.
 - **Money compares with last month:** under the month's total, "For comparison, 1–2 October: $39 · now 18% less", the same days of last month (or the whole month before a past one). Negative amounts in Russian now use a true minus sign.
 - **Money categories against the month before:** each category in the breakdown says how it moved ("↑ 50% vs the month before", the same days of it while the month is running), red for more spending or less income, green the other way; changes under 10% aren't mentioned.
+- **A monthly budget in onboarding:** when money is among the things to track, the last step also asks for a monthly budget (optional).
 - **Money search:** a Search link next to History finds entries by name, category or amount in every month ("gym", "netflix", "30"), newest first, with the count and total; tapping one opens it.
 - **New money entries pick a category from the description** ("Internet" → Phone and internet), instead of always starting on Transfers. A category the person chose is never changed.
 

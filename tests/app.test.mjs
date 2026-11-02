@@ -1886,3 +1886,26 @@ test('Regular payments: subscriptions are added up for the month and the year', 
     assert.ok(run(`billsCard(curMonth())`).includes(run(`trf('Подписки: {m} в месяц, {y} в год', {m: money(12.5), y: money(150)})`)));
   } finally { run(`save('app/bills', {list: []})`); }
 });
+
+test('Hold timer: after "get ready", the seconds held go into the next set and the rest starts; Stop records nothing', () => {
+  const e = JSON.parse(run(`JSON.stringify(Object.values(plan().workouts).flatMap(w => w.ex).find(e => e.unit))`));
+  assert.ok(e, 'the programs have a timed exercise');
+  const day = run(`todayISO()`);
+  run(`globalThis.now8 = Date.now; globalThis.T = now8(); Date.now = () => T; globalThis.day8 = S.docs['days/${day}'] ? clone(S.docs['days/${day}']) : undefined; globalThis.toastH = toast; toast = () => {};
+    mutDay('${day}', d => { d.sets = {...(d.sets || {}), ['${e.id}']: []}; })`);
+  try {
+    const n = run(`setsFor(holdEx('${e.id}'), todayISO())`);
+    run(`A.holdStart({dataset: {ex: '${e.id}'}}); T += 2000; holdTick()`);
+    assert.ok(!run(`HOLD.started`), 'still getting ready');
+    run(`T += 1000 + 10400; holdTick(); A.holdDone()`);
+    assert.equal(run(`getDay('${day}').sets['${e.id}'][0].r`), 10, '"Done" early: the seconds actually held');
+    assert.equal(run(`TIMER.end > 0`), n > 1, 'the rest starts by itself');
+    run(`A.holdStart({dataset: {ex: '${e.id}'}})`);
+    assert.equal(run(`TIMER.end`), 0, 'a hold ends the rest');
+    run(`T += 3000 + 999000; holdTick()`);
+    assert.equal(run(`getDay('${day}').sets['${e.id}'][1]?.r`), n > 1 ? +e.hi : undefined, 'held to the end: the top of the range');
+    run(`stopRest(); A.holdStart({dataset: {ex: '${e.id}'}}); T += 8000; A.holdStop()`);
+    assert.equal(run(`HOLD`), null);
+    assert.equal(run(`getDay('${day}').sets['${e.id}'].filter(x => x && +x.r).length`), Math.min(2, n), 'Stop records nothing');
+  } finally { run(`Date.now = now8; toast = toastH; if (HOLD) holdEnd(false); stopRest(); day8 ? save('days/${day}', day8) : remove('days/${day}')`); }
+});

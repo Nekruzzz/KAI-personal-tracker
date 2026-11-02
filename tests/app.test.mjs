@@ -2122,3 +2122,20 @@ test('each daily task keeps its own streak; days without it and sick days do not
     assert.equal(run(`habitStreakHTML({id: 'hab'}, false)`), '', 'shown only from today: the test days are in the future');
   } finally { run(`for (let i = 0; i < 7; i++) remove('days/' + addDays('${base}', -i))`); }
 });
+
+test('new students get a card to add their timetable, until classes exist, it is dismissed, or two weeks pass', () => {
+  run(`globalThis.meta17 = clone(meta()); globalThis.prof17 = clone(profile()); globalThis.plan17 = clone(plan());
+    save('app/profile', {...profile(), role: 'study'}); setMeta({startedOn: todayISO(), toldOnce: true, ttCardOff: false}); save('app/plan', {...plan(), classes: []})`);
+  try {
+    assert.ok(run(`timetableCard()`).includes('data-act="clsAdd2"'));
+    assert.ok(run(`timetableCard()`).includes('icsImport'), 'with the calendar file button');
+    run(`save('app/plan', {...plan(), classes: [{day: 1, time: '09:00', title: 'Physics'}]})`);
+    assert.equal(run(`timetableCard()`), '', 'not once classes exist');
+    run(`save('app/plan', {...plan(), classes: []}); setMeta({startedOn: addDays(todayISO(), -14)})`);
+    assert.equal(run(`timetableCard()`), '', 'not after two weeks');
+    run(`setMeta({startedOn: todayISO()}); save('app/profile', {...profile(), role: 'work'})`);
+    assert.equal(run(`timetableCard()`), '', 'only for students');
+    run(`save('app/profile', {...profile(), role: 'study'}); A.ttCardOff()`);
+    assert.equal(run(`timetableCard()`), '', 'dismissed');
+  } finally { run(`setMeta(meta17); save('app/profile', prof17); save('app/plan', plan17)`); }
+});

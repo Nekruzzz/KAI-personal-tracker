@@ -1860,3 +1860,22 @@ test('Tell KAI: "every month" with an amount is shown first, then also makes a r
     assert.ok(!run(`monthTx('${m}').some(t => t.note === 'netflix')`));
   } finally { run(`toast = toastE; remove('inbox/tb1'); setMeta({modules: mods6}); save('money/${m}', money6); save('app/bills', {list: []})`); }
 });
+
+test('Evening check-in: off until turned on, then 2 hours before bedtime while the day does not count yet', () => {
+  const tmr = run(`addDays(todayISO(), 1)`);
+  run(`globalThis.rem7 = meta().remind; globalThis.day7 = S.docs['days/${tmr}'] ? clone(S.docs['days/${tmr}']) : undefined; setMeta({remind: {...(rem7 || {}), evening: undefined}})`);
+  try {
+    assert.ok(!run(`buildReminders().some(r => r.key === 'v${tmr}')`), 'off by default');
+    run(`setMeta({remind: {...(meta().remind || {}), evening: true}})`);
+    const e = JSON.parse(run(`JSON.stringify(eveningNudge('${tmr}'))`)), bed = run(`bedMin('${tmr}')`);
+    assert.equal(e.at, run(`atMin('${tmr}', ${bed == null ? 1260 : `Math.min(${bed} - 120, 1320)`})`));
+    const n = run(`Math.ceil(getDay('${tmr}').tasks.length * .7)`);
+    assert.equal(e.title, run(`trf('Ещё {n} {t}, и день засчитан', {n: ${n}, t: plural(${n}, tr('задача'), tr('задачи'), tr('задач'))})`));
+    assert.ok(e.body.length > 0, 'names what is left');
+    assert.ok(run(`buildReminders().some(r => r.key === 'v${tmr}')`));
+    run(`mutDay('${tmr}', d => d.tasks.forEach(t => { t.done = true; }))`);
+    assert.equal(run(`eveningNudge('${tmr}')`), null, 'a day that counts gets no check-in');
+    run(`mutDay('${tmr}', d => { d.tasks.forEach(t => { t.done = false; }); d.status = 'sick'; })`);
+    assert.equal(run(`eveningNudge('${tmr}')`), null, 'nor a sick day');
+  } finally { run(`setMeta({remind: rem7}); day7 ? save('days/${tmr}', day7) : remove('days/${tmr}')`); }
+});

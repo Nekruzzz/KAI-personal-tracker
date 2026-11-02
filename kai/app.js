@@ -3005,6 +3005,7 @@ function evBody(){
   const R = plan().routine || {}, today = todayISO(), cur = (R.events || []).find(e => e.id === SH?.evEdit) || {};
   const list = (R.events || []).filter(e => (e.toDate || e.date) >= today).sort((a, b) => a.date.localeCompare(b.date));
   return `<section class="card" style="padding:4px 18px"><div class="list">${list.length ? list.map(e => `<div class="row"><button class="mid" data-act="evEdit" data-id="${esc(e.id)}" style="text-align:left"><div class="t">${esc(e.title)}${EV_KIND[e.kind]?.[2] ? ` <span class="tag ${EV_KIND[e.kind][2]}">${EV_KIND[e.kind][0]}</span>` : ''}</div><div class="s">${fmtShort(e.date)}${e.toDate && e.toDate !== e.date ? ' – ' + fmtShort(e.toDate) : ''}${e.from ? ' · ' + e.from + (e.until ? '–' + e.until : '') : ''}${e.note ? ' · ' + esc(e.note) : ''}</div></button><button class="iconbtn" data-act="evDel" data-id="${esc(e.id)}" aria-label="${tr("Удалить")} ${esc(e.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('') : emptyState('day', tr('Событий нет'))}</div></section>
+  ${cur.id ? '' : icsPick()}
   <section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${cur.id ? tr("Изменить событие") : tr("Новое событие")}</b>
     <div class="seg">${Object.entries(EV_KIND).map(([k, v]) => `<button class="${(SH?.evKind || cur.kind || 'event') === k ? 'on' : ''}" data-act="evKind" data-v="${k}">${v[0]}</button>`).join('')}</div>
     <div class="field"><label for="evT">${tr("Название")}</label><input class="in" id="evT" placeholder="${tr("Например, фест")}" value="${esc(cur.title || '')}"></div>
@@ -3200,7 +3201,7 @@ function viewMore(){
   h += isNative() ? acc('remind', 'bell', tr('Напоминания'), m.remindAsked ? tr('Включены') : tr('Не настроены'), `<button class="btn" data-act="notifSheet">${ic('bell')}${tr('Настроить напоминания')}</button>`) + healthRow() : acc('remind', 'bell', tr('Напоминания'), m.icsAt ? tr('Календарь iPhone настроен') : tr('Не настроены'), `<div class="hint">${tr("Календарь iPhone напомнит о тренировке, еде и сне, даже когда приложение закрыто.")}</div><button class="btn" data-act="ics">${ic('day')}${tr("Настроить напоминания в Календарь")}</button>`);
   if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:8px"><select class="in" id="clD" style="grid-column:1/-1" aria-label="${tr("День")}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}">${DOW[n]}</option>`).join('')}</select><div class="field" style="min-width:0"><label for="clT">${tr("Начало")}</label><input class="in" id="clT" type="time" value="09:00"></div><div class="field" style="min-width:0"><label for="clE">${tr("Конец")}</label><input class="in" id="clE" type="time"></div><input class="in" id="clN" style="grid-column:1/-1" placeholder="${tr("Предмет, ауд.")}" aria-label="${tr("Предмет")}"></div>
-    <button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>`);
+    <div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}</div>`);
   h += acc('ai', 'spark', tr('ИИ'), esc(st.text), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow"><button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button><button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
   h += acc('modules', 'sliders', tr('Модули'), MODULES.filter(x => !modOn(x[0])).length ? tr('Выключено: ') + MODULES.filter(x => !modOn(x[0])).map(x => x[1]).join(', ') : tr('Всё включено'), modulesRows() + `<div class="hint">${tr("Выключенный модуль прячется, но его данные не удаляются.")}</div>` + (modOn('content') ? `<div class="field"><label for="pfWT">${tr("Цель роликов в неделю")}</label><input class="in" id="pfWT" inputmode="numeric" data-ch="wt" value="${content().weeklyTarget || 4}"></div>` : ''));
   h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
@@ -5264,6 +5265,73 @@ A.focusSheet = el => {
 A.focusMin = el => { SH.fl = val('fcL'); SH.fm = +el.dataset.v; haptic('selection'); drawSheet(); };
 A.focusGo = () => { const l = val('fcL'), m = SH?.fm || 25, task = SH?.ftask; closeSheet(); focusStart(m, l, task); };
 A.focusEnd = () => { closeSheet(); focusFinish(false); };
+
+/* ============ timetable from a calendar file (.ics) ============ */
+/* University timetables come as calendar files. Weekly lessons become classes, one-off future events become events (exams and
+   deadlines recognised by their names). Read on the phone, shown first, added only when confirmed, with Undo. */
+const icsUnfold = text => String(text).replace(/\r\n?/g, '\n').replace(/\n[ \t]/g, '');
+const icsRead = v => v.replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').replace(/\s+/g, ' ').trim();
+/* DTSTART/DTEND: a date with a local time, a UTC time (Z, turned into this phone's time) or no time (all day) */
+function icsWhen(line){
+  const m = String(line || '').match(/:(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})\d{0,2}(Z)?)?\s*$/); if (!m) return null;
+  if (!m[4]) return {date: `${m[1]}-${m[2]}-${m[3]}`, time: null};
+  if (m[6]){ const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])); return {date: iso(d), time: pad(d.getHours()) + ':' + pad(d.getMinutes())}; }
+  return {date: `${m[1]}-${m[2]}-${m[3]}`, time: `${m[4]}:${m[5]}`};
+}
+function parseIcs(text, today = todayISO()){
+  const DAYS = {MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6, SU: 7}, classes = [], events = [];
+  for (const b of icsUnfold(text).split('BEGIN:VEVENT').slice(1).map(x => x.split('END:VEVENT')[0])){
+    const lines = b.split('\n'), get = k => lines.find(l => l.startsWith(k + ':') || l.startsWith(k + ';')), val = l => l ? icsRead(l.slice(l.indexOf(':') + 1)) : '';
+    if (/^STATUS:CANCELLED/m.test(b)) continue;
+    const title = val(get('SUMMARY')).slice(0, 80), loc = val(get('LOCATION')).slice(0, 40), s = icsWhen(get('DTSTART')), e = icsWhen(get('DTEND'));
+    if (!title || !s) continue;
+    const rr = get('RRULE');
+    if (rr){
+      if (!/FREQ=WEEKLY/.test(rr) || !s.time) continue;
+      const u = rr.match(/UNTIL=(\d{4})(\d{2})(\d{2})/); if (u && `${u[1]}-${u[2]}-${u[3]}` < today) continue; // a term that's over
+      const days = rr.match(/BYDAY=([A-Z0-9,+-]+)/)?.[1].split(',').map(x => DAYS[x.replace(/[^A-Z]/g, '')]).filter(Boolean);
+      (days?.length ? days : [dow(s.date)]).forEach(day => classes.push({day, time: s.time, ...(e?.time && e.time > s.time ? {end: e.time} : {}), title: loc ? `${title}, ${loc}` : title}));
+      continue;
+    }
+    if (s.date < today) continue;
+    const kind = /exam|экзамен|зач[её]т|midterm|final|\btest\b|контрольн/i.test(title) ? 'exam' : /deadline|дедлайн|\bdue\b|сдач/i.test(title) ? 'deadline' : 'event';
+    events.push({date: s.date, title, kind, ...(s.time ? {from: s.time} : {}), ...(s.time && e?.time && e.date === s.date && e.time > s.time ? {until: e.time} : {}), ...(loc ? {note: loc} : {})});
+  }
+  /* some exports list every lesson as its own event: three or more alike (title, weekday, time) are a weekly class */
+  const groups = new Map();
+  events.forEach(ev => { if (ev.kind !== 'event' || !ev.from) return; const k = [ev.title, dow(ev.date), ev.from, ev.until || ''].join('|'); groups.set(k, [...(groups.get(k) || []), ev]); });
+  const lessons = new Set();
+  groups.forEach(g => { if (g.length < 3) return; g.forEach(ev => lessons.add(ev)); const f = g[0]; classes.push({day: dow(f.date), time: f.from, ...(f.until ? {end: f.until} : {}), title: f.note ? `${f.title}, ${f.note}` : f.title}); });
+  const seen = new Set(), uniq = c => { const k = [c.day, c.time, c.title].join('|'); if (seen.has(k)) return false; seen.add(k); return true; };
+  return {classes: classes.filter(uniq).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), events: events.filter(ev => !lessons.has(ev)).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 60)};
+}
+/* what isn't in the plan yet */
+function icsNew(r){
+  const pl = plan(), haveC = new Set((pl.classes || []).map(c => [c.day, c.time, c.title].join('|'))), haveE = new Set(allEvents().map(e => e.date + '|' + e.title));
+  return {classes: r.classes.filter(c => !haveC.has([c.day, c.time, c.title].join('|'))), events: r.events.filter(e => !haveE.has(e.date + '|' + e.title))};
+}
+CH.icsImport = async el => {
+  const f = el.files?.[0]; el.value = ''; if (!f) return;
+  let r = null; try { r = icsNew(parseIcs(await f.text())); } catch {}
+  if (!r || (!r.classes.length && !r.events.length)) return toast(tr('В файле нет новых занятий или будущих событий'));
+  const kindName = k => ({exam: tr('Экзамен'), deadline: tr('Дедлайн')})[k] || '';
+  openSheet(tr('Импорт из календаря'), () => `<div class="hint">${tr('Вот что нашлось в файле. Ничего не добавится, пока ты не нажмёшь кнопку.')}</div>
+    ${r.classes.length ? `<section class="card" style="padding:4px 18px"><b style="display:block;padding:12px 0 4px">${tr('Пары')} · ${r.classes.length}</b><div class="list">${r.classes.slice(0, 14).map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div></div>`).join('')}</div>${r.classes.length > 14 ? `<div class="hint" style="padding:8px 0">${trf('и ещё {n}', {n: r.classes.length - 14})}</div>` : ''}</section>` : ''}
+    ${r.events.length ? `<section class="card" style="padding:4px 18px"><b style="display:block;padding:12px 0 4px">${tr('События')} · ${r.events.length}</b><div class="list">${r.events.slice(0, 14).map(e => `<div class="row"><div class="mid"><div class="t">${esc(e.title)}${kindName(e.kind) ? ` <span class="tag ${e.kind === 'exam' ? 'bad' : 'warn'}">${kindName(e.kind)}</span>` : ''}</div><div class="s">${fmtShort(e.date)}${e.from ? ' · ' + esc(e.from) : ''}</div></div></div>`).join('')}</div>${r.events.length > 14 ? `<div class="hint" style="padding:8px 0">${trf('и ещё {n}', {n: r.events.length - 14})}</div>` : ''}</section>` : ''}
+    <button class="btn block" data-act="icsApply">${ic('plus')}${tr('Добавить всё')}</button>`);
+  SH.ics = r;
+};
+A.icsApply = () => {
+  const r = SH?.ics; if (!r) return;
+  withUndo(['app/plan'], () => {
+    const pl = clone(plan()); pl.routine = pl.routine || clone(DEFAULT_ROUTINE);
+    pl.classes = [...(pl.classes || []), ...r.classes];
+    pl.routine.events = [...(pl.routine.events || []), ...r.events.map(e => ({id: uid(), ...e}))];
+    save('app/plan', pl);
+  }, trf('Добавлено из календаря: {n}', {n: r.classes.length + r.events.length}));
+  closeSheet();
+};
+const icsPick = () => `<label class="btn ghost">${ic('day')}${tr('Из календаря (.ics)')}<input type="file" accept=".ics,text/calendar" hidden data-ch="icsImport"></label>`;
 
 /* ============ init ============ */
 async function init(){

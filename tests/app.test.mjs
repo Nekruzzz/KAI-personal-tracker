@@ -2193,3 +2193,18 @@ test('a study plan ends with its exam: leftover topics leave the to-do list and 
     assert.equal(run(`smartTasks().length`), 3, 'nothing is deleted');
   } finally { run(`saveTasks(tasks19); save('app/plan', plan19)`); }
 });
+
+test('budget limits for single categories: saved with the budget, shown on the category, over the limit in red', () => {
+  run(`globalThis.budget20 = S.docs['app/budget'] ? clone(S.docs['app/budget']) : undefined`);
+  try {
+    run(`saveBudget(900, {'Кафе и рестораны': '100', 'Транспорт': '', 'Не категория': '5', 'Супермаркеты': '-50'})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(S.docs['app/budget'])`)), {monthly: 900, cats: {'Кафе и рестораны': 100, 'Супермаркеты': 50}});
+    assert.ok(run(`catLimitBar('Кафе и рестораны', 40)`).includes(run(`trf('{s} из {l}', {s: money(40), l: money(100)})`)));
+    assert.match(run(`catLimitBar('Кафе и рестораны', 90)`), /var\(--warn\)/, '85% and up is a warning');
+    assert.ok(run(`catLimitBar('Кафе и рестораны', 112)`).includes(run(`trf('лимит превышен на {s}', {s: money(12)})`)));
+    assert.equal(run(`catLimitBar('Транспорт', 40)`), '', 'no limit, nothing extra');
+    run(`saveBudget(null, {'Кафе и рестораны': '100'})`);
+    assert.equal(run(`S.docs['app/budget'].cats['Кафе и рестораны']`), 100, 'limits stay without a monthly budget');
+    assert.ok(run(`catLimitsHTML()`).includes('data-lim="Кафе и рестораны"'));
+  } finally { run(`budget20 ? save('app/budget', budget20) : remove('app/budget')`); }
+});

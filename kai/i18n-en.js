@@ -2087,4 +2087,8 @@ window.I18N_EN = {
 "Выносить мусор по понедельникам":"Take out the trash every Monday",
 "Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30» или «стирка каждую субботу»: срок, время и повтор я пойму сам.":"Nothing yet. Write it your way, like “call mom tomorrow at 18:30” or “laundry every Saturday”: I'll work out the date, time and repeat.",
 "Расходы, бюджет месяца и регулярные платежи":"Spending, the monthly budget and regular payments",
+"Лимиты по категориям (необязательно)":"Limits for categories (optional)",
+"Например, кафе не больше 100 в месяц. Пустое поле: без лимита.":"For example, cafes no more than 100 a month. Leave a field empty for no limit.",
+"лимит превышен на {s}":"over the limit by {s}",
+"{s} из {l}":"{s} of {l}",
 };

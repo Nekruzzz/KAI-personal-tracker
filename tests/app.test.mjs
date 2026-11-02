@@ -2378,3 +2378,16 @@ test('a regular payment that is due is asked about on the Day tab: paid, skipped
     assert.equal(run(`checkins().filter(q => q.type === 'bill').length`), 0, 'not while Money is off');
   } finally { run(`toast = toastP; setMeta({modules: mods29}); save('money/${m}', money29); save('app/bills', {list: []}); day29 ? save('days/${d}', day29) : remove('days/${d}')`); }
 });
+
+test('a habit reaching 7 days in a row gets a moment, other days do not', () => {
+  const today = run(`todayISO()`);
+  const keep = JSON.parse(run(`JSON.stringify([...Array(8)].map((_, i) => [addDays(todayISO(), -i), S.docs['days/' + addDays(todayISO(), -i)] || null]))`));
+  run(`for (let i = 1; i <= 6; i++){ const k = addDays(todayISO(), -i); save('days/' + k, {date: k, tasks: [{id: 'hm', title: 'Stretch', done: true}]}); } save('days/' + addDays(todayISO(), -7), {date: addDays(todayISO(), -7), tasks: [{id: 'hm', title: 'Stretch', done: false}]});
+    mutDay(todayISO(), d => { d.tasks = [...(d.tasks || []).filter(t => t.id !== 'hm'), {id: 'hm', title: 'Stretch', done: true}]; })`);
+  try {
+    assert.equal(run(`habitStreak('hm')`), 7);
+    assert.equal(run(`habitMilestone({id: 'hm', title: 'Stretch'})`), true);
+    run(`mutDay(todayISO(), d => { d.tasks.find(t => t.id === 'hm').done = false; })`);
+    assert.equal(run(`habitMilestone({id: 'hm', title: 'Stretch'})`), false, '6 days: nothing yet');
+  } finally { run(`${JSON.stringify(keep)}.forEach(([k, v]) => v ? save('days/' + k, v) : remove('days/' + k))`); }
+});

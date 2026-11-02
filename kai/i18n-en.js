@@ -2127,4 +2127,5 @@ window.I18N_EN = {
 "«{b}» ({s}) ожидался {d}. Получено?":"“{b}” ({s}) was expected on {d}. Received?",
 "«{b}» ({s}): срок сегодня. Оплачено?":"“{b}” ({s}) is due today. Paid?",
 "«{b}» ({s}): срок был {d}. Оплачено?":"“{b}” ({s}) was due on {d}. Paid?",
+"«{t}»: {n} {u} подряд!":"“{t}”: {n} {u} in a row!",
 };

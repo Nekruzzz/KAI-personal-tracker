@@ -2060,4 +2060,11 @@ window.I18N_EN = {
 "Не повторять":"Stop repeating",
 "Больше не повторяется":"It no longer repeats",
 "Готово: {t}":"Done: {t}",
+"Кофе чёрный":"Black coffee",
+"чашка":"cup",
+"Кофе с молоком (капучино, латте)":"Coffee with milk (cappuccino, latte)",
+"Протеиновый коктейль на воде":"Protein shake with water",
+"порция":"serving",
+"Шоколадный батончик":"Chocolate bar",
+"Котлета":"Meat patty (cutlet)",
 };

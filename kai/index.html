@@ -758,6 +758,18 @@ body.resting.focusing #focusBar{bottom:calc(158px + env(safe-area-inset-bottom,0
 .ex-links{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:2px}
 .ex-links .link{min-height:36px;font-size:14px}
 
+/* regular payments on the Money tab */
+.card.bills{padding:4px 18px}
+.row.bill > button.mid{text-align:left}
+.btn.sm{padding:0 16px;min-height:44px;font-size:14px;border-radius:22px;flex:none}
+.bill-ok{display:grid;place-items:center;width:44px;height:44px;flex:none;color:var(--good)}
+.bill-ok svg{width:22px;height:22px}
+.bills-left{padding:10px 0 12px;border-top:1px solid var(--line)}
+.bill-idea{display:flex;flex-direction:column;gap:10px;padding:14px 0;font-size:14.5px;color:var(--text-2)}
+.list + .bill-idea,.bills-left + .bill-idea{border-top:1px solid var(--line)}
+.bill-link{padding:6px 0}
+.bill-link > svg{width:20px;height:20px;flex:none;color:var(--text-3)}
+
 /* rows and card buttons answer a touch the iOS way: a quick highlight for a row, a slight press for a whole card */
 .acc-h{transition:background-color .15s}
 .acc-h:active{background-color:var(--fill-1)}

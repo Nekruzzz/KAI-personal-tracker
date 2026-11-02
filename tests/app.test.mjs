@@ -1446,13 +1446,18 @@ test('text people type is shown as text on every screen, never as markup', () =>
     save('kb/xk', {title: X, text: X, summary: X, date: '${d}'});
     save('app/season', {...season(), title: X, goals: [X]});
     save('seasons/xs', {title: X, start: '${d}', end: '${d}', goals: [X], avg: 0, gym: 0});
+    save('app/bills', {list: [{id: 'xb', title: X, amount: 9, type: 'out', cat: 'Подписки', day: 1}]});
+    saveTasks([...smartTasks(), {id: 'x3', title: X, due: '${d}', done: true, doneAt: '${d}', pri: 2, every: 'week'}]); S.open.tk_done = true;
+    SH = {txq: 'img'};
   })()`);
-  const screens = {day: `viewDay()`, health: `(S.sub.health = 'food', viewHealth())`, train: `(S.sub.health = 'train', viewHealth())`, money: `viewMoney()`, more: `viewMore()`, season: `seasonBody()`, top: `(renderTop(), document.querySelector('#top').innerHTML || '')`};
+  const screens = {day: `viewDay()`, health: `(S.sub.health = 'food', viewHealth())`, train: `(S.sub.health = 'train', viewHealth())`, money: `viewMoney()`, more: `viewMore()`, season: `seasonBody()`, top: `(renderTop(), document.querySelector('#top').innerHTML || '')`,
+    bills: `billsCard(curMonth())`, search: `txFindList()`, billSheet: `(SH = {bill: bills()[0]}, billSheetBody())`, reminders: `remindGroups()`};
   for (const [name, src] of Object.entries(screens)) {
     const html = run(src);
     assert.ok(!/<img src=x/i.test(html), `${name} renders a typed <img> as markup`);
   }
   assert.match(run(`viewDay()`), /&lt;img src=x/, 'it is there, as text');
+  run(`SH = null; S.open.tk_done = false; save('app/bills', {list: []})`);
 });
 
 test('Tell KAI explains what works without AI the first time, then keeps it to one line', () => {

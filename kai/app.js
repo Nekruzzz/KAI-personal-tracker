@@ -3349,6 +3349,7 @@ function taskCard(){
     <div class="qadd"><input class="in" id="qa" placeholder="${tr("Что нужно сделать?")}" enterkeyhint="done" aria-label="${tr("Новая задача")}" autocomplete="off"><button class="btn" data-act="qaAdd" aria-label="${tr("Добавить задачу")}">${ic('plus')}</button></div>
     <div class="list">${now.map(row).join('') || `<div class="hint" style="padding:12px 0">${tr("Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30»: срок и время я пойму сам.")}</div>`}</div>
     ${later.length ? `<div class="hint" style="padding:10px 0 0;font-weight:700">${tr("Позже")}</div><div class="list">${(S.open.tk_later ? later : later.slice(0, 3)).map(row).join('')}</div>${later.length > 3 ? `<button class="link" data-act="toggleOpen" data-k="tk_later" style="padding:6px 0">${S.open.tk_later ? tr('Свернуть') : tr('Ещё ') + (later.length - 3)}</button>` : ''}` : ''}
+    ${doneToday ? doneTodayHTML(today) : ''}
     ${smartTasks().some(t => !t.done && t.due && t.time && t.due >= today) ? `<button class="link" data-act="tasksIcs" style="padding:6px 0">${ic('bell')} ${tr("Напомнить через Календарь")}</button>` : ''}
   </section>`;
 }
@@ -5647,6 +5648,18 @@ const foodPrep = text => String(text).replace(/(?:кофе|coffee)\s+(?:с|со|
 const SCREEN_W = '(?:screen\\s*time|экранн(?:ое|ого)\\s+врем[яеи]|в\\s+телефоне|on\\s+(?:my\\s+|the\\s+)?phone|в\\s+соцсетях|on\\s+social\\s+media)';
 const SCREEN_D = '(\\d+(?:[.,]\\d+)?\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?:\\s*\\d+\\s*(?:м|мин[а-яё]*|m|mins?|minutes?))?|\\d+\\s*(?:мин[а-яё]*|mins?|minutes?)|\\d{1,2}:\\d\\d)(?![a-zа-яё])';
 const SCREEN_A = new RegExp(SCREEN_W + '\\D{0,14}?' + SCREEN_D, 'i'), SCREEN_B = new RegExp(SCREEN_D + '\\s+' + SCREEN_W, 'i');
+
+/* ============ to-dos done today: shown on request, and one can go back on the list ============ */
+function doneTodayHTML(today){
+  const list = smartTasks().filter(t => t.done && t.doneAt === today), open = !!S.open.tk_done;
+  return `<button class="link" data-act="toggleOpen" data-k="tk_done" aria-expanded="${open}" style="padding:6px 0;display:block">${open ? tr('Скрыть сделанное') : trf('Сделано сегодня: {n}', {n: list.length})}</button>${open ? `<div class="list">${list.map(t => `<div class="row task done"><span class="tic" style="--tc:var(--good)">${ic('check')}</span><div class="mid"><div class="t">${esc(t.title)}</div>${t.every && EVERY[t.every] ? `<div class="s">${ic('repeat', 'rep-ic')}${EVERY[t.every]()}</div>` : ''}</div><button class="chk on" data-act="tkReopen" data-id="${esc(t.id)}" aria-pressed="true" aria-label="${esc(trf('Открыть снова: {t}', {t: t.title}))}">${ic('check')}</button></div>`).join('')}</div>` : ''}`;
+}
+A.tkReopen = el => {
+  const list = smartTasks(), t = list.find(x => x.id === el.dataset.id && x.done); if (!t) return;
+  let out = list.map(x => { if (x.id !== t.id) return x; const y = {...x, done: false}; delete y.doneAt; return y; });
+  if (t.every){ const nx = out.find(x => x.id !== t.id && !x.done && x.title === t.title && x.every === t.every && x.created === t.doneAt); if (nx) out = out.filter(x => x !== nx); } // the next one, made when this was checked off
+  saveTasks(out); haptic('light'); toast(tr('Снова в списке'));
+};
 
 /* ============ init ============ */
 async function init(){

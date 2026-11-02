@@ -117,7 +117,6 @@ window.I18N_EN = {
 "· Ж":"· F",
 "· У":"· C",
 "· белок":"· protein",
-"· в день можно":"· you can spend per day",
 "· вес":"· weight",
 "· выполнение":"· completion",
 "· выполнено":"· done",
@@ -1248,7 +1247,6 @@ window.I18N_EN = {
 "дней":"days",
 "дня":"days",
 "до":"until",
-"до конца месяца":"until the end of the month",
 "добавлен":"added",
 "добавлен.":"added.",
 "дома, зал, улица":"home, gym, outdoors",
@@ -1945,4 +1943,5 @@ window.I18N_EN = {
 "Скриншоты читает ИИ KAI: войди в аккаунт. Пока не вошёл, запрос подождёт в очереди.":"Screenshots are read by KAI's AI: sign in. Until you do, the request waits in the queue.",
 "Фото читает ИИ: Claude или ChatGPT. Подключи его в разделе ИИ, а пока фото подождёт в очереди. Или опиши еду текстом.":"Photos are read by AI: Claude or ChatGPT. Connect one in the AI section; until then the photo waits in the queue. Or describe the food in words.",
 "Скриншоты читает ИИ: Claude или ChatGPT. Пока он не подключён, запрос подождёт в очереди.":"Screenshots are read by AI: Claude or ChatGPT. Until one is connected, the request waits in the queue.",
+"· в день можно {d} до конца месяца":"· about {d} a day until the end of the month",
 };

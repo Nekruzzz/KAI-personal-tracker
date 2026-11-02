@@ -2323,6 +2323,7 @@ function tellLines(r, date){
   (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}`));
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
+  (r.exam_results || []).forEach(x => { const e = allEvents().find(y => y.id === x.id); if (e) lines.push(trf(x.passed ? 'Результат «{e}»: сдан{g}' : 'Результат «{e}»: не сдан{g}', {e: e.title, g: x.grade ? ' · ' + x.grade : ''})); });
   return lines;
 }
 function tellView(it){
@@ -2348,6 +2349,7 @@ A.tellApply = el => {
     d.log = (d.log||[]).concat([{t:now.toISOString(), text:(it.meta.text||'').slice(0,2000)}]).slice(-20);
   });
   tellPlanApply(r);
+  if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
   if (SH?.jobId === it.id) closeSheet(); else drawSheet();
@@ -4720,6 +4722,7 @@ function localTellParse(text, date, opts = {}){
   for (const c of parts){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
+    { const xr = localExamResult(c, date); if (xr){ (r.exam_results = r.exam_results || []).push(xr); hit = true; } }
     if (modOn('screentime') && (m = c.match(SCREEN_A) || c.match(SCREEN_B))){ const v = parseDur(m[1]); if (v > 0 && v <= 1440){ r.screen_min = v; hit = true; } }
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
     if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
@@ -5782,6 +5785,7 @@ function enrichTell(r, text, date){
     if (x){ x.every = t.every; if (!DATE_RE.test(x.date || '')) x.date = t.date; }
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
+  if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
   return out;
 }
 
@@ -5807,6 +5811,18 @@ function pastExamsHTML(){
   if (!list.length) return '';
   const passed = list.filter(e => e.result?.passed).length, known = list.filter(e => e.result).length;
   return `<div class="sec-h"><h2>${tr('Прошедшие экзамены')}</h2>${known ? `<span class="hint">${trf('сдано {n} из {k}', {n: passed, k: known})}</span>` : ''}</div><section class="card" style="padding:4px 18px"><div class="list">${list.slice(0, 20).map(e => `<div class="row"><div class="mid"><div class="t">${esc(e.title)}</div><div class="s">${fmtShort(e.date)} ${e.date.slice(0, 4)}${e.prepMin ? ' · ' + tr('подготовка') + ' ' + fmtMin(e.prepMin) : ''}</div></div><div class="r">${e.result ? `<span class="tag ${e.result.passed ? 'good' : 'bad'}">${e.result.passed ? tr('сдан') : tr('не сдан')}${e.result.grade ? ' · ' + esc(e.result.grade) : ''}</span>` : '<span class="hint">—</span>'}</div></div>`).join('')}</div></section>`;
+}
+
+/* ============ Tell KAI: an exam result in words ("сдал статистику на 5", "passed the chemistry exam with an A") ============ */
+const GRADE_RE = /(?:на|with(?:\s+an?)?|grade|оценк[аоуи])\s+([A-F][+-]?|\d{1,3}(?:\s*(?:%|балл[а-яё]*|points?))?|отлично|хорошо|удовлетворительно)(?![a-zа-яё])/i;
+/* for an exam of the last two weeks whose name matches, or the only one, when the message says "exam" */
+function localExamResult(c, date){
+  const m = c.match(/(?:^|\s)(не\s+сдал[аи]?|завалил[аи]?|провалил[аи]?|failed|didn.?t\s+pass|сдал[аи]?|passed)\s+(.+)$/i); if (!m) return null;
+  const recent = allEvents().filter(e => e.kind === 'exam' && e.date <= date && dayDiff(e.date, date) <= 14); if (!recent.length) return null;
+  const rest = m[2], g = rest.match(GRADE_RE), ws = wordsOf(rest.replace(GRADE_RE, ' ')).filter(w => !/^(?:exam|экзам|test|тест|зач)/.test(w));
+  let e = recent.find(x => wordsOf(x.title).some(a => ws.some(b => sameWord(a, b))));
+  if (!e && recent.length === 1 && /exam|экзамен|test|тест|зач[её]т/i.test(rest)) e = recent[0];
+  return e ? {id: e.id, passed: !/^(?:не|завал|провал|fail|didn)/i.test(m[1]), grade: g ? g[1].trim() : null} : null;
 }
 
 /* ============ init ============ */

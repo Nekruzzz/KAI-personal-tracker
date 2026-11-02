@@ -2248,3 +2248,23 @@ test('exam results: asked after the exam, saved with a grade, and listed under p
     assert.ok(!html.includes('Essay'), 'deadlines are not exams');
   } finally { run(`toast = toastX; save('app/plan', plan22)`); }
 });
+
+test('Tell KAI on the phone: an exam result in words, for a recent exam with that name', () => {
+  const d = run(`todayISO()`), y = run(`addDays(todayISO(), -2)`);
+  run(`globalThis.plan23 = clone(plan()); globalThis.toastY = toast; toast = () => {}`);
+  setPlan([{id: 'ys', date: y, title: 'Экзамен по статистике', kind: 'exam'}, {id: 'yc', date: y, title: 'Chemistry exam', kind: 'exam'}]);
+  try {
+    const xr = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, '${d}').r.exam_results || [])`));
+    assert.deepEqual(xr('сдал статистику на 5'), [{id: 'ys', passed: true, grade: '5'}]);
+    assert.deepEqual(xr('passed the chemistry exam with an A'), [{id: 'yc', passed: true, grade: 'A'}]);
+    assert.deepEqual(xr('failed chemistry'), [{id: 'yc', passed: false, grade: null}]);
+    assert.deepEqual(xr('не сдал статистику'), [{id: 'ys', passed: false, grade: null}]);
+    assert.deepEqual(xr('сдал лабу'), [], 'a lab report is not one of the exams');
+    assert.deepEqual(xr('passed the exam'), [], 'two recent exams: the name must say which');
+    assert.deepEqual(xr('passed by the shop'), []);
+    run(`save('inbox/te1', {id: 'te1', kind: 'tell', meta: {date: '${d}', text: 'сдал статистику на 5'}, done: false, created: new Date().toISOString(), result: localTellParse('сдал статистику на 5', '${d}').r})`);
+    assert.ok(run(`tellLines(S.docs['inbox/te1'].result, '${d}').join(' ')`).includes('5'), 'shown before Apply');
+    run(`A.tellApply({dataset: {id: 'te1'}})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(allEvents().find(e => e.id === 'ys').result)`)), {passed: true, grade: '5', at: d});
+  } finally { run(`toast = toastY; remove('inbox/te1'); save('app/plan', plan23)`); }
+});

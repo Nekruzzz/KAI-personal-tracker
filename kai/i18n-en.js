@@ -2104,4 +2104,6 @@ window.I18N_EN = {
 "сдан":"passed",
 "не сдан":"not passed",
 "подготовка":"prep",
+"Результат «{e}»: сдан{g}":"Result for “{e}”: passed{g}",
+"Результат «{e}»: не сдан{g}":"Result for “{e}”: not passed{g}",
 };

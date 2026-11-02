@@ -960,7 +960,7 @@ function burst(x, y, o = {}){
     ], {duration: 560 + Math.random() * 300, easing: 'cubic-bezier(.12,.75,.3,1)'}).onfinish = () => d.remove();
   }
 }
-function burstAt(el, o){ if (!el) return; const r = el.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, o); }
+function burstAt(el, o){ if (!el?.getBoundingClientRect) return; /* only from something on screen */ const r = el.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, o); }
 function confetti(o = {}){
   if (reduceMotion()) return;
   const cv = document.createElement('canvas'); cv.className = 'confetti';
@@ -3324,7 +3324,7 @@ function taskCard(){
     return `<div class="row task ${late ? 'late' : ''}"><span class="tic" style="--tc:var(--${late ? 'bad' : t.pri === 1 ? 'warn' : t.time ? 'c3' : 'c0'})">${ic(t.time ? 'bell' : 'list')}</span>
       <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
     ${open ? `<div class="detail"><div class="hint">${tr("Перенести")}</div><div class="btnrow">${[['h1', tr('+1 час')], ['eve', tr('Вечером')], ['tom', tr('Завтра')], ['wk', tr('В выходные')], ['none', tr('Без срока')]].map(([w, l]) => `<button class="btn ghost" data-act="tkMove" data-id="${t.id}" data-w="${w}">${l}</button>`).join('')}</div>
-      <div class="btnrow"><button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
+      <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
   };
   const doneToday = smartTasks().filter(t => t.done && t.doneAt === today).length;
   return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) + (doneToday ? tr(' · готово ') + doneToday : '') : doneToday ? tr('всё сделано') : ''}</span></div>
@@ -4287,9 +4287,10 @@ function applyStudyPlan(ex, plan_){
 }
 function creditStudy(t){
   if (!t?.examId || !t.perTopic) return;
-  mutDay(todayISO(), d => { d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + t.perTopic}; });
+  const m = Math.max(0, t.perTopic - (t.focusMin || 0)); if (!m) return; // focus minutes on this topic already counted
+  mutDay(todayISO(), d => { d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + m}; });
   const pl = clone(plan()), e = pl.routine?.events?.find(x => x.id === t.examId);
-  if (e){ e.prepMin = (e.prepMin || 0) + t.perTopic; save('app/plan', pl); }
+  if (e){ e.prepMin = (e.prepMin || 0) + m; save('app/plan', pl); }
 }
 function studyBody(){
   const ex = allEvents().find(e => e.id === SH.spId); if (!ex) return '';
@@ -5163,9 +5164,9 @@ function focusMinutes(now = Date.now()){
   const f = FOCUS; if (!f) return 0;
   return Math.max(0, Math.floor((Math.min(now, f.end) - f.start - focusAway(f, now)) / 60000));
 }
-function focusStart(min, label){
+function focusStart(min, label, task){
   const now = Date.now();
-  FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба')};
+  FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба'), task: task || null};
   focusSave(); focusRun(); syncReminders(); haptic('medium');
 }
 function focusRun(){
@@ -5188,13 +5189,31 @@ function focusFinish(complete){
   FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing');
   const bar = $('#focusBar'); if (bar) bar.hidden = true;
   try { FOCUS_WAKE?.release(); } catch {} FOCUS_WAKE = null;
-  if (mins > 0) mutDay(iso(f.start), d => { d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + mins}; });
+  const hhmm = (t => pad(t.getHours()) + ':' + pad(t.getMinutes()))(new Date(f.start));
+  mutDay(iso(f.start), d => {
+    if (mins > 0) d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + mins};
+    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves}].slice(-20);
+  });
+  const task = f.task && smartTasks().find(t => t.id === f.task);
+  if (task && mins > 0){
+    saveTasks(smartTasks().map(t => t.id === task.id ? {...t, focusMin: (t.focusMin || 0) + mins} : t));
+    if (task.examId){ const pl = clone(plan()), e = pl.routine?.events?.find(x => x.id === task.examId); if (e){ e.prepMin = (e.prepMin || 0) + mins; save('app/plan', pl); } }
+  }
+  FOCUS_TASK = task && !task.done ? task.id : null;
   syncReminders();
   if (complete){ haptic('success'); sound('badge'); }
   const said = leaves ? trf('Фокус: {m} из {t} мин · {n} {w}, {a} мин вне приложения', {m: mins, t: f.min, n: leaves, w: plural(leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')), a: awayMin})
     : complete ? trf('Фокус: {m} мин без единого отвлечения', {m: mins}) : trf('Фокус: {m} мин', {m: mins});
-  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 6000});
+  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : {})});
   scheduleRender();
+}
+let FOCUS_TASK = null;
+A.focusTaskDone = () => { const id = FOCUS_TASK; FOCUS_TASK = null; hideToast(); if (id) A.tkDone({dataset: {id}}); };
+A.focusTask = el => { const t = smartTasks().find(x => x.id === el.dataset.id); if (t) A.focusSheet({dataset: {l: t.title, task: t.id}}); };
+/* the last 7 days of focus, for the sheet */
+function focusWeek(){
+  const ss = [...Array(7)].flatMap((_, i) => S.docs['days/' + addDays(todayISO(), -i)]?.focus || []);
+  return {n: ss.length, min: ss.reduce((a, x) => a + (x.min || 0), 0), leaves: ss.reduce((a, x) => a + (x.leaves || 0), 0)};
 }
 /* leaving the app counts from 3 seconds: a glance at a notification isn't a distraction */
 function focusVisibility(hidden){
@@ -5219,14 +5238,16 @@ function focusResume(){
 }
 const focusFits = b => !b || ['study', 'project', 'free'].includes(b.kind);
 A.focusSheet = el => {
+  const task = el?.dataset?.task || null;
   openSheet(tr('Фокус'), () => FOCUS ? `<div class="hint">${trf('Идёт фокус: {l}. Сделано {m} мин.', {l: esc(FOCUS.label), m: focusMinutes()})}</div><button class="btn block danger" data-act="focusEnd">${tr('Завершить сейчас')}</button>`
-    : `<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
+    : `${(w => w.n ? `<div class="note">${trf('За 7 дней: {n} {s}, {t} фокуса, {d} {w}', {n: w.n, s: plural(w.n, tr('сессия'), tr('сессии'), tr('сессий')), t: w.min >= 60 ? num(w.min / 60, 1) + ' ' + tr('ч') : w.min + ' ' + tr('мин'), d: w.leaves, w: plural(w.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений'))})}</div>` : '')(focusWeek())}<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
     <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
     <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
     <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);
+  SH.ftask = task; // read when Start is tapped
 };
 A.focusMin = el => { SH.fl = val('fcL'); SH.fm = +el.dataset.v; haptic('selection'); drawSheet(); };
-A.focusGo = () => { const l = val('fcL'), m = SH?.fm || 25; closeSheet(); focusStart(m, l); };
+A.focusGo = () => { const l = val('fcL'), m = SH?.fm || 25, task = SH?.ftask; closeSheet(); focusStart(m, l, task); };
 A.focusEnd = () => { closeSheet(); focusFinish(false); };
 
 /* ============ init ============ */

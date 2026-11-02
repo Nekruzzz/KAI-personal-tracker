@@ -1562,3 +1562,24 @@ test('Focus: a session survives the app being closed, and the time it was closed
     assert.equal(run(`getDay('${day}').timeExtra.study`) - before, 16, 'ending early keeps what was done');
   } finally { run(`Date.now = now0; toast = toast2; FOCUS = null; focusSave()`); }
 });
+
+test('Focus on a to-do: minutes go to the topic, marking it done adds only what is left, and the week adds up', () => {
+  const T0 = Date.UTC(2030, 0, 11, 9, 0);
+  run(`globalThis.now0 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toasts3 = []; globalThis.toast3 = toast; toast = (m, o) => toasts3.push([m, o?.action?.act])`);
+  const day = run(`iso(${T0})`);
+  try {
+    const p = JSON.parse(run(`JSON.stringify(clone(plan()))`)); p.routine = p.routine || JSON.parse(run(`JSON.stringify(DEFAULT_ROUTINE)`));
+    p.routine.events = [{id: 'fx', date: '2030-01-20', title: 'Physics', kind: 'exam', from: '10:00'}];
+    run(`save('app/plan', ${JSON.stringify(p)}); saveTasks([{id: 'tp', title: 'Physics: optics', due: '${day}', done: false, pri: 2, examId: 'fx', topic: 'optics', perTopic: 60}])`);
+    const before = run(`getDay('${day}').timeExtra?.study || 0`);
+    run(`focusStart(25, 'Physics: optics', 'tp'); T += 25 * 60000; focusTick()`);
+    assert.equal(run(`smartTasks().find(t => t.id === 'tp').focusMin`), 25);
+    assert.equal(run(`allEvents().find(e => e.id === 'fx').prepMin`), 25, 'exam prep counts the focus');
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(toasts3.at(-1))`))[1], 'focusTaskDone', 'offers to mark it done');
+    run(`A.focusTaskDone()`);
+    assert.equal(run(`smartTasks().find(t => t.id === 'tp').done`), true);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - before, 25, 'marked done today: the remaining 35 go to today, not this day twice');
+    assert.equal(run(`allEvents().find(e => e.id === 'fx').prepMin`), 60, "the topic's hour counts once");
+    assert.equal(run(`getDay('${day}').focus.at(-1).min`), 25, 'the session is on record');
+  } finally { run(`Date.now = now0; toast = toast3; FOCUS = null; focusSave()`); }
+});

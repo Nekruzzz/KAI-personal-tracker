@@ -1162,13 +1162,13 @@ const badgeOf = (b, v) => { const n1 = x => num(x, x % 1 ? 1 : 0); return b.k ==
 function badgeProgress(b){ const v = Math.min(b.n, badgeStats()[b.k] || 0); return `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><span>${tr("Прогресс")}</span><span class="muted">${badgeOf(b, v)}</span></div><div class="bar"><i style="width:${v / b.n * 100}%;background:${b.c}"></i></div></section>`; }
 function badgesShelf(){
   const have = meta().badges || {};
-  const list = [...BADGES].sort((a, b) => (have[b.id] ? 1 : 0) - (have[a.id] ? 1 : 0));
-  const n = BADGES.filter(b => have[b.id]).length;
-  return `<div class="sec-h"><h2>${tr("Награды ·")} ${n} ${tr("из")} ${BADGES.length}</h2><button class="link" data-act="badgesAll">${tr("Все")}</button></div>
+  const shown = badgesShown(), list = [...shown].sort((a, b) => (have[b.id] ? 1 : 0) - (have[a.id] ? 1 : 0));
+  const n = shown.filter(b => have[b.id]).length;
+  return `<div class="sec-h"><h2>${tr("Награды ·")} ${n} ${tr("из")} ${shown.length}</h2><button class="link" data-act="badgesAll">${tr("Все")}</button></div>
     <div class="shelf">${list.slice(0, 10).map(b => `<button class="shelf-b" data-act="badge" data-id="${b.id}" aria-label="${esc(b.t)}">${badgeIcon(b, !!have[b.id], 54)}<span>${esc(b.t)}</span></button>`).join('')}</div>`;
 }
 A.badge = el => { haptic('selection'); showBadge(el.dataset.id, false); };
-A.badgesAll = () => { const have = meta().badges || {}, st = badgeStats(); openSheet(tr('Награды'), `<div class="badge-grid">${BADGES.map(b => { const v = Math.min(b.n, st[b.k] || 0); return `<button class="shelf-b" data-act="badge" data-id="${b.id}">${badgeIcon(b, !!have[b.id], 60)}<span>${esc(b.t)}</span><small>${have[b.id] ? fmtShort(have[b.id]) : badgeOf(b, v)}</small></button>`; }).join('')}</div>`); };
+A.badgesAll = () => { const have = meta().badges || {}, st = badgeStats(); openSheet(tr('Награды'), `<div class="badge-grid">${badgesShown().map(b => { const v = Math.min(b.n, st[b.k] || 0); return `<button class="shelf-b" data-act="badge" data-id="${b.id}">${badgeIcon(b, !!have[b.id], 60)}<span>${esc(b.t)}</span><small>${have[b.id] ? fmtShort(have[b.id]) : badgeOf(b, v)}</small></button>`; }).join('')}</div>`); };
 
 /* ============ personal records in the gym ============ */
 const e1rm = s => s && +s.w > 0 && +s.r > 0 ? (+s.w) * (1 + (+s.r) / 30) : 0;
@@ -5561,6 +5561,10 @@ function holdEnd(record){
 }
 A.holdDone = () => holdEnd(true);
 A.holdStop = () => holdEnd(false);
+
+/* ============ awards follow the modules: a switched-off module's awards are hidden, not lost ============ */
+const BADGE_MODULE = {posts: 'content'};
+const badgesShown = () => BADGES.filter(b => !BADGE_MODULE[b.k] || modOn(BADGE_MODULE[b.k]) || meta().badges?.[b.id]);
 
 /* ============ init ============ */
 async function init(){

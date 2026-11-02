@@ -1927,3 +1927,17 @@ test('Focus awards: the first session, 45 minutes without leaving, and 10 hours 
     assert.ok(run(`earnedBadgeIds().includes('focus1') && earnedBadgeIds().includes('focusClean')`));
   } finally { run(`remove('days/${day}')`); }
 });
+
+test('awards of a switched-off module are hidden unless already earned', () => {
+  run(`globalThis.mods10 = meta().modules; globalThis.badges10 = meta().badges; setMeta({modules: {...(mods10 || {}), content: false}, badges: {...(badges10 || {}), post1: undefined}})`);
+  try {
+    let ids = JSON.parse(run(`JSON.stringify(badgesShown().map(b => b.id))`));
+    assert.ok(!ids.includes('post1') && !ids.includes('post12'));
+    assert.ok(ids.includes('first') && ids.includes('focus1'));
+    run(`setMeta({badges: {...meta().badges, post1: '2030-01-01'}})`);
+    ids = JSON.parse(run(`JSON.stringify(badgesShown().map(b => b.id))`));
+    assert.ok(ids.includes('post1') && !ids.includes('post12'), 'one already earned stays on the shelf');
+    run(`setMeta({modules: {...meta().modules, content: true}})`);
+    assert.ok(run(`badgesShown().some(b => b.id === 'post12')`));
+  } finally { run(`setMeta({modules: mods10, badges: badges10})`); }
+});

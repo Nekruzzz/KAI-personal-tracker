@@ -2072,3 +2072,22 @@ test('food named on its own is one piece, coffee with milk is one drink, and the
   assert.equal(run(`isDayNote('молоко')`), false, 'in the to-do field, "молоко" is something to buy');
   assert.equal(run(`isDayNote('slept 7 hours')`), true);
 });
+
+test('Tell KAI on the phone: screen time in words, saved on Apply while the module is on', () => {
+  const d = run(`todayISO()`);
+  run(`globalThis.mods15 = meta().modules; globalThis.day15 = S.docs['days/${d}'] ? clone(S.docs['days/${d}']) : undefined; setMeta({modules: {...(mods15 || {}), screentime: true}}); globalThis.toastS = toast; toast = () => {}`);
+  try {
+    const sm = t => run(`localTellParse(${JSON.stringify(t)}, todayISO()).r.screen_min`);
+    assert.equal(sm('screen time 3h 20m'), 200);
+    assert.equal(sm('экранное время 4 часа'), 240);
+    assert.equal(sm('провёл 2 часа в телефоне'), 120);
+    assert.equal(sm('spent 45 minutes on my phone'), 45);
+    assert.equal(sm('slept 7 hours'), undefined);
+    run(`save('inbox/ts1', {id: 'ts1', kind: 'tell', meta: {date: '${d}', text: 'screen time 3h 20m'}, done: false, created: new Date().toISOString(), result: localTellParse('screen time 3h 20m', '${d}').r})`);
+    assert.ok(run(`tellLines(S.docs['inbox/ts1'].result, '${d}').join(' ')`).includes(run(`fmtMin(200)`)));
+    run(`A.tellApply({dataset: {id: 'ts1'}})`);
+    assert.equal(run(`getDay('${d}').screen.total`), 200);
+    run(`setMeta({modules: {...meta().modules, screentime: false}})`);
+    assert.equal(sm('screen time 3h'), undefined, 'not while the module is off');
+  } finally { run(`toast = toastS; remove('inbox/ts1'); setMeta({modules: mods15}); day15 ? save('days/${d}', day15) : remove('days/${d}')`); }
+});

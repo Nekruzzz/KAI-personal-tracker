@@ -3397,13 +3397,13 @@ function icsText2(events){
   events.forEach(e => {
     const s = e.date.replace(/-/g, '') + 'T' + e.time.replace(':', '') + '00', end = hmStr(Math.min(hm(e.time) + (e.min || 15), 23 * 60 + 59));
     const esc2 = x => String(x).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
-    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@kai', 'DTSTAMP:' + stamp, 'DTSTART:' + s, 'DTEND:' + e.date.replace(/-/g, '') + 'T' + end.replace(':', '') + '00', 'SUMMARY:' + esc2(e.title),
+    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@kai', 'DTSTAMP:' + stamp, 'DTSTART:' + s, 'DTEND:' + e.date.replace(/-/g, '') + 'T' + end.replace(':', '') + '00', 'SUMMARY:' + esc2(e.title), ...(ICS_FREQ[e.every] ? ['RRULE:FREQ=' + ICS_FREQ[e.every]] : []),
       'BEGIN:VALARM', 'TRIGGER:-PT10M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(e.title), 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(e.title), 'END:VALARM', 'END:VEVENT');
   });
   L.push('END:VCALENDAR'); return L.join('\r\n');
 }
 async function exportTasksIcs(list){
-  const ev = list.filter(t => t.due && t.time && t.due >= todayISO()).map(t => ({id: t.id, title: t.title, date: t.due, time: t.time}));
+  const ev = list.filter(t => t.due && t.time && t.due >= todayISO()).map(t => ({id: t.id, title: t.title, date: t.due, time: t.time, every: t.every}));
   if (!ev.length) return toast(tr('Нужны задачи с датой и временем'));
   const ok = await shareOrDownload('kai-zadachi.ics', new Blob([icsText2(ev)], {type: 'text/calendar'}));
   if (ok) toast(tr('Файл готов: открой его и нажми «Добавить»'));
@@ -5825,6 +5825,9 @@ function localExamResult(c, date){
   if (!e && recent.length === 1 && /exam|экзамен|test|тест|зач[её]т/i.test(rest)) e = recent[0];
   return e ? {id: e.id, passed: !/^(?:не|завал|провал|fail|didn)/i.test(m[1]), grade: g ? g[1].trim() : null} : null;
 }
+
+/* ============ a repeating to-do repeats in the iPhone Calendar too ============ */
+const ICS_FREQ = {day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY'};
 
 /* ============ init ============ */
 async function init(){

@@ -3771,7 +3771,8 @@ function examCard(){
   const t = todayISO();
   return `<div class="sec-h"><h2>${tr("Экзамены и дедлайны")}</h2><button class="link" data-act="evSheet">${tr("+ Добавить")}</button></div>${list.slice(0, 3).map(e => {
     const n = dayDiff(t, e.date), k = EV_KIND[e.kind];
-    return `<section class="card examc ${n <= 1 ? 'soon' : ''}"><div class="ex-n"><b>${n === 0 ? '!' : n}</b><span>${n === 0 ? tr('сегодня') : plural(n, tr('день'), tr('дня'), tr('дней'))}</span></div><div class="mid"><div class="t">${esc(e.title)} <span class="tag ${k[2]}">${k[0]}</span></div><div class="s">${fmtShort(e.date)}${e.from ? ' · ' + e.from : ''}${e.prepMin ? tr(' · подготовка ') + fmtMin(e.prepMin) : ''}</div><div class="ex-tip">${esc(examStage(n, e.kind))}</div>${e.kind === 'exam' && planTasks(e.id).length ? `<div class="hint" style="margin-bottom:10px">${tr('Темы:')} ${planTasks(e.id).filter(t => t.done).length} ${tr('из')} ${planTasks(e.id).length}</div>` : ''}<div class="btnrow">${e.kind === 'exam' && n > 0 ? `<button class="btn ghost" data-act="studyPlan" data-id="${esc(e.id)}">${ic('list')}${planTasks(e.id).length ? tr('Изменить план') : tr('План подготовки')}</button>` : ''}<button class="btn ghost" data-act="examPrep" data-id="${esc(e.id)}">${tr("+30 мин подготовки")}</button>${isNative() ? '' : `<button class="btn ghost" data-act="examIcs" data-id="${esc(e.id)}">${ic('bell')}${tr("В Календарь")}</button>`}</div></div></section>`;
+    return `<section class="card examc ${n <= 1 ? 'soon' : ''}"><div class="ex-n"><b>${n === 0 ? '!' : n}</b><span>${n === 0 ? tr('сегодня') : plural(n, tr('день'), tr('дня'), tr('дней'))}</span></div><div class="mid"><div class="t">${esc(e.title)} <span class="tag ${k[2]}">${k[0]}</span></div><div class="s">${fmtShort(e.date)}${e.from ? ' · ' + e.from : ''}${e.prepMin ? tr(' · подготовка ') + fmtMin(e.prepMin) : ''}</div><div class="ex-tip">${esc(examStage(n, e.kind))}</div>${e.kind === 'exam' && planTasks(e.id).length ? `<div class="hint" style="margin-bottom:10px">${tr('Темы:')} ${planTasks(e.id).filter(t => t.done).length} ${tr('из')} ${planTasks(e.id).length}</div>` : ''}</div><div class="ex-act"><div class="btnrow">${e.kind === 'exam' && n > 0 ? `<button class="btn ghost" data-act="studyPlan" data-id="${esc(e.id)}">${ic('list')}${planTasks(e.id).length ? tr('Изменить план') : tr('План подготовки')}</button>` : ''}${!FOCUS ? `<button class="btn ghost" data-act="focusSheet" data-exam="${esc(e.id)}" data-l="${esc(e.title)}">${ic('target')}${tr('Фокус')}</button>` : ''}</div>
+      <div class="ex-links"><button class="link" data-act="examPrep" data-id="${esc(e.id)}">${tr("+30 мин подготовки")}</button>${isNative() ? '' : `<button class="link" data-act="examIcs" data-id="${esc(e.id)}">${tr("В Календарь")}</button>`}</div></div></section>`;
   }).join('')}`;
 }
 A.examPrep = el => {
@@ -5180,9 +5181,9 @@ function focusMinutes(now = Date.now()){
   const f = FOCUS; if (!f) return 0;
   return Math.max(0, Math.floor((Math.min(now, f.end) - f.start - focusAway(f, now)) / 60000));
 }
-function focusStart(min, label, task){
+function focusStart(min, label, task, exam){
   const now = Date.now();
-  FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба'), task: task || null};
+  FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба'), task: task || null, exam: exam || null};
   focusSave(); focusRun(); syncReminders(); haptic('medium');
 }
 function focusRun(){
@@ -5215,6 +5216,7 @@ function focusFinish(complete){
     saveTasks(smartTasks().map(t => t.id === task.id ? {...t, focusMin: (t.focusMin || 0) + mins} : t));
     if (task.examId){ const pl = clone(plan()), e = pl.routine?.events?.find(x => x.id === task.examId); if (e){ e.prepMin = (e.prepMin || 0) + mins; save('app/plan', pl); } }
   }
+  if (!task && f.exam && mins > 0){ const pl = clone(plan()), e = pl.routine?.events?.find(x => x.id === f.exam); if (e){ e.prepMin = (e.prepMin || 0) + mins; save('app/plan', pl); } }
   FOCUS_TASK = task && !task.done ? task.id : null;
   syncReminders();
   if (complete){ haptic('success'); sound('badge'); }
@@ -5254,16 +5256,16 @@ function focusResume(){
 }
 const focusFits = b => !b || ['study', 'project', 'free'].includes(b.kind);
 A.focusSheet = el => {
-  const task = el?.dataset?.task || null;
+  const task = el?.dataset?.task || null, exam = el?.dataset?.exam || null;
   openSheet(tr('Фокус'), () => FOCUS ? `<div class="hint">${trf('Идёт фокус: {l}. Сделано {m} мин.', {l: esc(FOCUS.label), m: focusMinutes()})}</div><button class="btn block danger" data-act="focusEnd">${tr('Завершить сейчас')}</button>`
     : `${(w => w.n ? `<div class="note">${trf('За 7 дней: {n} {s}, {t} фокуса, {d} {w}', {n: w.n, s: plural(w.n, tr('сессия'), tr('сессии'), tr('сессий')), t: w.min >= 60 ? num(w.min / 60, 1) + ' ' + tr('ч') : w.min + ' ' + tr('мин'), d: w.leaves, w: plural(w.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений'))})}</div>` : '')(focusWeek())}<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
     <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
     <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
     <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);
-  SH.ftask = task; // read when Start is tapped
+  SH.ftask = task; SH.fexam = exam; // read when Start is tapped
 };
 A.focusMin = el => { SH.fl = val('fcL'); SH.fm = +el.dataset.v; haptic('selection'); drawSheet(); };
-A.focusGo = () => { const l = val('fcL'), m = SH?.fm || 25, task = SH?.ftask; closeSheet(); focusStart(m, l, task); };
+A.focusGo = () => { const l = val('fcL'), m = SH?.fm || 25, task = SH?.ftask, exam = SH?.fexam; closeSheet(); focusStart(m, l, task, exam); };
 A.focusEnd = () => { closeSheet(); focusFinish(false); };
 
 /* ============ timetable from a calendar file (.ics) ============ */

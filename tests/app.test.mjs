@@ -1909,3 +1909,21 @@ test('Hold timer: after "get ready", the seconds held go into the next set and t
     assert.equal(run(`getDay('${day}').sets['${e.id}'].filter(x => x && +x.r).length`), Math.min(2, n), 'Stop records nothing');
   } finally { run(`Date.now = now8; toast = toastH; if (HOLD) holdEnd(false); stopRest(); day8 ? save('days/${day}', day8) : remove('days/${day}')`); }
 });
+
+test('Focus awards: the first session, 45 minutes without leaving, and 10 hours in all', () => {
+  const day = '2030-03-03', st = () => JSON.parse(run(`JSON.stringify(badgeStats())`));
+  const goal = id => run(`(b => b.k + ':' + b.n)(BADGES.find(b => b.id === '${id}'))`);
+  assert.deepEqual([goal('focus1'), goal('focusClean'), goal('focus10h')], ['focusN:1', 'focusClean:1', 'focusH:10']);
+  const s0 = st();
+  run(`save('days/${day}', {...buildDay('${day}'), focus: [{at: '10:00', min: 25, of: 25, leaves: 1}, {at: '11:00', min: 0, of: 25, leaves: 4}]})`);
+  try {
+    let s1 = st();
+    assert.equal(s1.focusN - s0.focusN, 1, 'a session with no focused minutes does not count');
+    assert.equal(s1.focusClean - s0.focusClean, 0, 'one that was left does not count as clean');
+    assert.ok(Math.abs(s1.focusH - s0.focusH - 25 / 60) < 1e-9);
+    run(`mutDay('${day}', d => { d.focus.push({at: '14:00', min: 45, of: 45, leaves: 0}, {at: '16:00', min: 30, of: 30, leaves: 0}); })`);
+    s1 = st();
+    assert.equal(s1.focusClean - s0.focusClean, 1, 'only 45 minutes or more without leaving');
+    assert.ok(run(`earnedBadgeIds().includes('focus1') && earnedBadgeIds().includes('focusClean')`));
+  } finally { run(`remove('days/${day}')`); }
+});

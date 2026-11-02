@@ -2042,4 +2042,10 @@ window.I18N_EN = {
 "Держи ·":"Hold ·",
 "подход {i} из {n}":"set {i} of {n}",
 "Записано: {s} сек":"Saved: {s} sec",
+"В потоке":"In the zone",
+"Провести первую фокус-сессию":"Finish a first focus session",
+"Без отвлечений":"No distractions",
+"Фокус от 45 минут, ни разу не выйдя из KAI":"Focus for 45 minutes or more without leaving KAI once",
+"Глубокая работа":"Deep work",
+"10 часов в фокусе":"10 hours of focus",
 };

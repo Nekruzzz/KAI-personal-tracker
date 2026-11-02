@@ -1105,11 +1105,14 @@ const BADGES = [
   {id:'kg3', icon:'scale', c:'#2ebd6b', get t(){ return isUS() ? tr('Минус шесть фунтов') : tr('Минус три'); }, get d(){ return isUS() ? tr('На 6,6 фунта ниже старта') : tr('На 3 кг ниже старта'); }, k:'lost', n:3},
   {id:'post1', icon:'video', c:'#d55181', t:tr('В эфире'), d:tr('Опубликовать первый ролик'), k:'posts', n:1},
   {id:'post12', icon:'video', c:'#d55181', t:tr('Автор'), d:tr('12 опубликованных роликов'), k:'posts', n:12},
+  {id:'focus1', icon:'target', c:'#3987e5', t:tr('В потоке'), d:tr('Провести первую фокус-сессию'), k:'focusN', n:1},
+  {id:'focusClean', icon:'target', c:'#9085e9', t:tr('Без отвлечений'), d:tr('Фокус от 45 минут, ни разу не выйдя из KAI'), k:'focusClean', n:1},
+  {id:'focus10h', icon:'target', c:'#ffd84d', t:tr('Глубокая работа'), d:tr('10 часов в фокусе'), k:'focusH', n:10},
   {id:'safe', icon:'shield', c:'#2ebd6b', t:tr('Данные в безопасности'), d:tr('Сделать резервную копию'), k:'backup', n:1},
 ];
 function badgeStats(){
   const ks = dayKeys(), t = targets();
-  const st = {checks:0, best: Math.max(bestStreak(), streak()), perfect:0, gym:0, prs:0, proteinRun:0, stepsRun:0, sleepRun:0, lost:0, posts:0, backup: meta().lastBackup ? 1 : 0};
+  const st = {checks:0, best: Math.max(bestStreak(), streak()), perfect:0, gym:0, prs:0, proteinRun:0, stepsRun:0, sleepRun:0, lost:0, posts:0, backup: meta().lastBackup ? 1 : 0, focusN:0, focusH:0, focusClean:0};
   let run = {p:0, s:0, z:0}, prev = null;
   ks.forEach(k => {
     const d = S.docs['days/' + k];
@@ -1119,6 +1122,7 @@ function badgeStats(){
     if (d.status !== 'sick' && (dayScore(d) || 0) >= 1 && (d.tasks || []).length >= 3) st.perfect++;
     if ((d.tasks || []).some(x => x.id === 'gym' && x.done)) st.gym++;
     st.prs += (d.prs || []).length;
+    (d.focus || []).forEach(f => { if (f.min > 0){ st.focusN++; st.focusH += f.min / 60; } if (f.min >= 45 && !f.leaves) st.focusClean++; });
     run.p = t.ok && d.meals?.length && eaten(d).p >= t.p * .9 ? run.p + 1 : 0; st.proteinRun = Math.max(st.proteinRun, run.p);
     run.s = d.steps && +d.steps >= t.steps ? run.s + 1 : 0; st.stepsRun = Math.max(st.stepsRun, run.s);
     run.z = d.sleep && +d.sleep >= 7 ? run.z + 1 : 0; st.sleepRun = Math.max(st.sleepRun, run.z);

@@ -1978,3 +1978,35 @@ test('a weight without a unit is read in kilograms or pounds, whichever is close
     assert.equal(run(`localTellParse('weight 71 kg', todayISO()).r.weight`), 71);
   } finally { run(`save('app/profile', prof11); remove('days/${day}')`); }
 });
+
+test('Tell KAI on the phone: parts of the day, "in 2 weeks", "next Monday", flights, skipped gym, sets without commas, a second amount', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
+  const today = run(`todayISO()`), plus = n => run(`addDays(todayISO(), ${n})`);
+  assert.deepEqual(p('рейс 20 декабря в 6 утра').events.map(e => [e.title, e.from]), [['Рейс', '06:00']], 'morning, and a flight is an event');
+  assert.equal(q('позвонить в 9 вечера').time, '21:00');
+  assert.equal(q('встреча в 3 дня').time, '15:00');
+  assert.equal(q('в 11 ночи лечь').time, '23:00');
+  assert.equal(q('в 2 ночи будильник').time, '02:00');
+  assert.deepEqual([q('сдать отчёт через 2 дня').due, q('сдать отчёт через 2 дня').time], [plus(2), null], '"через 2 дня" is days, not 14:00');
+  assert.equal(q('midterm in 2 weeks').due, plus(14));
+  assert.equal(q('контрольная через неделю').due, plus(7));
+  assert.equal(q('essay in 3 days').due, plus(3));
+  assert.equal(p('контрольная через 2 недели').events[0].kind, 'exam');
+  const nm = q('эссе сдать в следующий понедельник');
+  assert.equal(nm.title, 'Эссе сдать');
+  assert.equal(run(`dow('${nm.due}')`), 1);
+  assert.ok(nm.due > today);
+  run(`globalThis.plan12 = clone(plan())`);
+  setPlan([], [], {1: 'A', 2: 'A', 3: 'A', 4: 'A', 5: 'A', 6: 'A', 7: 'A'});
+  const wd = run(`(() => { for (let i = 0; i < 14; i++){ const k = addDays(todayISO(), i); if (getDay(k).tasks.some(t => t.id === 'gym')) return k; } return ''; })()`);
+  assert.ok(wd, 'a workout day in the next two weeks');
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(localTellParse('пропустил зал', '${wd}').r.tasks_undone)`)), ['gym']);
+  run(`save('app/plan', plan12)`);
+  assert.deepEqual(p('10к шагов').steps, 10000);
+  assert.equal(p('жим 60 кг на 8 8 6').sets.map(x => x.r).join(','), '8,8,6');
+  assert.deepEqual(p('spent 30 on books and 12 on lunch').money.map(m => [m.amount, m.cat]), [[30, 'Другое'], [12, 'Кафе и рестораны']]);
+  assert.equal(p('12 on lunch').money.length, 0, 'an amount alone is only spending after another spending');
+  assert.equal(p('slept badly, 5 hours').sleep_h, 5);
+  assert.equal(p('плохо спал, 5 часов').sleep_h, 5);
+});

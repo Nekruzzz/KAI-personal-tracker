@@ -120,6 +120,16 @@ Apple lets the App Store page list the accessibility features an app supports. O
 
 The app has health and weight features and free-form AI. Answer Apple's questionnaire honestly, and read the current age-rating categories before choosing, since many users may be students. The terms draft sets a minimum age of 13; ask the lawyer whether that fits your countries.
 
+## App icon on iOS 26 (Liquid Glass)
+
+The current icon is a single flat image (white KAI on black), which iOS shows as it is and also tints for the dark and tinted Home Screen styles. For the full Liquid Glass look (light catching the edges, depth, the clear style), build the icon in Icon Composer, which comes with Xcode 26 on a Mac:
+
+1. Export the KAI wordmark alone, white on a transparent background, as an SVG or a 1024×1024 PNG. Keep it within the middle of the canvas, as now.
+2. In Icon Composer, add a black (or very dark green) background and put the wordmark on its own layer above it.
+3. Preview the default, dark, clear and tinted styles, then save the `.icon` file into `native/ios/App/App` and choose it as the app icon in Xcode.
+
+Nothing in the app depends on this; it only changes how the icon looks on the Home Screen.
+
 ## Screenshots
 
 Check Apple's current required sizes in App Store Connect. Suggested order:

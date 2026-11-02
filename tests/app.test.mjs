@@ -2045,3 +2045,15 @@ test('repeating to-dos: understood when typed, the next one comes when one is ch
     assert.ok(run(`tellLines(localTellParse('выносить мусор по понедельникам', todayISO()).r, todayISO()).join(' ')`).includes(run(`EVERY.week()`)), 'Tell KAI shows the repeat before adding');
   } finally { run(`saveTasks(tasks13)`); }
 });
+
+test('checking off a to-do by mistake can be undone, with the next one of a repeating to-do', () => {
+  const today = run(`todayISO()`);
+  run(`globalThis.tasks14 = clone(smartTasks()); saveTasks([{id: 'u1', title: 'Gym bag', due: '${today}', time: null, pri: 2, done: false, created: '${today}', every: 'week'}])`);
+  try {
+    run(`A.tkDone({dataset: {id: 'u1'}})`);
+    assert.equal(run(`smartTasks().length`), 2);
+    run(`A.undoApply()`);
+    const list = JSON.parse(run(`JSON.stringify(smartTasks())`));
+    assert.deepEqual(list.map(t => [t.id, t.done]), [['u1', false]]);
+  } finally { run(`saveTasks(tasks14)`); }
+});

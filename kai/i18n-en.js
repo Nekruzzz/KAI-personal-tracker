@@ -2059,4 +2059,5 @@ window.I18N_EN = {
 "каждую неделю":"every week",
 "Не повторять":"Stop repeating",
 "Больше не повторяется":"It no longer repeats",
+"Готово: {t}":"Done: {t}",
 };

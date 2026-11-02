@@ -1604,3 +1604,33 @@ test('the morning plan: off until turned on, then the day in one line, and nothi
     assert.equal(line, '', 'an empty day says nothing');
   } finally { run(`setMeta({remind: {...(meta().remind || {}), morning: false}}); saveTasks([])`); }
 });
+
+test('a calendar file becomes classes and events: weekly lessons, exams and deadlines, nothing past or cancelled', () => {
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0',
+    'BEGIN:VEVENT', 'SUMMARY:Linear Algebra', 'LOCATION:Room 204\\, Main building', 'DTSTART;TZID=Europe/Somewhere:20300107T090000', 'DTEND;TZID=Europe/Somewhere:20300107T103000', 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20300530T000000Z', 'END:VEVENT',
+    'BEGIN:VEVENT', 'SUMMARY:Old seminar', 'DTSTART:20290901T120000', 'RRULE:FREQ=WEEKLY;UNTIL=20291220T000000Z', 'END:VEVENT',
+    'BEGIN:VEVENT', 'SUMMARY:Final exam: Physi', ' cs', 'DTSTART:20300120T100000', 'DTEND:20300120T120000', 'END:VEVENT',
+    'BEGIN:VEVENT', 'SUMMARY:Essay due', 'DTSTART;VALUE=DATE:20300115', 'END:VEVENT',
+    'BEGIN:VEVENT', 'SUMMARY:Past party', 'DTSTART:20291201T190000', 'END:VEVENT',
+    'BEGIN:VEVENT', 'SUMMARY:Cancelled talk', 'STATUS:CANCELLED', 'DTSTART:20300110T190000', 'END:VEVENT',
+    ...['20300103', '20300110', '20300117'].flatMap(d => ['BEGIN:VEVENT', 'SUMMARY:Chemistry lab', `DTSTART:${d}T140000`, `DTEND:${d}T160000`, 'END:VEVENT']),
+    'END:VCALENDAR'].join('\r\n');
+  const r = JSON.parse(run(`JSON.stringify(parseIcs(${JSON.stringify(ics)}, '2030-01-01'))`));
+  assert.deepEqual(r.classes, [
+    {day: 1, time: '09:00', end: '10:30', title: 'Linear Algebra, Room 204, Main building'},
+    {day: 3, time: '09:00', end: '10:30', title: 'Linear Algebra, Room 204, Main building'},
+    {day: 4, time: '14:00', end: '16:00', title: 'Chemistry lab'},
+  ]);
+  assert.deepEqual(r.events, [
+    {date: '2030-01-15', title: 'Essay due', kind: 'deadline'},
+    {date: '2030-01-20', title: 'Final exam: Physics', kind: 'exam', from: '10:00', until: '12:00'},
+  ]);
+  setPlan();
+  run(`SH = {ics: icsNew(parseIcs(${JSON.stringify(ics)}, '2030-01-01'))}; A.icsApply()`);
+  assert.equal(run(`plan().classes.length`), 3);
+  assert.ok(run(`allEvents().some(e => e.title === 'Final exam: Physics' && e.kind === 'exam')`));
+  assert.equal(run(`icsNew(parseIcs(${JSON.stringify(ics)}, '2030-01-01')).classes.length`), 0, 'importing again adds nothing twice');
+  run(`A.undoApply()`);
+  assert.equal(run(`plan().classes.length`), 0, 'and it can be undone');
+  run(`SH = null`);
+});

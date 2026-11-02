@@ -1976,4 +1976,11 @@ window.I18N_EN = {
 "тренировка в {t}":"workout at {t}",
 "сегодня «{e}»":"today: “{e}”",
 "«{e}» через {n} {d}":"“{e}” in {n} {d}",
+"В файле нет новых занятий или будущих событий":"No new classes or upcoming events in this file",
+"Импорт из календаря":"Import from a calendar",
+"Вот что нашлось в файле. Ничего не добавится, пока ты не нажмёшь кнопку.":"Here's what the file contains. Nothing is added until you tap the button.",
+"и ещё {n}":"and {n} more",
+"Добавить всё":"Add all",
+"Добавлено из календаря: {n}":"Added from the calendar: {n}",
+"Из календаря (.ics)":"From a calendar (.ics)",
 };

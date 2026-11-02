@@ -2193,6 +2193,7 @@ A.toggleTask = el => {
   if (!t0.done){ S.fx = {...(S.fx||{}), task: t0.id, t: Date.now()}; burstAt(el); haptic('light'); sound('pop'); }
   else haptic('selection');
   mutDay(todayISO(), d => { const t = d.tasks.find(x=>x.id===el.dataset.id); if (t) t.done = !t.done; });
+  if (!t0.done) habitMilestone(t0);
 };
 A.goTrain = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='train'; S.sub.w = null; window.scrollTo(0,0); render(); };
 A.goFood = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='food'; window.scrollTo(0,0); render(); };
@@ -5918,6 +5919,15 @@ function billDueAns(a, id, mark){
   if (a === 'paid') A.billPay({dataset: {id}});
   if (a === 'skip'){ billSkipMonth(id); toast(tr('В этом месяце пропущен')); }
   mark(a);
+}
+
+/* ============ a habit's streak milestones get a moment ============ */
+const HABIT_MILESTONES = [7, 14, 30, 50, 100, 200, 365];
+function habitMilestone(t){
+  const n = habitStreak(t.id); if (!HABIT_MILESTONES.includes(n)) return false;
+  const unit = t.id === 'gym' ? plural(n, tr('тренировка'), tr('тренировки'), tr('тренировок')) : plural(n, tr('день'), tr('дня'), tr('дней'));
+  setTimeout(() => { toast(trf('«{t}»: {n} {u} подряд!', {t: t.title, n, u: unit}), {icon: 'flame', tone: 'gold', ms: 3500}); if (n >= 30) confetti({n: 90, y: innerHeight * .4}); }, 450); // after the check-off's own feedback
+  return true;
 }
 
 /* ============ init ============ */

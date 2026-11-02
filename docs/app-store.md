@@ -23,6 +23,7 @@ See your effort add up: hours walked and studied, active days, streaks, levels a
 - One message updates your food, workouts, schedule, tasks and money
 - Conflict warnings before they become problems
 - Study plans built around your real week
+- Import your timetable from a calendar file
 - Focus sessions that count only the minutes you actually focus, and notice when you leave for another app
 - Apple Health for steps, sleep and workouts
 - English and Russian
@@ -58,6 +59,7 @@ KAI предупредит, если планы мешают друг другу
 - Одно сообщение обновляет еду, тренировки, расписание, задачи и деньги
 - Предупреждения о конфликтах заранее
 - Планы подготовки под твою реальную неделю
+- Импорт расписания из файла календаря
 - Фокус-сессии: в учёбу засчитываются только минуты без отвлечений, а уход в другое приложение замечается
 - Здоровье iPhone: шаги, сон и тренировки
 - Русский и английский

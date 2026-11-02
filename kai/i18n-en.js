@@ -2076,4 +2076,6 @@ window.I18N_EN = {
 "тренировка":"workout",
 "тренировки":"workouts",
 "тренировок":"workouts",
+"Добавь расписание пар":"Add your class timetable",
+"Если университет даёт расписание файлом календаря (.ics), KAI добавит все пары сразу. Или добавь их по одной.":"If your university gives the timetable as a calendar file (.ics), KAI adds all your classes at once. Or add them one by one.",
 };

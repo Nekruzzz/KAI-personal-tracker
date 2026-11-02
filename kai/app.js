@@ -1261,6 +1261,7 @@ function viewDay(){
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
   h += firstTellCard();
+  h += timetableCard();
   h += suppsGoneNote();
   h += yesterdayBanner();
   h += recapBanner();
@@ -5680,6 +5681,18 @@ function habitStreakHTML(t, after){
   const unit = t.id === 'gym' ? plural(n, tr('тренировка'), tr('тренировки'), tr('тренировок')) : plural(n, tr('день'), tr('дня'), tr('дней')); // workouts aren't daily
   return `${after ? ' · ' : ''}<span class="hab-st">${ic('flame', 'hab-ic')}${n} ${unit} ${tr('подряд')}</span>`;
 }
+
+/* ============ first weeks, for students: the class timetable in one go ============ */
+// after the first message (or once that card is dismissed), until classes exist, it's dismissed, or two weeks have passed
+function timetableCard(){
+  const m = meta();
+  if (profile().role !== 'study' || (plan().classes || []).length || m.ttCardOff || !m.startedOn || dayDiff(m.startedOn, todayISO()) >= 14 || !(hasTold() || m.firstTellOff)) return '';
+  return `<section class="card firstc" aria-labelledby="ttH"><h2 id="ttH">${tr('Добавь расписание пар')}</h2>
+    <div class="hint">${tr('Если университет даёт расписание файлом календаря (.ics), KAI добавит все пары сразу. Или добавь их по одной.')}</div>
+    ${icsPick().replace('class="btn ghost"', 'class="btn block"')}<button class="btn ghost block" data-act="clsAdd2">${ic('plus')}${tr('Добавить пару')}</button>
+    <button class="link" data-act="ttCardOff">${tr('Не сейчас')}</button></section>`;
+}
+A.ttCardOff = () => setMeta({ttCardOff: true});
 
 /* ============ init ============ */
 async function init(){

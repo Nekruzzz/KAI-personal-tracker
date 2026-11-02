@@ -74,6 +74,7 @@ Lighter app, from the owner's later messages: supplements and the face log are s
 - **Restoring a backup can be undone**, and what it replaced is kept as a copy on the phone. A file that isn't a backup is refused before anything changes.
 - **More Undo:** deleting a class, resetting the day schedule and resetting the calorie target.
 - **A first currency from the phone's region** ($, €, £, ₽ and others), filled in during onboarding and changeable; before, money showed as bare numbers until someone typed a symbol.
+- **Cleaner numbers and labels:** thousands separators on every calorie figure, true minus signs, no stray separator before a meal's macros, storage in MB or GB, AI notes that fit the setup (sign in, or connect Claude or ChatGPT) instead of naming only Claude, a natural budget sentence ("about $2 a day until the end of the month"), and no supplements task in the list while supplements are off. A sick day in the week strip showed "P" in English (its letter clashed with protein's); it's now the thermometer icon. A read-through of every screen's text in both languages found nothing else.
 - **Calorie advice, accurate wording:** on a weight-loss goal with weight going up, the card said loss was "too slow"; it now says weight is going up, with a "Going up" badge. The advice itself is unchanged (about 150 kcal less, never under the floor).
 - **Charts:** bar chart axes use round numbers (2,500 and 1,250, not 2,343 and 1,172), and zero reads 0.
 - **Nothing cut off:** a scan of every dropdown and text on every screen and settings section, in both languages, at the size of an iPhone 13 mini, found three truncated choices; the profile form now gives long choices a full row, and two English labels are shorter ("Keep weight", "Not specified"). Headings wrap into even lines.
@@ -120,7 +121,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 117 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 120 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -148,3 +149,4 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 11. **Calorie floor for losing weight** is now 1,200 kcal (it was the person's BMR, which can be lower for small people). That matches the AI's safety rules. If you'd rather use separate floors (for example 1,200 for women and 1,500 for men), it's `KCAL_FLOOR` in `kai/app.js`.
 12. **Should finishing a season clear the day diary at all?** It's how the feature was designed, so it still does, now with a copy and a way back. Keeping the days and only starting a new season count would keep the weight trend and records whole. Your call.
 13. **Sign in with Apple key on the server.** Before submitting, create a Sign in with Apple key in the Apple developer account and set `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_BUNDLE_ID` (and `APPLE_WEB_CLIENT_ID` if Apple sign-in is offered on the web) as Supabase secrets, then deploy `apple-token`. The steps are in `server/README.md`.
+14. **12-hour times for US English?** Times show as 18:30 everywhere. People in the US usually read 6:30 PM. Switching the display by language or region touches about 25 places (timeline, tasks, events, warnings, reminders) and would need its own careful pass; say if you want it.

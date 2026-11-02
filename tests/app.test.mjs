@@ -1586,3 +1586,21 @@ test('Focus on a to-do: minutes go to the topic, marking it done adds only what 
     assert.equal(run(`getDay('${day}').focus.at(-1).min`), 25, 'the session is on record');
   } finally { run(`Date.now = now0; toast = toast3; FOCUS = null; focusSave()`); }
 });
+
+test('the morning plan: off until turned on, then the day in one line, and nothing on an empty day', () => {
+  const tom = run(`addDays(todayISO(), 1)`);
+  run(`saveTasks([{id: 'mp1', title: 'Essay', due: '${tom}', done: false, pri: 2}])`);
+  setPlan([{id: 'mpx', date: run(`addDays(todayISO(), 4)`), title: 'Chemistry', kind: 'exam', from: '10:00'}]);
+  run(`saveTasks([{id: 'mp1', title: 'Essay', due: '${tom}', done: false, pri: 2}])`);
+  assert.ok(!reminders().some(r => r.key.startsWith('m')), 'off by default');
+  run(`setMeta({remind: {...(meta().remind || {}), morning: true}})`);
+  try {
+    const m = reminders().find(r => r.key === 'm' + tom);
+    assert.ok(m, 'tomorrow morning');
+    assert.equal(m.title, 'Your day');
+    assert.match(m.body, /1 task/);
+    assert.match(m.body, /“Chemistry” in 3 days/);
+    const line = run(`morningLine(addDays(todayISO(), 30))`);
+    assert.equal(line, '', 'an empty day says nothing');
+  } finally { run(`setMeta({remind: {...(meta().remind || {}), morning: false}}); saveTasks([])`); }
+});

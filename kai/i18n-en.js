@@ -1970,4 +1970,10 @@ window.I18N_EN = {
 "сессии":"sessions",
 "сессий":"sessions",
 "фокус-сессий":"focus sessions",
+"План на утро":"Morning plan",
+"При подъёме: день одной строкой":"At wake-up: your day in one line",
+"План на день":"Your day",
+"тренировка в {t}":"workout at {t}",
+"сегодня «{e}»":"today: “{e}”",
+"«{e}» через {n} {d}":"“{e}” in {n} {d}",
 };

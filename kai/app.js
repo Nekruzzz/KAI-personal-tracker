@@ -4423,8 +4423,8 @@ function recapBanner(){
 A.recapOpen = () => { setMeta({recapSeen: recapRange()[0]}); A.recap(); };
 
 /* ============ v8: the iPhone app. The native wrapper adds its plugins to window.Capacitor; in a browser none of this runs ============ */
-const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')]];
-const REMIND_OFF = new Set(['bed']); // off until the person turns them on
+const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')]];
+const REMIND_OFF = new Set(['bed', 'morning']); // off until the person turns them on
 const remindOn = k => { const v = (meta().remind || {})[k]; return v === undefined ? !REMIND_OFF.has(k) : v !== false; };
 const REMIND_MAX = 60; // iOS keeps only 64 pending notifications per app
 const REMIND_MUST = 30; // exams come first, so a full timetable can't push them out
@@ -4452,6 +4452,7 @@ function buildReminders(now = Date.now()){
     });
     const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym);
     if (gym && remindOn('gym') && !getDay(date).tasks.some(t => t.id === 'gym' && t.done)) add(`g${date}`, atMin(date, gym.s - 30), tr('Скоро тренировка'), tr('Через 30 минут'), false, 'train');
+    if (i < 7 && remindOn('morning')){ const wk = dayBlocks(date).find(b => b.id === 'wake'), line = morningLine(date); if (wk && line) add(`m${date}`, atMin(date, wk.s + 5), tr('План на день'), line); }
     const bed = i < 7 && remindOn('bed') && bedMin(date);
     if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
   }
@@ -4474,6 +4475,19 @@ async function syncReminders(){
     if (want.length) await LN.schedule({notifications: want.map(r => ({id: r.id, title: r.title, body: r.body, extra: {go: r.go}, schedule: {at: new Date(r.at), allowWhileIdle: true}}))});
     remindSig = sig;
   } catch {}
+}
+/* the morning plan: the day in one line (classes, the workout, to-dos due, the nearest exam); nothing on an empty day */
+function morningLine(date){
+  const parts = [];
+  const cls = timedOn(date).filter(x => x.k === 'cls').length;
+  if (cls) parts.push(`${cls} ${plural(cls, tr('пара'), tr('пары'), tr('пар'))}`);
+  const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym);
+  if (gym) parts.push(trf('тренировка в {t}', {t: hmStr(gym.s)}));
+  const tk = smartTasks().filter(t => !t.done && t.due === date).length;
+  if (tk) parts.push(`${tk} ${plural(tk, tr('задача'), tr('задачи'), tr('задач'))}`);
+  const ex = allEvents().filter(e => (e.kind === 'exam' || e.kind === 'deadline') && e.date >= date).sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (ex){ const n = dayDiff(date, ex.date); parts.push(n === 0 ? trf('сегодня «{e}»', {e: ex.title}) : trf('«{e}» через {n} {d}', {e: ex.title, n, d: plural(n, tr('день'), tr('дня'), tr('дней'))})); }
+  return parts.join(' · ');
 }
 /* bedtime from the day's routine; a sleep time past midnight belongs to the same evening */
 function bedMin(date){

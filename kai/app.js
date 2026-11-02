@@ -2658,11 +2658,11 @@ function txForm(t={}){
   const type = t.type||'out', cats = type==='in'?IN_CATS:OUT_CATS;
   return `<div class="seg"><button class="${type==='out'?'on':''}" data-act="txType" data-v="out">${tr("Расход")}</button><button class="${type==='in'?'on':''}" data-act="txType" data-v="in">${tr("Доход")}</button></div>
     <div class="fgrid"><div class="field"><label for="txA">${tr("Сумма")}</label><input class="in" id="txA" inputmode="decimal" value="${t.amount??''}"></div><div class="field"><label for="txD">${tr("Дата")}</label><input class="in" type="date" id="txD" value="${esc(t.date||todayISO())}"></div></div>
-    <div class="field"><label for="txC">${tr("Категория")}</label><select class="in" id="txC">${cats.map(c=>`<option value="${c[0]}" ${t.cat===c[0]?'selected':''}>${tr(c[0])}</option>`).join('')}</select></div>
-    <div class="field"><label for="txN">${tr("Описание")}</label><input class="in" id="txN" value="${esc(t.note||'')}" placeholder="${tr("кафе, такси, перевод…")}"></div>${billRepRow(t)}`;
+    <div class="field"><label for="txC">${tr("Категория")}</label><select class="in" id="txC" data-ch="txCat">${cats.map(c=>`<option value="${c[0]}" ${(t.cat || (type==='out' && txGuess(t.note)))===c[0]?'selected':''}>${tr(c[0])}</option>`).join('')}</select></div>
+    <div class="field"><label for="txN">${tr("Описание")}</label><input class="in" id="txN" data-ch="txNote" value="${esc(t.note||'')}" placeholder="${tr("кафе, такси, перевод…")}"></div>${billRepRow(t)}`;
 }
 A.txAdd = () => { SH = null; openSheet(tr('Новая операция'), () => txForm(SH.tx) + `<button class="btn block" data-act="txSave">${tr("Добавить")}</button>`); SH.tx = {type:'out'}; drawSheet(); };
-A.txType = el => { SH.tx = {...SH.tx, type:el.dataset.v, amount:val('txA'), date:val('txD'), note:val('txN'), rep:!!$('#txRep')?.checked}; drawSheet(); };
+A.txType = el => { SH.tx = {...SH.tx, type:el.dataset.v, amount:val('txA'), date:val('txD'), note:val('txN'), rep:!!$('#txRep')?.checked, catSet:false}; drawSheet(); };
 A.txSave = () => { const a = toNum(val('txA')); if (!a) return toast(tr('Введи сумму')); const t = {id:SH.tx.id||uid(), type:SH.tx.type, amount:Math.abs(a), date:val('txD')||todayISO(), cat:val('txC'), note:val('txN')}; const rep = !SH.tx.bill && $('#txRep')?.checked; if (SH.tx.bill) t.bill = SH.tx.bill; if (SH.tx.id) removeTx(SH.tx.id, SH.tx.date); if (rep) t.bill = billFromTx(t); addTx([t]); closeSheet(); toast(rep ? tr('Сохранено, повтор каждый месяц') : tr('Сохранено')); };
 function removeTx(id, date){ const m = (date||'').slice(0,7) || S.moneyMonth; const doc = clone(S.docs['money/'+m] || {tx:[]}); doc.tx = doc.tx.filter(x=>x.id!==id); save('money/'+m, doc); }
 A.txEdit = el => { const t = monthTx(S.moneyMonth).find(x=>x.id===el.dataset.id); if (!t) return; SH = null; openSheet(tr('Операция'), () => txForm(SH.tx) + `<div class="btnrow"><button class="btn" data-act="txSave">${tr("Сохранить")}</button><button class="btn danger" data-act="txDel">${ic('trash')}${tr("Удалить")}</button></div>`); SH.tx = {...t}; drawSheet(); };
@@ -5472,6 +5472,11 @@ function billFromTx(t){
   billSaveList([...bills(), item]);
   return item.id;
 }
+
+/* ============ a new money entry's category follows its description, until one is picked ============ */
+const txGuess = text => text ? (MONEY_CAT.find(([re]) => re.test(text)) || [])[1] || billGuess(text) : undefined;
+CH.txNote = el => { const t = SH?.tx; if (!t || t.cat || t.catSet || t.type === 'in') return; const g = txGuess(el.value), sel = $('#txC'); if (g && sel) sel.value = g; };
+CH.txCat = () => { if (SH?.tx) SH.tx.catSet = true; };
 
 /* ============ init ============ */
 async function init(){

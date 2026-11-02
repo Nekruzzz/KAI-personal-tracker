@@ -2213,3 +2213,19 @@ test('budget limits for single categories: saved with the budget, shown on the c
     assert.ok(run(`catLimitsHTML()`).includes('data-lim="Кафе и рестораны"'));
   } finally { run(`budget20 ? save('app/budget', budget20) : remove('app/budget')`); }
 });
+
+test('an AI answer to Tell KAI gets "every month", repeating to-dos and screen time from the phone, still shown before Apply', () => {
+  const d = run(`todayISO()`);
+  run(`globalThis.mods21 = meta().modules; setMeta({modules: {...(mods21 || {}), screentime: true, money: true}})`);
+  try {
+    const text = 'Netflix 11 every month, take out the trash every Monday, screen time 2h';
+    const r = JSON.parse(run(`JSON.stringify(enrichTell({reply: 'ok', money: [{type: 'out', amount: 11, cat: 'Подписки', note: 'Netflix'}, {type: 'out', amount: 5, cat: 'Кафе и рестораны', note: 'coffee'}], new_tasks: [{title: 'Take out the trash', date: null, time: null}]}, ${JSON.stringify(text)}, '${d}'))`));
+    assert.equal(r.money[0].rep, true);
+    assert.equal(r.money[1].rep, undefined, 'only the one that repeats');
+    assert.equal(r.new_tasks[0].every, 'week');
+    assert.equal(run(`dow('${r.new_tasks[0].date}')`), 1, 'and it gets its first Monday');
+    assert.equal(r.screen_min, 120);
+    assert.ok(run(`tellLines(${JSON.stringify(r)}, '${d}').join(' ')`).includes(run(`tr('каждый месяц')`)));
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(enrichTell({reply: 'x'}, 'hello', '${d}'))`)).money, [], 'nothing to add: unchanged apart from empty lists');
+  } finally { run(`setMeta({modules: mods21})`); }
+});

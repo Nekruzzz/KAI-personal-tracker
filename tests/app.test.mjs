@@ -1396,6 +1396,9 @@ test('the weekly summary leads with something real, never "0 min", and leaves ou
   const b = plan({...base, total: 130, walk: 90, gym: 40});
   assert.equal(b.head, '2.2 h'); assert.equal(b.headLabel, 'invested this week');
   assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'days in a row']);
+  const c = plan({...base, total: 130, walk: 90, gym: 40, focus: 3});
+  assert.deepEqual(c.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'focus sessions', 'days in a row'], 'focus sessions when there were any');
+  assert.equal(plan({...base, total: 200, walk: 50, gym: 50, study: 100, focus: 2}).tiles.length, 6, 'never more than six tiles');
 });
 
 test('after Sign in with Apple, the one-time code goes to the server so the account can be revoked later; sign-in never waits for it', async () => {

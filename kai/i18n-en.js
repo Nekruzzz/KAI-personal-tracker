@@ -1969,4 +1969,5 @@ window.I18N_EN = {
 "сессия":"session",
 "сессии":"sessions",
 "сессий":"sessions",
+"фокус-сессий":"focus sessions",
 };

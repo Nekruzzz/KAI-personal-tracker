@@ -4357,7 +4357,8 @@ function recapRange(){ const t = todayISO(), end = dow(t) === 1 ? addDays(t, -1)
 function recapStats(){
   const days = recapRange(), s = timeSum(days);
   const tasks = days.reduce((a, k) => a + (S.docs['days/' + k]?.tasks || []).filter(t => t.done).length, 0) + smartTasks().filter(t => t.done && days.includes(t.doneAt)).length;
-  return {days, ...s, tasks, streak: streak(), level: levelOf(totalXP()).level};
+  const focus = days.reduce((a, k) => a + (S.docs['days/' + k]?.focus || []).filter(x => x.min > 0).length, 0);
+  return {days, ...s, tasks, focus, streak: streak(), level: levelOf(totalXP()).level};
 }
 function recapCanvas(st){
   const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -4402,7 +4403,7 @@ function recapPlan(st){
   const hours = m => m >= 60 ? num(m / 60, 1) + ' ' + tr('ч') : Math.round(m) + ' ' + tr('мин'), timed = st.total >= 1;
   return {
     head: timed ? hours(st.total) : String(st.tasks), headLabel: timed ? tr('вложено за неделю') : tr('задач сделано за неделю'),
-    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)),
+    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
   };
 }
 A.recap = () => {

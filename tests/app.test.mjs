@@ -2280,3 +2280,10 @@ test("Focus history keeps each session's name, and the week is shown by subject"
     assert.ok(run(`SH.body()`).includes('Statistics ' + run(`fmtMin(70)`)));
   } finally { run(`closeSheetQuiet(); day24 ? save('days/${d}', day24) : remove('days/${d}')`); }
 });
+
+test('a repeating to-do sent to the Calendar repeats there too', () => {
+  const ics = run(`icsText2([{id: 'r1', title: 'Gym bag', date: '2030-01-07', time: '08:00', every: 'week'}, {id: 'r2', title: 'Call', date: '2030-01-07', time: '18:00'}])`);
+  const ev = ics.split('BEGIN:VEVENT').slice(1);
+  assert.match(ev[0], /RRULE:FREQ=WEEKLY/);
+  assert.doesNotMatch(ev[1], /RRULE/);
+});

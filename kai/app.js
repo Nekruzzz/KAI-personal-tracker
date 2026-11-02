@@ -3798,7 +3798,7 @@ function examCard(){
   const t = todayISO();
   return `<div class="sec-h"><h2>${tr("Экзамены и дедлайны")}</h2><button class="link" data-act="evSheet">${tr("+ Добавить")}</button></div>${list.slice(0, 3).map(e => {
     const n = dayDiff(t, e.date), k = EV_KIND[e.kind];
-    return `<section class="card examc ${n <= 1 ? 'soon' : ''}"><div class="ex-n"><b>${n === 0 ? '!' : n}</b><span>${n === 0 ? tr('сегодня') : plural(n, tr('день'), tr('дня'), tr('дней'))}</span></div><div class="mid"><div class="t">${esc(e.title)} <span class="tag ${k[2]}">${k[0]}</span></div><div class="s">${fmtShort(e.date)}${e.from ? ' · ' + e.from : ''}${e.prepMin ? tr(' · подготовка ') + fmtMin(e.prepMin) : ''}</div><div class="ex-tip">${esc(examStage(n, e.kind))}</div>${e.kind === 'exam' && planTasks(e.id).length ? `<div class="hint" style="margin-bottom:10px">${tr('Темы:')} ${planTasks(e.id).filter(t => t.done).length} ${tr('из')} ${planTasks(e.id).length}</div>` : ''}</div><div class="ex-act"><div class="btnrow">${e.kind === 'exam' && n > 0 ? `<button class="btn ghost" data-act="studyPlan" data-id="${esc(e.id)}">${ic('list')}${planTasks(e.id).length ? tr('Изменить план') : tr('План подготовки')}</button>` : ''}${!FOCUS ? `<button class="btn ghost" data-act="focusSheet" data-exam="${esc(e.id)}" data-l="${esc(e.title)}">${ic('target')}${tr('Фокус')}</button>` : ''}</div>
+    return `<section class="card examc ${n <= 1 ? 'soon' : ''}"><div class="ex-n"><b>${n === 0 ? '!' : n}</b><span>${n === 0 ? tr('сегодня') : plural(n, tr('день'), tr('дня'), tr('дней'))}</span></div><div class="mid"><div class="t">${esc(e.title)} <span class="tag ${k[2]}">${k[0]}</span></div><div class="s">${fmtShort(e.date)}${e.from ? ' · ' + e.from : ''}${e.prepMin ? tr(' · подготовка ') + fmtMin(e.prepMin) : ''}</div><div class="ex-tip">${esc(examStage(n, e.kind))}</div>${e.kind === 'exam' && planTasks(e.id).length ? `<div class="hint" style="margin-bottom:10px">${tr('Темы:')} ${planTasks(e.id).filter(t => t.done).length} ${tr('из')} ${planTasks(e.id).length}</div>` : ''}</div><div class="ex-act"><div class="btnrow">${e.kind === 'exam' && n > 0 ? `<button class="btn ghost" data-act="studyPlan" data-id="${esc(e.id)}">${ic('list')}${planTasks(e.id).length ? tr('Изменить план') : tr('План подготовки')}</button>` : ''}${!FOCUS ? `<button class="btn ghost" ${(nt => nt ? `data-act="focusTask" data-id="${esc(nt.id)}"` : `data-act="focusSheet" data-exam="${esc(e.id)}" data-l="${esc(e.title)}"`)(nextTopic(e.id))}>${ic('target')}${tr('Фокус')}</button>` : ''}</div>
       <div class="ex-links"><button class="link" data-act="examPrep" data-id="${esc(e.id)}">${tr("+30 мин подготовки")}</button>${isNative() ? '' : `<button class="link" data-act="examIcs" data-id="${esc(e.id)}">${tr("В Календарь")}</button>`}</div></div></section>`;
   }).join('')}`;
 }
@@ -5849,6 +5849,10 @@ function seasonExtra(start, ds, today = todayISO()){
   return {focusMin, examsPassed: ex.filter(e => e.result.passed).length, examsKnown: ex.length};
 }
 const seasonExtraLine = v => `${v.focusMin >= 60 ? ' ' + trf('· фокус {t}', {t: fmtMin(v.focusMin)}) : ''}${v.examsKnown ? ' ' + trf('· экзамены: сдано {n} из {k}', {n: v.examsPassed, k: v.examsKnown}) : ''}`;
+
+/* ============ an exam's Focus works on its next study topic ============ */
+// the earliest open topic of its study plan, so a session moves the plan on; without a plan, the session is for the exam
+const nextTopic = examId => planTasks(examId).filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'))[0] || null;
 
 /* ============ init ============ */
 async function init(){

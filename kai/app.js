@@ -2313,6 +2313,10 @@ ${isUS() ? 'Пользователь считает в фунтах: если е
 warnings — коротко о том, что мешает плану и не видно по времени: тяжёлая нагрузка перед важным днём, мало сна, слишком плотный день. Пересечения по времени проверит приложение, их не пиши. Если всё хорошо, оставь пустым. time_log — только если названо время занятия. reply — 2–3 коротких предложения на «ты»: что понял и один совет.`;
 }
 function tellLines(r, date){
+  const head = date && date < todayISO() ? [trf('За {d}:', {d: dayDiff(date, todayISO()) === 1 ? tr('вчера') : fmtShort(date)})] : [];
+  return [...head, ...tellLines0(r, date)];
+}
+function tellLines0(r, date){
   const d = getDay(date), allEx = Object.values(plan().workouts).flatMap(x=>x.ex), lines = [];
   const tname = id => d.tasks.find(t=>t.id===id)?.title || id;
   (r.tasks_done||[]).forEach(id=>lines.push('✓ '+tname(id)));
@@ -2350,7 +2354,7 @@ A.tellApply = el => {
     if (r.screen_min > 0 && r.screen_min <= 1440 && modOn('screentime')) d.screen = {total: Math.round(r.screen_min), apps: d.screen?.apps || [], pickups: d.screen?.pickups ?? null, src: 'tell'};
     d.log = (d.log||[]).concat([{t:now.toISOString(), text:(it.meta.text||'').slice(0,2000)}]).slice(-20);
   });
-  tellPlanApply(r);
+  tellPlanApply(r, date);
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -3909,13 +3913,13 @@ function tellPlanLines(r){
   (r.time_log || []).filter(x => tn[x?.kind] && +x.min > 0).forEach(x => lines.push(`${tn[x.kind]}: ${fmtMin(+x.min)}`));
   return lines;
 }
-function tellPlanApply(r){
+function tellPlanApply(r, date = todayISO()){
   const {pl, tasks, moves} = tellPlan(r), keys = moves.map(m => [m, workoutFor(m.from)]);
   save('app/plan', pl);
   if (tasks.length) saveTasks([...smartTasks(), ...tasks]);
   keys.forEach(([m, w]) => { mutDay(m.from, d => { d.workout = null; }); if (m.to) mutDay(m.to, d => { d.workout = w; }); });
   const log = (r.time_log || []).filter(x => ['walk', 'gym', 'study'].includes(x?.kind) && +x.min > 0);
-  if (log.length) mutDay(todayISO(), d => { log.forEach(x => { if (x.kind === 'walk') d.walkExtra = (d.walkExtra || 0) + Math.round(+x.min); else d.timeExtra = {...(d.timeExtra || {}), [x.kind]: (d.timeExtra?.[x.kind] || 0) + Math.round(+x.min)}; }); });
+  if (log.length) mutDay(date, d => { log.forEach(x => { if (x.kind === 'walk') d.walkExtra = (d.walkExtra || 0) + Math.round(+x.min); else d.timeExtra = {...(d.timeExtra || {}), [x.kind]: (d.timeExtra?.[x.kind] || 0) + Math.round(+x.min)}; }); });
 }
 function planContext(today){
   const pl = plan(), days = [...Array(21)].map((_, i) => addDays(today, i));
@@ -4744,6 +4748,7 @@ function localTellParse(text, date, opts = {}){
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
     if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
+    if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; } // "ran 5k yesterday morning" is not a to-do for tomorrow
     if (!hit){
       const range = c.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? c.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : c);
@@ -4855,7 +4860,8 @@ function foodLocal(text, date){
   const out = $('#fpOut'); if (out) out.innerHTML = jobView(it);
   return true;
 }
-function tellLocal(text, date){
+function tellLocal(text, date0){
+  const date = tellDayOf(text, date0); // "вчера потратил 500 на такси" belongs to yesterday
   const {r, left} = localTellParse(text, date);
   if (!tellLines(r, date).length) return false;
   const missed = left.map(x => x.trim()).filter(x => x.length > 2).slice(0, 4).map(x => (LANG === 'ru' ? '«' : '“') + x.slice(0, 60) + (LANG === 'ru' ? '»' : '”'));
@@ -5882,6 +5888,16 @@ A.obDone = (...a) => {
   if (b > 0 && SH?.ob?.goals?.includes('money')) save('app/budget', {...(S.docs['app/budget'] || {}), monthly: b});
   return obDoneNew(...a);
 };
+
+/* ============ Tell KAI on the phone: "yesterday" moves the day's records ============ */
+const PAST_DAY_RE = /(?:^|\s)(?:вчера|позавчера|yesterday)(?![a-zа-яё])/i;
+// spending, walks, workouts, meals and the rest go to yesterday (or the day before) when the message says so; plans stay relative to today
+function tellDayOf(text, date){
+  const t = String(text);
+  if (/завтра(?![а-яё])|tomorrow/i.test(t)) return date; // a message about tomorrow too keeps today ("завтрак" is breakfast)
+  if (/позавчера|day before yesterday/i.test(t)) return addDays(date, -2);
+  return PAST_DAY_RE.test(t) ? addDays(date, -1) : date;
+}
 
 /* ============ init ============ */
 async function init(){

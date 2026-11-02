@@ -2336,3 +2336,25 @@ test("what's new shows once to people who used an earlier version, never over an
     assert.equal(run(`whatsNewShow()`), false, 'not before onboarding is done');
   } finally { run(`closeSheetQuiet(); setMeta({...meta27, seenNew: meta27.seenNew, welcomed: meta27.welcomed})`); }
 });
+
+test('Tell KAI on the phone: "yesterday" puts the day’s records on yesterday, plans stay relative to today', () => {
+  const d = run(`todayISO()`), y = run(`addDays(todayISO(), -1)`), m = y.slice(0, 7);
+  assert.equal(run(`tellDayOf('вчера потратил 500 на такси', '${d}')`), y);
+  assert.equal(run(`tellDayOf('позавчера потратил 300 на обед', '${d}')`), run(`addDays(todayISO(), -2)`));
+  assert.equal(run(`tellDayOf('yesterday walked 40 minutes', '${d}')`), y);
+  assert.equal(run(`tellDayOf('вчера на завтрак овсянка 60 г', '${d}')`), y, 'breakfast is not tomorrow');
+  assert.equal(run(`tellDayOf('вчера договорились: завтра в 10 встреча', '${d}')`), d, 'with tomorrow in it, today stays');
+  assert.equal(run(`tellDayOf('spent 12 on lunch', '${d}')`), d);
+  assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('ran 5k yesterday morning', '${d}').r.new_tasks)`)).length, 0, 'not a to-do for tomorrow');
+  run(`globalThis.money28 = clone(S.docs['money/${m}'] || {tx: []}); globalThis.day28 = S.docs['days/${y}'] ? clone(S.docs['days/${y}']) : undefined; globalThis.toastZ = toast; toast = () => {}; globalThis.SH0 = SH; SH = {}`);
+  try {
+    run(`tellLocal('yesterday walked 40 minutes and spent 20 on taxi', '${d}')`);
+    const id = run(`SH.jobId`), it = JSON.parse(run(`JSON.stringify(S.docs['inbox/' + SH.jobId])`));
+    assert.equal(it.meta.date, y);
+    assert.ok(run(`tellLines(S.docs['inbox/${id}'].result, '${y}')[0]`).includes(run(`tr('вчера')`)), 'the preview says which day');
+    const walk0 = run(`getDay('${y}').walkExtra || 0`);
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`getDay('${y}').walkExtra || 0`) - walk0, 40);
+    assert.ok(run(`monthTx('${m}').some(t => t.date === '${y}' && +t.amount === 20)`));
+  } finally { run(`toast = toastZ; SH = SH0; save('money/${m}', money28); day28 ? save('days/${y}', day28) : remove('days/${y}')`); }
+});

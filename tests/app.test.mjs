@@ -1836,3 +1836,27 @@ test('a regular payment links an entry whose old payment was deleted', () => {
     assert.equal(run(`billState(bills()[0])`), 'paid');
   } finally { run(`save('money/${m}', money5); save('app/bills', {list: []})`); }
 });
+
+test('Tell KAI: "every month" with an amount is shown first, then also makes a regular payment, and Undo removes both', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.money)`));
+  assert.deepEqual(p('netflix 11 every month'), [{type: 'out', amount: 11, cat: 'Подписки', note: 'netflix', rep: true}]);
+  assert.deepEqual(p('аренда 30000 в месяц')[0], {type: 'out', amount: 30000, cat: 'Жильё и коммуналка', note: 'аренда', rep: true});
+  assert.equal(p('spent 9 on spotify monthly')[0].rep, true);
+  assert.equal(p('spent 12 on lunch')[0].rep, undefined);
+  assert.equal(p('потратил 500 в месяце')?.[0]?.rep, undefined, '"в месяце" is not "every month"');
+  const d = run(`todayISO()`), m = d.slice(0, 7);
+  run(`globalThis.money6 = clone(S.docs['money/${m}'] || {tx: []}); globalThis.mods6 = meta().modules; setMeta({modules: {...(mods6 || {}), money: true}}); save('app/bills', {list: []}); globalThis.toastE = toast; toast = () => {};
+    save('inbox/tb1', {id: 'tb1', kind: 'tell', meta: {date: '${d}', text: 'netflix 11 every month'}, done: false, created: new Date().toISOString(), result: localTellParse('netflix 11 every month', '${d}').r})`);
+  try {
+    assert.ok(run(`tellLines(S.docs['inbox/tb1'].result, '${d}').join(' ')`).includes(run(`tr('каждый месяц')`)), 'the preview says it repeats');
+    assert.equal(run(`bills().length`), 0, 'nothing changes before Apply');
+    run(`A.tellApply({dataset: {id: 'tb1'}})`);
+    const b = JSON.parse(run(`JSON.stringify(bills())`));
+    assert.deepEqual([b.length, b[0].title, b[0].amount, b[0].day], [1, 'Netflix', 11, +d.slice(8)]);
+    assert.equal(run(`monthTx('${m}').find(t => t.note === 'netflix').bill`), b[0].id);
+    assert.equal(run(`billState(bills()[0])`), 'paid');
+    run(`A.undoApply()`);
+    assert.equal(run(`bills().length`), 0);
+    assert.ok(!run(`monthTx('${m}').some(t => t.note === 'netflix')`));
+  } finally { run(`toast = toastE; remove('inbox/tb1'); setMeta({modules: mods6}); save('money/${m}', money6); save('app/bills', {list: []})`); }
+});

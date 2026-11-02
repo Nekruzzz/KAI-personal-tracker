@@ -2308,7 +2308,7 @@ function tellLines(r, date){
   if (okBody('steps', r.steps)) lines.push(tr('Шаги: ')+num(r.steps)); if (okBody('sleep', r.sleep_h)) lines.push(tr('Сон: ')+r.sleep_h+tr(' ч')); if (okBody('weight', r.weight)) lines.push(tr('Вес: ')+W(r.weight)+' '+kgU());
   (r.supps_taken||[]).forEach(s=>lines.push(tr('БАД принят: ')+s));
   (r.sets||[]).forEach(s=>lines.push(`${tr("Подход:")} ${allEx.find(e=>e.id===s.ex)?.name||s.ex} ${s.w?W(s.w)+' '+kgU()+' × ':''}${s.r}`));
-  (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}`));
+  (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}`));
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   return lines;
 }
@@ -2320,7 +2320,7 @@ A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
   // everything this answer can change, kept so one tap can undo it
-  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7)]);
+  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
@@ -2334,7 +2334,7 @@ A.tellApply = el => {
     d.log = (d.log||[]).concat([{t:now.toISOString(), text:(it.meta.text||'').slice(0,2000)}]).slice(-20);
   });
   tellPlanApply(r);
-  if ((r.money||[]).length) addTx(r.money.map(m=>({id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
+  if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
   if (SH?.jobId === it.id) closeSheet(); else drawSheet();
   haptic('success'); toast(tr('Готово, всё отмечено'), {icon:'checkc', tone:'good', ms: 6000, action: {label: tr('Вернуть'), act: 'undoApply'}});
@@ -4659,15 +4659,18 @@ const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,](\\d
 const amountOf = (whole, cents) => +(whole.replace(/[\s ]/g, '') + (cents ? '.' + cents : ''));
 const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|phone bill|internet|netflix|spotify|gas|fuel|квартплата|коммуналка|интернет|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
 function localMoney(c){
+  // "netflix 11 every month": the entry, offered as a regular payment too
+  const every = MONTHLY_RE.test(c); if (every) c = c.replace(MONTHLY_RE, ' ').replace(/\s+/g, ' ').trim();
+  const out = x => every ? {...x, rep: true} : x;
   const cat = () => (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1];
   // income first: "got paid" also contains "paid"
   let m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + AMT, 'i'));
-  if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return {type: 'in', amount, cat: 'Доход', note: c}; }
+  if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return out({type: 'in', amount, cat: 'Доход', note: c}); }
   m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for)\\s+(.+))?$', 'i'));
-  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return {type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}; }
+  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
   m = c.match(new RegExp('^(' + SPEND_WORDS + ')\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
-  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return {type: 'out', amount, cat: cat(), note: m[1]}; }
+  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); }
   return null;
 }
 function localTellParse(text, date){
@@ -4829,7 +4832,7 @@ const TELL_HELP = [
   [tr('Тело'), [tr('Спал 7 часов'), tr('Лёг в 23, встал в 7'), tr('9 000 шагов'), tr('Вес 72,5')]],
   [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Учился 2 часа'), tr('Присед 40 на 10, 10 и 8')]],
   [tr('Еда'), [tr('200 г гречки и 2 яйца'), tr('Стакан кефира')]],
-  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900')]],
+  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Аренда 400 каждый месяц')]],
   [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4')]],
 ];
@@ -5468,7 +5471,7 @@ function billRepRow(t){
 }
 /* a new regular payment from a money entry being saved with "Every month" on; returns its id */
 function billFromTx(t){
-  const item = {id: uid(), title: (t.note || tr(t.cat)).trim().slice(0, 60), amount: +t.amount, type: t.type === 'in' ? 'in' : 'out', cat: t.cat, day: +t.date.slice(8)};
+  const name = (t.note || tr(t.cat)).trim().slice(0, 60), item = {id: uid(), title: name.charAt(0).toUpperCase() + name.slice(1), amount: +t.amount, type: t.type === 'in' ? 'in' : 'out', cat: t.cat, day: +t.date.slice(8)};
   billSaveList([...bills(), item]);
   return item.id;
 }
@@ -5490,6 +5493,15 @@ function moneyVsPrev(m, type, sum, today = todayISO()){
   const pct = was > 0 ? Math.round((sum - was) / was * 100) : 0;
   const delta = was > 0 && sum > 0 ? ' · ' + (pct === 0 ? tr('сейчас столько же') : trf(pct > 0 ? 'сейчас на {n}% больше' : 'сейчас на {n}% меньше', {n: Math.abs(pct)})) : '';
   return `<div class="hint">${trf('Для сравнения, {p}: {s}', {p: when, s: money(was)})}${delta}</div>`;
+}
+
+/* ============ Tell KAI: "every month" makes a regular payment ============ */
+const MONTHLY_RE = /\s*,?\s*(?:every month|each month|monthly|per month|\/\s*(?:month|mo)\b|\/\s*мес(?![а-яё])|каждый месяц(?![а-яё])|ежемесячно|(?:раз )?в месяц(?![а-яё]))\s*/i;
+/* an entry from Tell KAI marked "every month" joins the regular payment with its name and amount, or starts one */
+function billRep(m, t){
+  if (!m.rep || !modOn('money')) return t;
+  const b = bills().find(x => billKey(x) === billKey(t));
+  return {...t, bill: b ? b.id : billFromTx(t)};
 }
 
 /* ============ init ============ */

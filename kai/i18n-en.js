@@ -2027,4 +2027,8 @@ window.I18N_EN = {
 "· из них {s} на регулярные платежи":"· {s} of it for regular payments",
 "Жильё и коммуналка":"Housing and utilities",
 "Подписки":"Subscriptions",
+"Для сравнения, {p}: {s}":"For comparison, {p}: {s}",
+"сейчас столько же":"the same now",
+"сейчас на {n}% больше":"now {n}% more",
+"сейчас на {n}% меньше":"now {n}% less",
 };

@@ -1812,3 +1812,27 @@ test('a new money entry takes its category from the description, until one is pi
   });
   run(`SH = null`);
 });
+
+test('Money compares with the same days of last month, or with the whole month before a past one', () => {
+  run(`save('money/2030-04', {tx: [{id: 'a1', type: 'out', amount: 100, date: '2030-04-02', cat: 'Другое', note: 'x'}, {id: 'a2', type: 'out', amount: 50, date: '2030-04-20', cat: 'Другое', note: 'y'}, {id: 'a3', type: 'in', amount: 900, date: '2030-04-01', cat: 'Доход', note: 'z'}]})`);
+  try {
+    let h = run(`moneyVsPrev('2030-05', 'out', 80, '2030-05-10')`);
+    assert.ok(h.includes(run(`trf('Для сравнения, {p}: {s}', {p: '1–10 ' + MONTHS_G[3], s: money(100)})`)), h);
+    assert.ok(h.includes(run(`trf('сейчас на {n}% меньше', {n: 20})`)));
+    h = run(`moneyVsPrev('2030-05', 'out', 300, '2030-06-15')`);
+    assert.ok(h.includes(run(`money(150)`)) && h.includes(run(`trf('сейчас на {n}% больше', {n: 100})`)), 'a past month: the whole month before');
+    assert.ok(run(`moneyVsPrev('2030-05', 'in', 900, '2030-05-10')`).includes(run(`tr('сейчас столько же')`)));
+    assert.equal(run(`moneyVsPrev('2030-06', 'out', 10, '2030-06-15')`), '', 'nothing recorded last month: no line');
+    run(`addTx([{id: 'a4', type: 'out', amount: 500, date: '2030-04-28', cat: 'Другое', note: 'Сводка', summary: true}])`);
+    assert.equal(run(`moneyVsPrev('2030-05', 'out', 80, '2030-05-10')`), '', 'a monthly summary has no days to compare');
+  } finally { run(`remove('money/2030-04')`); }
+});
+
+test('a regular payment links an entry whose old payment was deleted', () => {
+  const m = run(`curMonth()`);
+  run(`globalThis.money5 = clone(S.docs['money/${m}'] || {tx: []}); save('money/${m}', {tx: [{id: 'o1', type: 'out', amount: 11, date: '${m}-01', cat: 'Подписки', note: 'Netflix', bill: 'gone'}]}); save('app/bills', {list: [{id: 'nb', title: 'Netflix', amount: 11, type: 'out', cat: 'Подписки', day: 1}]})`);
+  try {
+    assert.equal(run(`billLink(bills()[0], '${m}')?.id`), 'o1');
+    assert.equal(run(`billState(bills()[0])`), 'paid');
+  } finally { run(`save('money/${m}', money5); save('app/bills', {list: []})`); }
+});

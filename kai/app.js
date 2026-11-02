@@ -82,7 +82,7 @@ const MONTHS_G = [tr('января'),tr('февраля'),tr('марта'),tr('�
 const fmtDay = s => { const d = new Date(s+'T12:00:00'); return d.getDate()+' '+MONTHS_G[d.getMonth()]+', '+DOW_FULL[dow(s)]; };
 const fmtShort = s => { const d = new Date(s+'T12:00:00'); return d.getDate()+' '+MONTHS_G[d.getMonth()].slice(0,3); };
 const num = (v, d=0) => { const n = Number(v); if (!isFinite(n)) return '0'; return n.toLocaleString(LOCALE, {minimumFractionDigits:d, maximumFractionDigits:d}); };
-const money = v => { const c = S.docs['app/profile']?.currency; const n = num(v, Math.abs(v % 1) > 0.001 ? 2 : 0); if (c && LANG !== 'ru' && /^[$€£₹¥]$/.test(c)) return (v < 0 ? '−' : '') + c + num(Math.abs(v), Math.abs(v % 1) > 0.001 ? 2 : 0); return n + (c ? ' ' + c : ''); };
+const money = v => { const c = S.docs['app/profile']?.currency; const n = num(v, Math.abs(v % 1) > 0.001 ? 2 : 0).replace(/^-/, '−'); if (c && LANG !== 'ru' && /^[$€£₹¥]$/.test(c)) return (v < 0 ? '−' : '') + c + num(Math.abs(v), Math.abs(v % 1) > 0.001 ? 2 : 0); return n + (c ? ' ' + c : ''); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 // "1 200" is 1200; in English "9,500" is 9500 (a thousands comma); otherwise a comma is the decimal point, as in "80,5"
 const toNum = v => {
@@ -1593,7 +1593,7 @@ function viewMoney(){
   ${billsCard(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
-    <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>
+    <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
     <div style="display:grid;place-items:center;margin:14px 0">${donut(segsFor(G, sel), 140, 20)}</div>
     <div class="list">${G.map(g=>`<div class="row"><span class="ic" style="background:var(--${g.info[1]});color:#fff">${ic(g.info[2])}</span><div class="mid"><div class="t">${esc(tr(g.cat))} (${(x => num(x, x < 10 && x % 1 ? 1 : 0))(g.sum/(SUM||1)*100)}%)</div><div class="s">${money(g.sum)} · ${g.n} ${plural(g.n,tr('операция'),tr('операции'),tr('операций'))}</div></div></div>`).join('') || `<div class="empty">${tr("Добавь операцию или загрузи скриншот истории из банка.")}</div>`}</div></section>`}`;
   const byDate = {}; monthTx(m).forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
@@ -5365,7 +5365,7 @@ const billsPending = (today = todayISO()) => bills().filter(b => b.type !== 'in'
 /* outgoing payments falling due on a date, not yet paid or skipped: reminders and the morning plan */
 const billsOn = date => modOn('money') ? bills().filter(b => b.type !== 'in' && billDue(b, date.slice(0, 7)) === date && billState(b, date) === 'due') : [];
 /* an entry already written this month that is this payment: the same direction and amount, and the same name (or no name and the same category) */
-const billMatch = (b, m) => monthTx(m).find(t => !t.bill && !t.summary && t.status !== 'fail' && (t.type === 'in') === (b.type === 'in') && +t.amount === +b.amount && (billNorm(t.note) === billNorm(b.title) || (!billNorm(t.note) && t.cat === b.cat)));
+const billMatch = (b, m) => monthTx(m).find(t => (!t.bill || !bills().some(x => x.id === t.bill)) && !t.summary && t.status !== 'fail' && (t.type === 'in') === (b.type === 'in') && +t.amount === +b.amount && (billNorm(t.note) === billNorm(b.title) || (!billNorm(t.note) && t.cat === b.cat)));
 function billLink(b, m){
   const t = billMatch(b, m); if (!t) return null;
   const doc = clone(S.docs['money/' + m]); doc.tx = doc.tx.map(x => x.id === t.id ? {...x, bill: b.id} : x); save('money/' + m, doc);
@@ -5477,6 +5477,20 @@ function billFromTx(t){
 const txGuess = text => text ? (MONEY_CAT.find(([re]) => re.test(text)) || [])[1] || billGuess(text) : undefined;
 CH.txNote = el => { const t = SH?.tx; if (!t || t.cat || t.catSet || t.type === 'in') return; const g = txGuess(el.value), sel = $('#txC'); if (g && sel) sel.value = g; };
 CH.txCat = () => { if (SH?.tx) SH.tx.catSet = true; };
+
+/* ============ money: last month at the same point, for comparison ============ */
+// the current month is compared with the same days of last month; a past month with the whole month before it
+function moneyVsPrev(m, type, sum, today = todayISO()){
+  const [y, mm] = m.split('-').map(Number), pd = new Date(y, mm - 2, 1), pm = pd.getFullYear() + '-' + pad(pd.getMonth() + 1);
+  const prev = monthTx(pm).filter(t => t.status !== 'fail' && t.type === type);
+  const cur = m === today.slice(0, 7), last = new Date(y, mm - 1, 0).getDate(), d = Math.min(+today.slice(8), last);
+  if (!prev.length || (cur && prev.some(t => t.summary))) return ''; // a monthly summary has no days to compare
+  const was = prev.filter(t => !cur || +t.date.slice(8) <= d).reduce((a, t) => a + +t.amount, 0);
+  const when = !cur || d === last ? MONTHS[pd.getMonth()][0].toUpperCase() + MONTHS[pd.getMonth()].slice(1) : `${d === 1 ? '' : '1–'}${d} ${MONTHS_G[pd.getMonth()]}`;
+  const pct = was > 0 ? Math.round((sum - was) / was * 100) : 0;
+  const delta = was > 0 && sum > 0 ? ' · ' + (pct === 0 ? tr('сейчас столько же') : trf(pct > 0 ? 'сейчас на {n}% больше' : 'сейчас на {n}% меньше', {n: Math.abs(pct)})) : '';
+  return `<div class="hint">${trf('Для сравнения, {p}: {s}', {p: when, s: money(was)})}${delta}</div>`;
+}
 
 /* ============ init ============ */
 async function init(){

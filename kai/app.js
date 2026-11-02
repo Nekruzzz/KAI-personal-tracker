@@ -5854,6 +5854,30 @@ const seasonExtraLine = v => `${v.focusMin >= 60 ? ' ' + trf('· фокус {t}'
 // the earliest open topic of its study plan, so a session moves the plan on; without a plan, the session is for the exam
 const nextTopic = examId => planTasks(examId).filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'))[0] || null;
 
+/* ============ what's new: once, for people who used an earlier version ============ */
+// never over another sheet, never during onboarding; new installs mark it seen when they finish onboarding
+const WHATS_NEW_ID = '2026-11';
+const WHATS_NEW = () => [
+  ['repeat', tr('Регулярные платежи'), tr('Аренда, телефон и подписки: бюджет откладывает их заранее, а в день платежа KAI напомнит.')],
+  ['list', tr('Повторяющиеся задачи'), tr('«Выносить мусор по понедельникам», «платить за интернет каждый месяц»: следующая появится сама.')],
+  ['target', tr('Фокус'), tr('Сессии на 25–60 минут для учёбы, задач и экзаменов. В зачёт идут только минуты без отвлечений.')],
+  ['trophy', tr('Результаты экзаменов'), tr('После экзамена KAI спросит, как прошло, и сохранит оценку.')],
+  ['flame', tr('Серия для каждой привычки'), tr('Под ежедневными задачами видно, сколько дней подряд они выполнены.')],
+  ['mic', tr('KAI понимает больше без ИИ'), tr('Бег и плавание, сон «с часу до 9», еду без граммов, «через 2 недели», экранное время.')],
+];
+function whatsNewSoon(){
+  setTimeout(function check(){ if (!S.ready) return setTimeout(check, 500); if (!document.hidden) whatsNewShow(); }, 1800); // only while the app is on screen
+}
+function whatsNewShow(){
+  const m = meta();
+  if (!m.welcomed || m.seenNew === WHATS_NEW_ID || SH) return false;
+  setMeta({seenNew: WHATS_NEW_ID});
+  openSheet(tr('Что нового'), `<div class="list">${WHATS_NEW().map(([i, t, d]) => `<div class="row"><span class="ic">${ic(i)}</span><div class="mid"><div class="t">${t}</div><div class="s">${d}</div></div></div>`).join('')}</div><button class="btn block" data-act="closeSheet">${tr('Понятно')}</button>`);
+  return true;
+}
+const obDoneNew = A.obDone;
+A.obDone = (...a) => { setMeta({seenNew: WHATS_NEW_ID}); return obDoneNew(...a); }; // a new install already starts with all of it
+
 /* ============ init ============ */
 async function init(){
   render();
@@ -5877,5 +5901,6 @@ async function init(){
   render();
   openFromLink();
   focusResume(); // a focus session from before the app was closed
+  whatsNewSoon();
 }
 init();

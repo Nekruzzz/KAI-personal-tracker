@@ -2139,3 +2139,15 @@ test('new students get a card to add their timetable, until classes exist, it is
     assert.equal(run(`timetableCard()`), '', 'dismissed');
   } finally { run(`setMeta(meta17); save('app/profile', prof17); save('app/plan', plan17)`); }
 });
+
+test('Money categories against the month before: a real change is shown, small ones are not', () => {
+  run(`save('money/2030-07', {tx: [{id: 'p1', type: 'out', amount: 100, date: '2030-07-03', cat: 'Кафе и рестораны', note: 'a'}, {id: 'p2', type: 'out', amount: 50, date: '2030-07-05', cat: 'Транспорт', note: 'b'}, {id: 'p3', type: 'out', amount: 40, date: '2030-07-25', cat: 'Кафе и рестораны', note: 'c'}]})`);
+  try {
+    const h = run(`catVsPrev('2030-08', 'out', 'Кафе и рестораны', 130, '2030-08-10')`);
+    assert.match(h, /worse/);
+    assert.ok(h.includes('30%'), 'same days: 100 then, 130 now');
+    assert.equal(run(`catVsPrev('2030-08', 'out', 'Транспорт', 52, '2030-08-10')`), '', 'under 10% is not worth a word');
+    assert.match(run(`catVsPrev('2030-08', 'out', 'Кафе и рестораны', 70, '2030-09-02')`), /better.*50%/, 'a past month: the whole month before (140), 50% less');
+    assert.equal(run(`catVsPrev('2030-08', 'out', 'Супермаркеты', 80, '2030-08-10')`), '', 'nothing the month before');
+  } finally { run(`remove('money/2030-07')`); }
+});

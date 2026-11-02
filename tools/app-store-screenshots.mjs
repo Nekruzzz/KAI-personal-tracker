@@ -29,7 +29,7 @@ async function seed(p, lang){
   await p.evaluate(lang => {
     closeSheet();
     const ru = lang === 'ru';
-    setMeta({welcomed: true, onboardHidden: true, toldOnce: true, firstTellOff: true, startedOn: addDays(todayISO(), -24), lastBackup: todayISO()});
+    setMeta({welcomed: true, onboardHidden: true, toldOnce: true, firstTellOff: true, startedOn: addDays(todayISO(), -24), lastBackup: todayISO(), seenNew: WHATS_NEW_ID});
     save('app/profile', {...profile(), name: ru ? 'Саша' : 'Alex', age: 22, height: 178, weight: 74, goal: 'keep', sex: 'm', units: 'metric', currency: ru ? '₽' : '$', role: 'study'});
     const meals = ru
       ? [['Овсянка с ягодами', 420, 18, 9, 66], ['Курица с рисом', 640, 45, 14, 80], ['Греческий йогурт', 180, 17, 4, 12]]

@@ -2321,3 +2321,18 @@ test("an exam card's Focus works on the next open topic of its study plan", () =
     assert.match(run(`examCard()`), /data-act="focusTask" data-id="t0"/);
   } finally { run(`saveTasks(tasks26); save('app/plan', plan26)`); }
 });
+
+test("what's new shows once to people who used an earlier version, never over another sheet, and not after onboarding", () => {
+  run(`globalThis.meta27 = clone(meta()); closeSheetQuiet(); setMeta({welcomed: true, seenNew: undefined})`);
+  try {
+    run(`SH = {title: 'other'}`);
+    assert.equal(run(`whatsNewShow()`), false, 'not over another sheet');
+    run(`SH = null`);
+    assert.equal(run(`whatsNewShow()`), true);
+    assert.equal(run(`meta().seenNew`), run(`WHATS_NEW_ID`));
+    run(`closeSheetQuiet()`);
+    assert.equal(run(`whatsNewShow()`), false, 'once');
+    run(`setMeta({welcomed: false, seenNew: undefined})`);
+    assert.equal(run(`whatsNewShow()`), false, 'not before onboarding is done');
+  } finally { run(`closeSheetQuiet(); setMeta({...meta27, seenNew: meta27.seenNew, welcomed: meta27.welcomed})`); }
+});

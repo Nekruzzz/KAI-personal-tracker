@@ -2036,4 +2036,5 @@ window.I18N_EN = {
 "Вечерняя проверка":"Evening check-in",
 "Если день ещё не засчитан: за 2 часа до сна":"If the day doesn't count yet: 2 hours before bedtime",
 "Ещё {n} {t}, и день засчитан":"{n} more {t} and the day counts",
+"Подписки: {m} в месяц, {y} в год":"Subscriptions: {m} a month, {y} a year",
 };

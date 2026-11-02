@@ -5407,10 +5407,11 @@ function billsCard(m){
       <button class="mid" data-act="billEdit" data-id="${esc(b.id)}"><div class="t">${esc(b.title)}</div><div class="s">${inc ? '+' : ''}${money(b.amount)} · ${when}</div></button>
       ${st === 'due' ? `<button class="btn ghost sm" data-act="billPay" data-id="${esc(b.id)}" aria-label="${esc(trf(inc ? 'Получено: {b}' : 'Оплачено: {b}', {b: b.title}))}">${inc ? tr('Получено') : tr('Оплачено')}</button>` : st === 'paid' ? `<span class="bill-ok" role="img" aria-label="${tr('Отмечено')}">${ic('check')}</span>` : ''}</div>`;
   }).join('');
-  const pend = billsPending(today), t = idea?.t;
+  const pend = billsPending(today), t = idea?.t, subs = list.filter(b => b.type !== 'in' && b.cat === 'Подписки').reduce((a, b) => a + (+b.amount || 0), 0);
+  const foot = [pend && !S.docs['app/budget']?.monthly ? trf('Ещё заплатить в этом месяце: {s}', {s: money(pend)}) : '', subs ? trf('Подписки: {m} в месяц, {y} в год', {m: money(subs), y: money(subs * 12)}) : ''].filter(Boolean);
   return `<div class="sec-h"><h2>${tr('Регулярные платежи')}</h2><button class="link" data-act="billNew">${tr('+ Добавить')}</button></div>
     <section class="card bills">${rows ? `<div class="list">${rows}</div>` : ''}
-    ${pend && !S.docs['app/budget']?.monthly ? `<div class="hint bills-left">${trf('Ещё заплатить в этом месяце: {s}', {s: money(pend)})}</div>` : ''}
+    ${foot.length ? `<div class="hint bills-left">${foot.join('<br>')}</div>` : ''}
     ${t ? `<div class="bill-idea"><div>${trf(t.type === 'in' ? '«{b}» на {s} приходит каждый месяц. Добавить в регулярные?' : '«{b}» на {s} повторяется каждый месяц. Добавить в регулярные платежи?', {b: esc(t.note.trim()), s: money(t.amount)})}</div>
       <div class="btnrow"><button class="btn ghost" data-act="billIdea" data-k="${esc(idea.key)}">${ic('repeat')}${tr('Добавить')}</button><button class="btn ghost" data-act="billNo" data-k="${esc(idea.key)}">${tr('Не надо')}</button></div></div>` : ''}</section>`;
 }

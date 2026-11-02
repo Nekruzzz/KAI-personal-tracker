@@ -1879,3 +1879,10 @@ test('Evening check-in: off until turned on, then 2 hours before bedtime while t
     assert.equal(run(`eveningNudge('${tmr}')`), null, 'nor a sick day');
   } finally { run(`setMeta({remind: rem7}); day7 ? save('days/${tmr}', day7) : remove('days/${tmr}')`); }
 });
+
+test('Regular payments: subscriptions are added up for the month and the year', () => {
+  run(`save('app/bills', {list: [{id: 's1', title: 'Music', amount: 10, type: 'out', cat: 'Подписки', day: 3}, {id: 's2', title: 'Cloud', amount: 2.5, type: 'out', cat: 'Подписки', day: 9}, {id: 's3', title: 'Rent', amount: 400, type: 'out', cat: 'Жильё и коммуналка', day: 1}]})`);
+  try {
+    assert.ok(run(`billsCard(curMonth())`).includes(run(`trf('Подписки: {m} в месяц, {y} в год', {m: money(12.5), y: money(150)})`)));
+  } finally { run(`save('app/bills', {list: []})`); }
+});

@@ -3377,6 +3377,8 @@ A.qaAdd = () => {
     if (!aiStatus().ok) tellLocal(raw, todayISO()); // with an AI, the person sends it as usual
     return;
   }
+  const many = weekdayCopies(raw).map(x => parseQuick(x)).filter(x => x?.every && x.due); // "gym every monday and friday": one per day
+  if (many.length > 1){ saveTasks([...smartTasks(), ...many]); haptic('light'); el.value = ''; render(); return toast(trf('Добавлено: {n} {t}', {n: many.length, t: plural(many.length, tr('задача'), tr('задачи'), tr('задач'))}) + ' · ' + everyText(many[0])); }
   const t = parseQuick(raw); if (!t) return toast(tr('Впиши, что сделать'));
   saveTasks([...smartTasks(), t]); haptic('light'); el.value = ''; render();
   toast(tr('Добавлено · ') + dueLabel(t));

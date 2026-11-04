@@ -2555,3 +2555,12 @@ test('a to-do repeating on several weekdays becomes one per weekday; one-off day
   r = p('meeting on monday and tuesday');
   assert.ok(!r.new_tasks.some(t => t.every), 'two one-off days are not a repeat');
 });
+
+test('the to-do field makes one repeating to-do per weekday too', () => {
+  run(`globalThis.tasks38 = clone(smartTasks()); saveTasks([]); globalThis.FORM = {'#qa': 'gym every monday and friday'}`);
+  try {
+    run(`A.qaAdd()`);
+    const ts = JSON.parse(run(`JSON.stringify(smartTasks())`));
+    assert.deepEqual(ts.map(t => [t.title, run(`dow('${t.due}')`), t.every]), [['Gym', 1, 'week'], ['Gym', 5, 'week']]);
+  } finally { run(`delete globalThis.FORM; saveTasks(tasks38)`); }
+});

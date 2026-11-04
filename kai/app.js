@@ -1146,6 +1146,7 @@ function checkBadges(){
   if (!S.ready || !S.live && !DB) return;
   checkLevel();
   freezeTick();
+  challengeTick();
   const have = meta().badges, earned = earnedBadgeIds();
   if (!have){ initBadges(); return; }
   const fresh = earned.filter(id => !have[id]);
@@ -1283,6 +1284,7 @@ function viewDay(){
   h += backupBanner();
   h += `<div class="sec-h"><h2>${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
   <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
+  h += challengeCard();
   // week: kept with the other numbers in the folded stats, so the Day screen stays about today
   const beforeWeek = h; h = '';
   const mon = addDays(date, 1-dow(date));
@@ -4391,7 +4393,7 @@ function totalXP(){
     const done = (d.tasks || []).filter(t => t.done).length, t = timeOn(k);
     xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study) / 2);
   });
-  return xp + smartTasks().filter(t => t.done).length * 10;
+  return xp + smartTasks().filter(t => t.done).length * 10 + challengeXP();
 }
 function levelOf(xp){
   let n = 0; while (xp >= xpFor(n + 1)) n++;
@@ -6246,6 +6248,69 @@ function freezeTick(){
 function freezeRow(){
   const f = freezeDoc();
   return `<section class="card frz"><span class="frz-ic">${ic('snow')}</span><div class="mid"><b>${trf('Заморозки серии: {n} из {m}', {n: f.n, m: FREEZE_MAX})}</b><div class="hint">${f.used.includes(addDays(todayISO(), -1)) ? tr('Вчера серию сохранила заморозка.') + ' ' : ''}${tr('Если день не засчитан, заморозка сама сохранит серию. Каждые 7 дней подряд дают новую.')}</div></div></section>`;
+}
+
+/* ============ weekly challenges: three goals for the week, a little above last week, fixed on Monday. +50 XP each, +100 for all three ============ */
+const CH_XP = 50, CH_ALL_XP = 100;
+const weekDays = mon => [...Array(7)].map((_, i) => addDays(mon, i));
+const CHALLENGES = {
+  // id: [title, what a day adds, target from last week's total, which days count]
+  counted: [() => tr('Засчитанные дни'), k => daySecured(S.docs['days/' + k]) && S.docs['days/' + k]?.status !== 'sick' ? 1 : 0, last => Math.min(7, Math.max(3, last + 1))],
+  gym: [() => tr('Тренировки'), k => S.docs['days/' + k]?.tasks?.some(t => t.id === 'gym' && t.done) ? 1 : 0, (last, mon) => weekDays(mon).filter(k => workoutFor(k)).length],
+  study: [() => tr('Учёба'), k => timeOn(k).study, last => Math.min(1500, Math.max(120, Math.round(last * 1.1 / 10) * 10)), 'min'],
+  walk: [() => tr('Прогулки'), k => timeOn(k).walk, last => Math.min(1400, Math.max(150, Math.round(last * 1.1 / 10) * 10)), 'min'],
+  sleep: [() => tr('Ночи по 7+ часов'), k => (toNum(S.docs['days/' + k]?.sleep) || 0) >= 7 ? 1 : 0, last => Math.min(7, Math.max(3, last + 1))],
+  todos: [() => tr('Сделанные задачи'), k => smartTasks().filter(t => t.done && t.doneAt === k).length, last => Math.min(40, Math.max(5, last + 2))],
+};
+function challengeIds(mon){
+  const d = getDay(todayISO()), cats = new Set((d.tasks || []).map(t => t.cat)), ids = ['counted'];
+  if (weekDays(mon).some(k => workoutFor(k)) && (d.tasks || []).some(t => t.id === 'gym')) ids.push('gym');
+  if (profile().role === 'study' || (plan().classes || []).length) ids.push('study');
+  if (cats.has('walk') || cats.has('steps')) ids.push('walk');
+  if (cats.has('sleep')) ids.push('sleep');
+  if (modOn('tasks')) ids.push('todos');
+  const rest = ids.slice(1), w = Math.round(dayDiff('2024-01-01', mon) / 7); // the other two take turns from week to week
+  return [ids[0], ...[0, 1].map(i => rest[(w + i) % rest.length]).filter((x, i, a) => x && a.indexOf(x) === i)].slice(0, 3);
+}
+const sumOver = (id, days) => days.reduce((a, k) => a + (+CHALLENGES[id][1](k) || 0), 0);
+function weekChallenges(){
+  if (!S.ready) return null;
+  const today = todayISO(), mon = addDays(today, 1 - dow(today)), all = meta().challenges || {}, got = all[mon];
+  if (got) return {mon, ...got};
+  const prev = weekDays(addDays(mon, -7)), from = meta().startedOn || today, left = weekDays(mon).filter(k => k >= today && k >= from).length;
+  const list = challengeIds(mon).map(id => { let goal = CHALLENGES[id][2](sumOver(id, prev), mon); if (prev.every(k => k < from) && left < 7) goal = CHALLENGES[id][3] === 'min' ? Math.max(30, Math.round(goal * left / 70) * 10) : Math.max(1, Math.ceil(goal * left / 7)); return {id, goal}; }).filter(c => c.goal > 0); // a week that started before KAI asks for a part
+  return {mon, list, done: [], fresh: true};
+}
+function challengeProgress(c, mon){ return Math.min(c.goal, sumOver(c.id, weekDays(mon).filter(k => k <= todayISO()))); }
+function challengeTick(){
+  const w = weekChallenges(); if (!w || !w.list.length) return;
+  const all = meta().challenges || {};
+  const newly = w.list.filter(c => !w.done.includes(c.id) && challengeProgress(c, w.mon) >= c.goal).map(c => c.id);
+  if (!w.fresh && !newly.length) return;
+  const keep = Object.fromEntries(Object.entries(all).filter(([k]) => k >= addDays(w.mon, -366))); // a year of weeks, for the XP
+  const done = [...w.done, ...newly];
+  setMeta({challenges: {...keep, [w.mon]: {list: w.list, done}}});
+  if (!newly.length) return;
+  const allDone = done.length === w.list.length;
+  setTimeout(() => {
+    haptic('success'); sound('success'); confetti({n: allDone ? 140 : 70, y: innerHeight * .45});
+    if (allDone) toast(trf('Все вызовы недели выполнены · +{x} XP', {x: CH_XP + CH_ALL_XP}), {icon: 'trophy', tone: 'gold', ms: 4000});
+    else toast(trf('Вызов выполнен: {t} · +{x} XP', {t: CHALLENGES[newly[0]][0](), x: CH_XP}), {icon: 'target', tone: 'good', ms: 3500});
+  }, 500);
+}
+function challengeXP(){
+  return Object.values(meta().challenges || {}).reduce((a, w) => a + (w.done || []).length * CH_XP + (w.list?.length && (w.done || []).length === w.list.length ? CH_ALL_XP : 0), 0);
+}
+function challengeCard(){
+  const w = weekChallenges(); if (!w || !w.list.length) return '';
+  const today = todayISO(), left = 7 - dow(today);
+  const row = c => {
+    const v = challengeProgress(c, w.mon), ok = v >= c.goal, min = CHALLENGES[c.id][3] === 'min';
+    return `<div class="chl ${ok ? 'ok' : ''}"><div class="chl-h"><span>${ok ? ic('checkc') : ''}${CHALLENGES[c.id][0]()}</span><b>${min ? fmtMin(v) : v} / ${min ? fmtMin(c.goal) : c.goal}</b></div><div class="bar" role="progressbar" aria-label="${esc(CHALLENGES[c.id][0]())}" aria-valuemin="0" aria-valuemax="${c.goal}" aria-valuenow="${v}"><i style="width:${Math.round(v / c.goal * 100)}%;background:var(--${ok ? 'good' : 'accent'})"></i></div></div>`;
+  };
+  const n = w.list.filter(c => challengeProgress(c, w.mon) >= c.goal).length;
+  return `<div class="sec-h"><h2>${tr('Вызовы недели')}</h2><span class="hint">${n === w.list.length ? tr('все выполнены') : left ? trf('ещё {n} {d}', {n: left, d: plural(left, tr('день'), tr('дня'), tr('дней'))}) : tr('последний день')}</span></div>
+  <section class="card chls">${w.list.map(row).join('')}<div class="hint">${trf('За каждый вызов +{a} XP, за все три ещё +{b}. Цели — чуть выше прошлой недели.', {a: CH_XP, b: CH_ALL_XP})}</div></section>`;
 }
 
 /* ============ init ============ */

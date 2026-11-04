@@ -2743,3 +2743,26 @@ test('streak freezes: earned every 7 days, used by themselves on a missed day', 
     assert.ok(run(`bestStreak()`) >= 7);
   } finally { run(`toast = toast44; save('app/meta', meta44); Object.entries(days44).forEach(([k, v]) => v ? save(k, v) : remove(k))`); }
 });
+
+test('weekly challenges: fixed on Monday from last week, done once, worth XP', () => {
+  run(`globalThis.meta45 = clone(meta()); globalThis.toast45 = toast; toast = () => {}`);
+  try {
+    run(`save('app/meta', {...meta(), challenges: {}, startedOn: addDays(todayISO(), -60)})`);
+    const w = JSON.parse(run(`JSON.stringify(weekChallenges())`));
+    assert.equal(w.list[0].id, 'counted');
+    assert.ok(w.list.length >= 2 && w.list.length <= 3);
+    assert.ok(w.list.every(c => c.goal > 0));
+    assert.ok(/This week|Вызовы недели/.test(run(`challengeCard()`)));
+    run(`challengeTick()`);
+    assert.ok(run(`!!meta().challenges[weekChallenges().mon]`), 'saved for the week');
+    const xp0 = run(`totalXP()`);
+    // make the first challenge reachable and tick
+    run(`save('app/meta', {...meta(), challenges: {[weekChallenges().mon]: {list: [{id: 'todos', goal: 1}], done: []}}}); globalThis.tasks45 = clone(smartTasks()); saveTasks([...smartTasks(), {id: 'c45', title: 'x', done: true, doneAt: todayISO(), pri: 2}])`);
+    run(`challengeTick()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), ['todos']);
+    assert.equal(run(`challengeXP()`), 150, 'one of one: the challenge and the bonus');
+    assert.ok(run(`totalXP()`) >= xp0 + 150);
+    run(`challengeTick()`); assert.equal(run(`challengeXP()`), 150, 'paid once');
+    run(`saveTasks(tasks45)`);
+  } finally { run(`toast = toast45; save('app/meta', meta45)`); }
+});

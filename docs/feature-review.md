@@ -56,6 +56,7 @@ New features from the later rounds, with what a person sees before they use them
 - **Category limits (Money):** folded inside the budget sheet; nothing on screen until a limit is set.
 - **Month and category comparisons (Money):** one line under the total and a few words on a category, only when last month has data and the change is 10% or more.
 - **Money search:** a single "Search" link next to History.
+- **Debts:** one "Note a debt" link on the Money tab until a debt exists; then a small list.
 - **Repeating to-dos:** no new control; it's read from the words ("every Monday"). A small "↻ every week" appears only on repeating ones.
 - **Done today:** one "Done today: 2" link, closed by default.
 - **Habit streaks:** a few words under a daily task, only from 2 days in a row.

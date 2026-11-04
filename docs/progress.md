@@ -97,6 +97,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Money**
 
+- **Debts (new):** a Debts list under Money ("Owes you: Sam, $20", "You owe Alex"), with Paid back and Undo, kept apart from spending. Tell KAI reads "Sam owes me 20", "lent Sam 30", "Петя должен мне 500", "занял 1000 у Маши".
 - **Due payments are asked about on the Day tab:** "“Rent” ($400) is due today. Paid?" with Paid, Skip month and Later, one payment at a time, while Money is on.
 - **Regular payments (new):** rent, a phone plan, subscriptions or an allowance, added under Money or by switching on "Every month" when saving an entry. Each shows as due, coming, paid or skipped this month and is marked paid with one tap (Undo works); nothing is recorded by itself. The budget sets aside what is still to pay, so "about $15 a day" is what can really be spent. Something paid once a month around the same day, with the same name and amount, is offered as a regular payment (once; "No, thanks" is remembered). With reminders on, the iPhone app reminds at 10:00 on the day, and the morning plan mentions it. Two categories were added for them: Housing and utilities, and Subscriptions; the on-phone reader files "rent 400", "netflix 11" and "phone bill 15" there.
 - **The budget sheet points to regular payments**, which it sets aside in advance.
@@ -185,7 +186,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 172 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 173 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

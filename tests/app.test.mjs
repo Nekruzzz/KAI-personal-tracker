@@ -2575,3 +2575,23 @@ test('a full Focus session offers a 5-minute break', () => {
     assert.ok(run(`TIMER.end - T > 290000 || TIMER.end - Date.now() > 0`), 'the break counts down');
   } finally { run(`stopRest(); Date.now = now9; toast = toast9; FOCUS = null; focusSave()`); }
 });
+
+test('the part after a colon becomes the to-do’s note', () => {
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(splitNote('Lab report: sections 3-4, template B'))`)), {title: 'Lab report', note: 'sections 3-4, template B'});
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(splitNote('Купить продукты — молоко, хлеб'))`)), {title: 'Купить продукты', note: 'молоко, хлеб'});
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(splitNote('Call mom'))`)), {title: 'Call mom'});
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('need to finish the lab report tomorrow: sections 3-4', todayISO()).r.new_tasks)`));
+  assert.equal(r[0].note, 'sections 3-4');
+  run(`globalThis.tasks39 = clone(smartTasks()); globalThis.FORM = {'#qa': 'buy groceries tomorrow: milk, bread'}`);
+  try {
+    run(`A.qaAdd()`);
+    const t = JSON.parse(run(`JSON.stringify(smartTasks()[smartTasks().length - 1])`));
+    assert.deepEqual([t.title, t.note], ['Buy groceries', 'milk, bread']);
+  } finally { run(`delete globalThis.FORM; saveTasks(tasks39)`); }
+});
+
+test('a colon before the date keeps the date: "exam: physics on friday at 10"', () => {
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('exam: physics on friday at 10', todayISO()).r)`));
+  assert.equal(r.events.length, 1);
+  assert.equal(run(`dow('${r.events[0].date}')`), 5);
+});

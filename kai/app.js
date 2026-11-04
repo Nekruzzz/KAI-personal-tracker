@@ -3379,7 +3379,8 @@ A.qaAdd = () => {
   }
   const many = weekdayCopies(raw).map(x => parseQuick(x)).filter(x => x?.every && x.due); // "gym every monday and friday": one per day
   if (many.length > 1){ saveTasks([...smartTasks(), ...many]); haptic('light'); el.value = ''; render(); return toast(trf('Добавлено: {n} {t}', {n: many.length, t: plural(many.length, tr('задача'), tr('задачи'), tr('задач'))}) + ' · ' + everyText(many[0])); }
-  const t = parseQuick(raw); if (!t) return toast(tr('Впиши, что сделать'));
+  const t0 = parseQuick(raw); if (!t0) return toast(tr('Впиши, что сделать'));
+  const sp = splitNote(t0.title), t = {...t0, title: sp.title, ...(sp.note ? {note: sp.note} : {})};
   saveTasks([...smartTasks(), t]); haptic('light'); el.value = ''; render();
   toast(tr('Добавлено · ') + dueLabel(t));
   if (t.time && !meta().tkHint){ setMeta({tkHint: true}); setTimeout(() => toast(tr('Пока приложение открыто, я напомню. Чтобы звонило и в кармане, нажми «Напомнить через Календарь».'), {ms: 5000}), 2700); }
@@ -3891,7 +3892,7 @@ function cleanEv(x){
 function cleanTask(x){
   if (!x || !x.title) return null;
   const today = todayISO(), due = x.date === 'today' ? today : x.date === 'tomorrow' ? addDays(today, 1) : DATE_RE.test(x.date || '') ? x.date : null;
-  return {id: uid(), title: String(x.title).slice(0, 160), due, time: due && HM_RE.test(x.time || '') ? x.time : null, pri: 2, done: false, created: today, ...(EVERY[x.every] && due ? {every: x.every, ...(+x.n >= 2 && +x.n <= 30 ? {n: +x.n} : {})} : {})};
+  return {id: uid(), title: String(x.title).slice(0, 160), due, time: due && HM_RE.test(x.time || '') ? x.time : null, pri: 2, done: false, created: today, ...(EVERY[x.every] && due ? {every: x.every, ...(+x.n >= 2 && +x.n <= 30 ? {n: +x.n} : {})} : {}), ...(x.note ? {note: String(x.note).slice(0, 1000)} : {})};
 }
 function tellPlan(r){
   const pl = clone(plan()); pl.routine = pl.routine || clone(DEFAULT_ROUTINE);
@@ -4766,14 +4767,15 @@ function localTellParse(text, date, opts = {}){
     if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; }
     if (!hit){ const ts = weekdayCopies(c).map(x => parseQuick(x)).filter(t => t?.every && t.due); if (ts.length > 1){ ts.forEach(t => r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, every: t.every})); hit = true; } } // "ran 5k yesterday morning" is not a to-do for tomorrow
     if (!hit){
-      const range = c.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
-      const t = parseQuick(range ? c.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : c);
+      const sn0 = splitNote(c), sn = sn0.note && parseQuick(sn0.title)?.due ? sn0 : {title: c}, cq = sn.note ? sn.title : c; // a note after the date isn't read for dates or times; "exam: physics on Friday" keeps its date
+      const range = cq.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
+      const t = parseQuick(range ? cq.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : cq);
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
         const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
-        else if (t.time || t.every || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, ...(t.every ? {every: t.every, ...(t.n ? {n: t.n} : {})} : {})});
+        else if (t.time || t.every || TODO_RE.test(c)){ const sp = sn.note ? {title: t.title, note: sn.note} : splitNote(t.title); r.new_tasks.push({title: sp.title, date: t.due, time: t.time || null, ...(sp.note ? {note: sp.note} : {}), ...(t.every ? {every: t.every, ...(t.n ? {n: t.n} : {})} : {})}); }
         else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;
       } else if (INTENT_RE.test(c)){ // "remind me to buy a charger": a to-do without a date
@@ -6100,6 +6102,13 @@ function weekdayCopies(c){
 
 /* ============ after a full Focus session: a 5-minute break on the countdown bar ============ */
 A.focusBreak = () => { hideToast(); haptic('light'); startRest(300, tr('Перерыв')); };
+
+/* ============ "Lab report tomorrow: sections 3-4": the part after a colon is the to-do's note ============ */
+function splitNote(title){
+  const m = String(title).match(/^(.{2,80}?)\s*(?::\s|\s[—–-]\s)\s*(.{2,})$/);
+  if (!m || /^\d/.test(m[2])) return {title}; // "Room 2: 10:00" style times stay as they are
+  return {title: m[1].trim(), note: m[2].trim()};
+}
 
 /* ============ init ============ */
 async function init(){

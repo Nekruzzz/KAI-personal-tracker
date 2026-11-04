@@ -5836,7 +5836,8 @@ function pastExamsHTML(){
   const today = todayISO(), list = allEvents().filter(e => e.kind === 'exam' && e.date < today && dayDiff(e.date, today) <= 366).sort((a, b) => b.date.localeCompare(a.date));
   if (!list.length) return '';
   const passed = list.filter(e => e.result?.passed).length, known = list.filter(e => e.result).length;
-  return `<div class="sec-h"><h2>${tr('Прошедшие экзамены')}</h2>${known ? `<span class="hint">${trf('сдано {n} из {k}', {n: passed, k: known})}</span>` : ''}</div><section class="card" style="padding:4px 18px"><div class="list">${list.slice(0, 20).map(e => `<div class="row"><div class="mid"><div class="t">${esc(e.title)}</div><div class="s">${fmtShort(e.date)} ${e.date.slice(0, 4)}${e.prepMin ? ' · ' + tr('подготовка') + ' ' + fmtMin(e.prepMin) : ''}</div></div><div class="r">${e.result ? `<span class="tag ${e.result.passed ? 'good' : 'bad'}">${e.result.passed ? tr('сдан') : tr('не сдан')}${e.result.grade ? ' · ' + esc(e.result.grade) : ''}</span>` : '<span class="hint">—</span>'}</div></div>`).join('')}</div></section>`;
+  const avg = gradeAverage(list.map(e => e.result?.grade));
+  return `<div class="sec-h"><h2>${tr('Прошедшие экзамены')}</h2>${known ? `<span class="hint">${trf('сдано {n} из {k}', {n: passed, k: known})}${avg ? ' · ' + trf('средняя {a}', {a: avg}) : ''}</span>` : ''}</div><section class="card" style="padding:4px 18px"><div class="list">${list.slice(0, 20).map(e => `<div class="row"><div class="mid"><div class="t">${esc(e.title)}</div><div class="s">${fmtShort(e.date)} ${e.date.slice(0, 4)}${e.prepMin ? ' · ' + tr('подготовка') + ' ' + fmtMin(e.prepMin) : ''}</div></div><div class="r">${e.result ? `<span class="tag ${e.result.passed ? 'good' : 'bad'}">${e.result.passed ? tr('сдан') : tr('не сдан')}${e.result.grade ? ' · ' + esc(e.result.grade) : ''}</span>` : '<span class="hint">—</span>'}</div></div>`).join('')}</div></section>`;
 }
 
 /* ============ Tell KAI: an exam result in words ("сдал статистику на 5", "passed the chemistry exam with an A") ============ */
@@ -6008,6 +6009,15 @@ function weekAheadDays(today = todayISO()){
   });
 }
 A.weekAhead = () => openSheet(tr('Неделя вперёд'), () => weekAheadDays().map(({date, items}, i) => `<div class="sec-h"><h2 style="font-size:16px">${i === 0 ? tr('Сегодня') : i === 1 ? tr('Завтра') : esc(fmtDay(date))}</h2></div><section class="card" style="padding:4px 16px">${items.length ? `<div class="list">${items.map(x => `<div class="row" style="padding:9px 0"><span class="tic" style="--tc:var(--${x.warn ? 'bad' : 'c0'})">${ic(x.ic)}</span><div class="mid"><div class="t" style="font-size:15px">${esc(x.t)}</div>${x.s ? `<div class="s">${esc(x.s)}</div>` : ''}</div></div>`).join('')}</div>` : `<div class="hint" style="padding:10px 0">${tr('Ничего не запланировано')}</div>`}</section>`).join(''));
+
+/* ============ the average of exam grades, only when they're numbers on one scale ============ */
+function gradeAverage(grades){
+  const ns = grades.filter(Boolean).map(g => String(g).replace(',', '.').match(/^\s*(\d{1,3}(?:\.\d)?)\s*(?:%|балл[а-яё]*|points?)?\s*$/i)).filter(Boolean).map(m => +m[1]);
+  if (ns.length < 2 || ns.length < grades.filter(Boolean).length) return null; // letters or mixed: no average
+  const small = ns.every(n => n <= 5), big = ns.every(n => n > 5 && n <= 100);
+  if (!small && !big) return null;
+  return num(ns.reduce((a, b) => a + b, 0) / ns.length, small ? 1 : 0);
+}
 
 /* ============ init ============ */
 async function init(){

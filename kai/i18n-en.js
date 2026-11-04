@@ -2186,4 +2186,9 @@ window.I18N_EN = {
 "час":"hour",
 "часа":"hours",
 "часов":"hours",
+"Заморозка спасла серию: {n} {d}":"A streak freeze saved your streak: {n} {d}",
+"За {n} дней подряд — заморозка серии ({h} из {m})":"{n} days in a row: you earned a streak freeze ({h} of {m})",
+"Заморозки серии: {n} из {m}":"Streak freezes: {n} of {m}",
+"Если день не засчитан, заморозка сама сохранит серию. Каждые 7 дней подряд дают новую.":"If a day doesn't count, a freeze keeps your streak by itself. Every 7 days in a row earn a new one.",
+"Вчера серию сохранила заморозка.":"Yesterday a freeze kept your streak.",
 };

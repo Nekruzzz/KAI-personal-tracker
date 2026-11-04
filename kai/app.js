@@ -56,6 +56,7 @@ const P = {
   checkc:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
   steps:'<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4M4 13h4"/>',
   scale:'<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  snow:'<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2M4 10.5l1.2-3.4-3.3-1M20 13.5l-1.2 3.4 3.3 1M4 13.5l1.2 3.4-3.3 1M20 10.5l-1.2-3.4 3.3-1"/>',
   shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
   bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
@@ -415,10 +416,13 @@ function plural(n, a, b, c){ if (LANG !== 'ru') return Math.abs(n) === 1 ? a : c
 
 function dayScore(d){ if (!d || !d.tasks?.length) return null; return d.tasks.filter(t=>t.done).length / d.tasks.length; }
 function streak(){
-  let s = 0, date = todayISO();
-  const t = S.docs['days/'+date];
-  if (!(t && (dayScore(t) >= .7 || t.status==='sick'))) date = addDays(date, -1);
+  const date = todayISO(), t = S.docs['days/'+date];
+  return streakFrom(t && (dayScore(t) >= .7 || t.status==='sick') ? date : addDays(date, -1));
+}
+function streakFrom(date){
+  let s = 0; const fz = frozenDays();
   for (let i=0;i<400;i++){
+    if (fz.has(date)) { date = addDays(date,-1); continue; } // a streak freeze covered this day
     const d = S.docs['days/'+date];
     if (!d) break;
     if (d.status === 'sick') { date = addDays(date,-1); continue; }
@@ -1003,12 +1007,12 @@ function streakChip(){
   return `<button class="streak ${secured ? 'on' : ''} ${ign ? 'pulse' : ''}" data-act="streakInfo" aria-label="${tr("Серия")} ${st} ${plural(st, tr('день'), tr('дня'), tr('дней'))}">${flame(flameLevel(st), state + ign, 22)}<b>${st}</b></button>`;
 }
 function bestStreak(){
-  let best = 0, cur = 0, prev = null;
+  let best = 0, cur = 0, prev = null; const fz = frozenDays();
   dayKeys().forEach(k => {
     const d = S.docs['days/' + k];
-    if (prev && dayDiff(prev, k) > 1) cur = 0;
+    if (prev && dayDiff(prev, k) > 1 && ![...Array(dayDiff(prev, k) - 1)].every((_, i) => fz.has(addDays(prev, i + 1)))) cur = 0;
     prev = k;
-    if (d.status === 'sick') return;
+    if (d.status === 'sick' || fz.has(k)) return;
     if ((dayScore(d) || 0) >= .7){ cur++; best = Math.max(best, cur); } else cur = 0;
   });
   return best;
@@ -1022,6 +1026,7 @@ A.streakInfo = () => {
   openSheet(tr('Серия'), `<div style="display:grid;place-items:center;gap:6px;padding:8px 0 4px">${flame(flameLevel(st), st || secured ? 'lit big' : 'big', 72)}<div class="hero-num" style="font-size:48px">${st}</div><div class="muted">${plural(st, tr('день'), tr('дня'), tr('дней'))} ${tr("подряд · рекорд")} ${best}</div></div>
     <div class="note">${secured ? tr('Сегодня уже засчитан. Огонь горит.') : `${tr("Сегодня ещё не засчитан: отметь ещё")} ${need} ${plural(need, tr('задачу'), tr('задачи'), tr('задач'))}${tr(", чтобы огонь не погас.")}`}</div>
     ${next ? `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><b>${tr("Следующая награда")}</b><span class="muted">${st} / ${next}</span></div><div class="bar"><i style="width:${st / next * 100}%;background:linear-gradient(90deg,#ff7a1f,#ffd84d)"></i></div></section>` : ''}
+    ${freezeRow()}
     <div class="hint">${tr("День засчитывается, когда выполнено 70% задач. Дни, отмеченные «Болею», серию не сжигают. С 7 дней огонь разгорается сильнее, с 30 — становится синим.")}</div>`);
 };
 
@@ -1140,6 +1145,7 @@ function initBadges(){ setMeta({badges: Object.fromEntries(earnedBadgeIds().map(
 function checkBadges(){
   if (!S.ready || !S.live && !DB) return;
   checkLevel();
+  freezeTick();
   const have = meta().badges, earned = earnedBadgeIds();
   if (!have){ initBadges(); return; }
   const fresh = earned.filter(id => !have[id]);
@@ -6213,6 +6219,33 @@ function sleepQAns(a, mark){
   const h = +a; if (!(h > 0 && h <= 16)) return;
   mutDay(todayISO(), d => { d.sleep = h; d.asked = {...(d.asked || {}), sl: 'yes'}; });
   toast(h < 7 ? tr('Записал. Сегодня постарайся лечь пораньше') : tr('Записал сон'));
+}
+
+/* ============ streak freezes: one bad day doesn't erase weeks. Every 7 days in a row earn one (two at most); a missed day uses one by itself ============ */
+const FREEZE_MAX = 2;
+const freezeDoc = () => ({n: 1, used: [], ...(meta().freeze || {})}); // everyone starts with one
+const frozenDays = () => new Set(meta().freeze?.used || []);
+function freezeTick(){
+  if (!S.ready) return;
+  const today = todayISO(), f = freezeDoc(), fz = new Set(f.used); let changed = false, saved = 0;
+  if (f.day !== today){
+    f.day = today; changed = true;
+    const miss = [];
+    for (let i = 1; i <= FREEZE_MAX + 1; i++){ const k = addDays(today, -i); if (fz.has(k) || daySecured(S.docs['days/' + k])) break; miss.push(k); }
+    const before = miss.length ? streakFrom(addDays(miss[miss.length - 1], -1)) : 0;
+    if (miss.length && miss.length <= f.n && before > 0 && miss.every(k => k >= (meta().startedOn || '0'))){ f.n -= miss.length; f.used = [...f.used, ...miss].slice(-60); saved = before; }
+  }
+  const st = streak(), key = addDays(today, -(st - 1)) + ':' + st; // the run's first day and length, so a milestone pays once
+  let earned = false;
+  if (st > 0 && st % 7 === 0 && f.earned !== key){ f.earned = key; changed = true; if (f.n < FREEZE_MAX){ f.n++; earned = true; } }
+  if (!changed) return;
+  setMeta({freeze: f});
+  if (saved) setTimeout(() => toast(trf('Заморозка спасла серию: {n} {d}', {n: streak(), d: plural(streak(), tr('день'), tr('дня'), tr('дней'))}), {icon: 'snow', tone: 'good', ms: 5000}), 600);
+  else if (earned) setTimeout(() => toast(trf('За {n} дней подряд — заморозка серии ({h} из {m})', {n: st, h: f.n, m: FREEZE_MAX}), {icon: 'snow', tone: 'gold', ms: 4500}), 900);
+}
+function freezeRow(){
+  const f = freezeDoc();
+  return `<section class="card frz"><span class="frz-ic">${ic('snow')}</span><div class="mid"><b>${trf('Заморозки серии: {n} из {m}', {n: f.n, m: FREEZE_MAX})}</b><div class="hint">${f.used.includes(addDays(todayISO(), -1)) ? tr('Вчера серию сохранила заморозка.') + ' ' : ''}${tr('Если день не засчитан, заморозка сама сохранит серию. Каждые 7 дней подряд дают новую.')}</div></div></section>`;
 }
 
 /* ============ init ============ */

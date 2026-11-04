@@ -5295,7 +5295,7 @@ function focusFinish(complete){
   if (complete){ haptic('success'); sound('badge'); }
   const said = leaves ? trf('Фокус: {m} из {t} мин · {n} {w}, {a} мин вне приложения', {m: mins, t: f.min, n: leaves, w: plural(leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')), a: awayMin})
     : complete ? trf('Фокус: {m} мин без единого отвлечения', {m: mins}) : trf('Фокус: {m} мин', {m: mins});
-  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : {})});
+  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : complete && mins >= 20 ? {action: {label: tr('Перерыв 5 мин'), act: 'focusBreak'}} : {})});
   scheduleRender();
 }
 let FOCUS_TASK = null;
@@ -6097,6 +6097,9 @@ function weekdayCopies(c){
     return t.replace(/(^|\s)(?:and|и|,)(?=\s+(?:every|each|каждый|каждую|каждое|по|on)\s)/ig, '$1').replace(/\s+/g, ' ').trim();
   });
 }
+
+/* ============ after a full Focus session: a 5-minute break on the countdown bar ============ */
+A.focusBreak = () => { hideToast(); haptic('light'); startRest(300, tr('Перерыв')); };
 
 /* ============ init ============ */
 async function init(){

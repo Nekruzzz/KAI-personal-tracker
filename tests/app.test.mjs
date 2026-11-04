@@ -2564,3 +2564,14 @@ test('the to-do field makes one repeating to-do per weekday too', () => {
     assert.deepEqual(ts.map(t => [t.title, run(`dow('${t.due}')`), t.every]), [['Gym', 1, 'week'], ['Gym', 5, 'week']]);
   } finally { run(`delete globalThis.FORM; saveTasks(tasks38)`); }
 });
+
+test('a full Focus session offers a 5-minute break', () => {
+  const T0 = Date.UTC(2030, 2, 3, 9, 0);
+  run(`globalThis.now9 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toasts9 = []; globalThis.toast9 = toast; toast = (m, o) => toasts9.push(o?.action?.act)`);
+  try {
+    run(`focusStart(25, 'Study'); T += 25 * 60000; focusTick()`);
+    assert.ok(run(`toasts9.includes('focusBreak')`));
+    run(`A.focusBreak()`);
+    assert.ok(run(`TIMER.end - T > 290000 || TIMER.end - Date.now() > 0`), 'the break counts down');
+  } finally { run(`stopRest(); Date.now = now9; toast = toast9; FOCUS = null; focusSave()`); }
+});

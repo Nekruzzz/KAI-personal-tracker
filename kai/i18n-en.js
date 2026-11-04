@@ -2170,4 +2170,5 @@ window.I18N_EN = {
 "Каждый день":"Every day",
 "В какие дни показывать эту задачу":"Which days to show this task",
 "Выбери хотя бы один день":"Pick at least one day",
+"Добавлено: {n} {t}":"Added: {n} {t}",
 };

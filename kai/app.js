@@ -4426,7 +4426,8 @@ function recapStats(){
   const days = recapRange(), s = timeSum(days);
   const tasks = days.reduce((a, k) => a + (S.docs['days/' + k]?.tasks || []).filter(t => t.done).length, 0) + smartTasks().filter(t => t.done && days.includes(t.doneAt)).length;
   const focus = days.reduce((a, k) => a + (S.docs['days/' + k]?.focus || []).filter(x => x.min > 0).length, 0);
-  return {days, ...s, tasks, focus, streak: streak(), level: levelOf(totalXP()).level};
+  const ch = (meta().challenges || {})[addDays(days[6], 1 - dow(days[6]))];
+  return {days, ...s, tasks, focus, streak: streak(), level: levelOf(totalXP()).level, chDone: (ch?.done || []).length, chN: (ch?.list || []).length};
 }
 function recapCanvas(st){
   const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -4471,7 +4472,7 @@ function recapPlan(st){
   const hours = m => m >= 60 ? num(m / 60, 1) + ' ' + tr('ч') : Math.round(m) + ' ' + tr('мин'), timed = st.total >= 1;
   return {
     head: timed ? hours(st.total) : String(st.tasks), headLabel: timed ? tr('вложено за неделю') : tr('задач сделано за неделю'),
-    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
+    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [st.chDone || 0, `${st.chDone} / ${st.chN}`, tr('вызовов недели'), '#ffd84d'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
   };
 }
 A.recap = () => {
@@ -5611,7 +5612,7 @@ function eveningNudge(date){
   if (need <= 0) return null;
   const bed = bedMin(date), open = d.tasks.filter(t => !t.done).map(t => t.title);
   return {at: atMin(date, bed != null ? Math.min(bed - 120, 22 * 60) : 21 * 60),
-    title: trf('Ещё {n} {t}, и день засчитан', {n: need, t: plural(need, tr('задача'), tr('задачи'), tr('задач'))}),
+    title: nudgeTitle(need, streakFrom(addDays(date, -1))),
     body: open.slice(0, 3).join(' · ') + (open.length > 3 ? ' …' : '')};
 }
 
@@ -6364,6 +6365,12 @@ function habitBadgeStats(ks){
 /* ============ level titles: a name for where the person is, not just a number ============ */
 const LEVEL_TITLES = [[1, 'Новичок'], [2, 'Ученик'], [4, 'Стабильность'], [6, 'Упорство'], [9, 'Дисциплина'], [12, 'Мастер режима'], [16, 'Сталь'], [21, 'Легенда']];
 const levelTitle = n => tr(LEVEL_TITLES.filter(([from]) => n >= from).pop()[1]);
+
+/* ============ the evening nudge names the streak at stake, from 3 days ============ */
+function nudgeTitle(need, run){
+  const t = plural(need, tr('задача'), tr('задачи'), tr('задач'));
+  return run >= 3 ? trf('Ещё {n} {t} — и серия {s} {d} продолжится', {n: need, t, s: run, d: plural(run, tr('день'), tr('дня'), tr('дней'))}) : trf('Ещё {n} {t}, и день засчитан', {n: need, t});
+}
 
 /* ============ init ============ */
 async function init(){

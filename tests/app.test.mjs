@@ -940,7 +940,7 @@ test('describing food without AI counts it from the food table, and still waits 
   assert.equal(run(`getDay('${d}').meals.length`), 0, 'nothing logged yet');
   run(`A.tellApply({dataset: {id: '${it.id}'}})`);
   assert.equal(run(`getDay('${d}').meals.length`), 1);
-  assert.equal(run(`foodLocal('a bowl of soup', '${d}')`), false);
+  assert.equal(run(`foodLocal('a bowl of gazpacho', '${d}')`), false);
   run(`SH = null`);
 });
 
@@ -2876,4 +2876,17 @@ test('a Saturday reminder lists the challenges still open, when turned on', () =
     run(`setMeta({remind: {...(meta().remind || {}), challenges: true}})`);
     if (run(`dow(todayISO())`) < 6) assert.ok(run(`buildReminders(0).some(r => r.key.startsWith('ch'))`));
   } finally { run(`save('app/meta', meta51)`); }
+});
+
+test('everyday dishes are not read as one of their ingredients', () => {
+  const m = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.meals || [])`)).map(x => x.name).join();
+  assert.ok(!/твёрд|hard/i.test(m('сырники 200г')), 'syrniki are not hard cheese');
+  assert.ok(!/грудка|breast/i.test(m('вареники 250г')), 'vareniki are not boiled chicken');
+  assert.ok(/Цезарь|Caesar/.test(m('салат цезарь 250г')));
+  assert.ok(/Hamburger|Гамбургер/.test(m('ate a burger')));
+  assert.ok(/Hot dog|Хот-дог/.test(m('a hot dog')) && !/Sausage|Сосиска/.test(m('a hot dog')));
+  assert.ok(/Lentil soup|Суп чечевичный/.test(m('lentil soup 300g')));
+  assert.ok(/сыр|cheese/i.test(m('200 г сыра')), 'cheese is still cheese');
+  assert.equal(run(`sameWord('сыром', 'сыр')`), true);
+  assert.equal(run(`sameWord('сырни', 'сыр')`), false);
 });

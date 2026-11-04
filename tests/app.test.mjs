@@ -2416,3 +2416,18 @@ test('repeat intervals: "every 2 weeks", "every other day", "каждые 3 дн
     assert.deepEqual([next.due, next.n], [run(`addDays('${today}', 14)`), 2]);
   } finally { run(`toast = toastQ; saveTasks(tasks30)`); }
 });
+
+test('a to-do can carry a note: saved, shown as text, kept by the next repeat, removed when emptied', () => {
+  const today = run(`todayISO()`), X = '<img src=x onerror=alert(1)>';
+  run(`globalThis.tasks31 = clone(smartTasks()); globalThis.toastN = toast; toast = () => {}; saveTasks([{id: 'tn', title: 'Lab report', due: '${today}', done: false, pri: 2, every: 'week'}]); S.open.tk_tn = true`);
+  try {
+    run(`CH.tkNote({value: '  sections 3-4  ', dataset: {id: 'tn'}})`);
+    assert.equal(run(`smartTasks()[0].note`), 'sections 3-4');
+    run(`CH.tkNote({value: ${JSON.stringify(X)}, dataset: {id: 'tn'}})`);
+    assert.ok(!/<img src=x/.test(run(`taskCard()`)), 'shown as text');
+    run(`A.tkDone({dataset: {id: 'tn'}})`);
+    assert.equal(run(`smartTasks().find(t => !t.done).note`), X, 'the next one keeps the note');
+    run(`CH.tkNote({value: '', dataset: {id: smartTasks().find(t => !t.done).id}})`);
+    assert.equal(run(`'note' in smartTasks().find(t => !t.done)`), false);
+  } finally { run(`toast = toastN; S.open.tk_tn = false; saveTasks(tasks31)`); }
+});

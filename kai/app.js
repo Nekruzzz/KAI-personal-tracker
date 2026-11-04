@@ -3350,8 +3350,8 @@ function taskCard(){
   const row = t => {
     const open = S.open['tk_' + t.id], late = isOverdue(t);
     return `<div class="row task ${late ? 'late' : ''}"><span class="tic" style="--tc:var(--${late ? 'bad' : t.pri === 1 ? 'warn' : t.time ? 'c3' : 'c0'})">${ic(t.time ? 'bell' : 'list')}</span>
-      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${everyText(t)}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
-    ${open ? `<div class="detail"><div class="hint">${tr("Перенести")}</div><div class="btnrow">${[['h1', tr('+1 час')], ['eve', tr('Вечером')], ['tom', tr('Завтра')], ['wk', tr('В выходные')], ['none', tr('Без срока')]].map(([w, l]) => `<button class="btn ghost" data-act="tkMove" data-id="${t.id}" data-w="${w}">${l}</button>`).join('')}</div>
+      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.note ? ` · ${ic('edit', 'rep-ic')}${tr('заметка')}` : ''}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${everyText(t)}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
+    ${open ? `<div class="detail">${tkNoteField(t)}<div class="hint">${tr("Перенести")}</div><div class="btnrow">${[['h1', tr('+1 час')], ['eve', tr('Вечером')], ['tom', tr('Завтра')], ['wk', tr('В выходные')], ['none', tr('Без срока')]].map(([w, l]) => `<button class="btn ghost" data-act="tkMove" data-id="${t.id}" data-w="${w}">${l}</button>`).join('')}</div>
       <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}${t.every ? `<button class="btn ghost" data-act="tkStopRepeat" data-id="${t.id}">${ic('repeat')}${tr('Не повторять')}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
   };
   const doneToday = smartTasks().filter(t => t.done && t.doneAt === today).length;
@@ -3404,13 +3404,13 @@ function icsText2(events){
   events.forEach(e => {
     const s = e.date.replace(/-/g, '') + 'T' + e.time.replace(':', '') + '00', end = hmStr(Math.min(hm(e.time) + (e.min || 15), 23 * 60 + 59));
     const esc2 = x => String(x).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
-    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@kai', 'DTSTAMP:' + stamp, 'DTSTART:' + s, 'DTEND:' + e.date.replace(/-/g, '') + 'T' + end.replace(':', '') + '00', 'SUMMARY:' + esc2(e.title), ...(ICS_FREQ[e.every] ? ['RRULE:FREQ=' + ICS_FREQ[e.every] + (e.n > 1 ? ';INTERVAL=' + e.n : '')] : []),
+    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@kai', 'DTSTAMP:' + stamp, 'DTSTART:' + s, 'DTEND:' + e.date.replace(/-/g, '') + 'T' + end.replace(':', '') + '00', 'SUMMARY:' + esc2(e.title), ...(ICS_FREQ[e.every] ? ['RRULE:FREQ=' + ICS_FREQ[e.every] + (e.n > 1 ? ';INTERVAL=' + e.n : '')] : []), ...(e.note ? ['DESCRIPTION:' + esc2(e.note)] : []),
       'BEGIN:VALARM', 'TRIGGER:-PT10M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(e.title), 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(e.title), 'END:VALARM', 'END:VEVENT');
   });
   L.push('END:VCALENDAR'); return L.join('\r\n');
 }
 async function exportTasksIcs(list){
-  const ev = list.filter(t => t.due && t.time && t.due >= todayISO()).map(t => ({id: t.id, title: t.title, date: t.due, time: t.time, every: t.every, n: t.n}));
+  const ev = list.filter(t => t.due && t.time && t.due >= todayISO()).map(t => ({id: t.id, title: t.title, date: t.due, time: t.time, every: t.every, n: t.n, note: t.note}));
   if (!ev.length) return toast(tr('Нужны задачи с датой и временем'));
   const ok = await shareOrDownload('kai-zadachi.ics', new Blob([icsText2(ev)], {type: 'text/calendar'}));
   if (ok) toast(tr('Файл готов: открой его и нажми «Добавить»'));
@@ -5943,6 +5943,10 @@ function everyText(t){
   const u = t.every === 'day' ? plural(n, tr('день'), tr('дня'), tr('дней')) : t.every === 'week' ? plural(n, tr('неделя'), tr('недели'), tr('недель')) : plural(n, tr('месяц'), tr('месяца'), tr('месяцев'));
   return trf('каждые {n} {u}', {n, u});
 }
+
+/* ============ a note on a to-do ("sections 3-4, template B") ============ */
+const tkNoteField = t => `<label class="hint" for="tkN_${esc(t.id)}">${tr('Заметка')}</label><textarea class="in tk-note" id="tkN_${esc(t.id)}" data-ch="tkNote" data-id="${esc(t.id)}" maxlength="1000" rows="2" placeholder="${tr('Детали, ссылки, что взять с собой')}">${esc(t.note || '')}</textarea>`;
+CH.tkNote = el => { const v = String(el.value || '').trim().slice(0, 1000); saveTasks(smartTasks().map(t => { if (t.id !== el.dataset.id) return t; const x = {...t}; if (v) x.note = v; else delete x.note; return x; })); };
 
 /* ============ init ============ */
 async function init(){

@@ -2221,4 +2221,6 @@ window.I18N_EN = {
 "Мастер режима":"Routine master",
 "Сталь":"Iron",
 "Легенда":"Legend",
+"Ещё {n} {t} — и серия {s} {d} продолжится":"{n} more {t} to keep your {s}-day streak",
+"вызовов недели":"weekly challenges",
 };

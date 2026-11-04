@@ -2803,3 +2803,19 @@ test('levels have titles', () => {
   assert.equal(run(`levelTitle(99)`), run(`levelTitle(21)`));
   assert.ok(run(`levelRow()`).includes(run(`levelTitle(levelOf(totalXP()).level)`)));
 });
+
+test('the evening nudge names the streak at stake', () => {
+  assert.ok(/12/.test(run(`nudgeTitle(2, 12)`)));
+  assert.ok(!/12/.test(run(`nudgeTitle(2, 1)`)));
+  assert.notEqual(run(`nudgeTitle(2, 12)`), run(`nudgeTitle(2, 1)`));
+});
+
+test('the weekly recap counts challenges done', () => {
+  run(`globalThis.meta48 = clone(meta())`);
+  try {
+    run(`const e = recapRange()[6]; save('app/meta', {...meta(), challenges: {[addDays(e, 1 - dow(e))]: {list: [{id: 'counted', goal: 3}, {id: 'walk', goal: 150}, {id: 'todos', goal: 5}], done: ['counted', 'walk']}}})`);
+    const st = JSON.parse(run(`JSON.stringify(recapStats())`));
+    assert.deepEqual([st.chDone, st.chN], [2, 3]);
+    assert.ok(JSON.parse(run(`JSON.stringify(recapPlan(recapStats()).tiles)`)).some(t => t[0] === '2 / 3'));
+  } finally { run(`save('app/meta', meta48)`); }
+});

@@ -2845,3 +2845,22 @@ test('one weekly challenge can be swapped, once a week', () => {
     run(`challengeTick()`); assert.ok(run(`weekChallenges().swapped`), 'kept after a tick');
   } finally { run(`toast = toast49; save('app/meta', meta49)`); }
 });
+
+test('the main task of the day: one at a time, first in the list, +20 XP', () => {
+  run(`globalThis.tasks50 = clone(smartTasks()); globalThis.toast50 = toast; toast = () => {}`);
+  try {
+    run(`saveTasks([{id: 'a', title: 'Essay', due: todayISO(), done: false, pri: 2}, {id: 'b', title: 'Laundry', due: todayISO(), done: false, pri: 2}, {id: 'c', title: 'Someday', due: null, done: false, pri: 2}])`);
+    assert.equal(run(`mitQ(todayISO(), 9)?.k`), 'mit');
+    assert.ok(/data-a="a"/.test(run(`mitQBody({})`)));
+    run(`A.tkMit({dataset: {id: 'b'}})`);
+    assert.equal(run(`mitQ(todayISO(), 9)`), null, 'asked only while there is none');
+    run(`A.tkMit({dataset: {id: 'c'}})`);
+    const ts = JSON.parse(run(`JSON.stringify(smartTasks())`));
+    assert.deepEqual(ts.map(t => !!t.mit), [false, false, true], 'one at a time');
+    assert.equal(ts[2].due, run(`todayISO()`), 'the main task is for today');
+    assert.ok(run(`taskCard()`).indexOf('Someday') < run(`taskCard()`).indexOf('Essay'), 'first in the list');
+    const xp = run(`totalXP()`);
+    run(`A.tkDone({dataset: {id: 'c'}})`);
+    assert.equal(run(`totalXP()`), xp + 30);
+  } finally { run(`toast = toast50; saveTasks(tasks50)`); }
+});

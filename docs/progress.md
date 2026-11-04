@@ -118,6 +118,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **Repeat intervals:** "every 2 weeks", "every other day", "каждые 3 дня", "раз в 2 недели"; the Calendar export carries the interval.
 - **Notes on to-dos:** an opened to-do has a Note field; repeating ones keep it, and the Calendar export includes it. Typing "lab report tomorrow: sections 3-4" puts the part after the colon into the note.
 - **Overdue to-dos to today in one tap:** with two or more to-dos left from earlier days, the Tasks card says "From earlier days: 2" with "Move all to today" (Undo works). A time that has already passed today is dropped.
+- **The main task of the day (new):** an opened to-do has "Main task today"; it moves to the top of the list with a "main" tag (one at a time, and a to-do without a date becomes today's). Checking it off says "Today's main task done" and gives +20 XP on top of the usual 10. In the morning (6:00 to 12:00), with two or more to-dos due and none chosen, the Day tab asks "What matters most today?" with up to three of them, or Skip. A repeating to-do's next copy isn't the main one.
 - **Repeating to-dos (new):** "take out the trash every monday", "выносить мусор по понедельникам", "pay rent every month" or "каждое утро зарядка", typed in the to-do field or told to KAI. Checking one off keeps it in the history and adds the next, on the same weekday or day of the month (the 31st falls on a short month's last day). The list shows "↻ every week", and the to-do's details can stop the repeat. "Monthly report due Friday" stays a single to-do. The opened to-do's buttons now share lines (about six rows instead of nine).
 - **Checking off a to-do can be undone:** the toast says "Done: …" with Undo, which takes back the check, the next one of a repeating to-do and any study time it added. Before, a mistaken tap made the to-do disappear with no way back.
 - **To-dos done today:** "Done today: 2" under the list shows what was checked off, struck through; tapping its filled check puts it back on the list (a repeating one takes back the next one it made).
@@ -221,7 +222,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 204 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 205 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

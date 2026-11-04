@@ -2513,3 +2513,19 @@ test('Tell KAI on the phone: "dinner at 8" is the evening, "meet" is an event, d
   assert.equal(p('spent 40 on groceries yesterday').money[0].note, 'groceries');
   assert.deepEqual([p('вчера продукты 1200').money[0].amount, p('вчера продукты 1200').money[0].cat], [1200, 'Супермаркеты']);
 });
+
+test('the month before in one card, in the first five days, until dismissed', () => {
+  run(`globalThis.meta36 = clone(meta()); globalThis.budget36 = S.docs['app/budget'] ? clone(S.docs['app/budget']) : undefined;
+    save('money/2030-09', {tx: [{id: 'a', type: 'out', amount: 100, date: '2030-09-03', cat: 'Супермаркеты', note: 'x'}]});
+    save('money/2030-10', {tx: [{id: 'b', type: 'out', amount: 90, date: '2030-10-03', cat: 'Кафе и рестораны', note: 'y'}, {id: 'c', type: 'out', amount: 30, date: '2030-10-05', cat: 'Транспорт', note: 'z'}, {id: 'd', type: 'in', amount: 500, date: '2030-10-01', cat: 'Доход', note: 'w'}]});
+    save('app/budget', {monthly: 100}); setMeta({monthRecapSeen: null})`);
+  try {
+    const r = JSON.parse(run(`JSON.stringify(monthRecap('2030-10'))`));
+    assert.deepEqual([r.sum, r.pct, r.top, r.topSum, r.over], [120, 20, 'Кафе и рестораны', 90, 20]);
+    const h = run(`monthRecapCard('2030-11', '2030-11-02')`);
+    assert.ok(h.includes(run(`trf('бюджет превышен на {s}', {s: money(20)})`)) && h.includes('(+20%)'));
+    assert.equal(run(`monthRecapCard('2030-11', '2030-11-06')`), '', 'only the first five days');
+    run(`A.monthRecapOff({dataset: {m: '2030-10'}})`);
+    assert.equal(run(`monthRecapCard('2030-11', '2030-11-02')`), '', 'dismissed');
+  } finally { run(`remove('money/2030-09'); remove('money/2030-10'); budget36 ? save('app/budget', budget36) : remove('app/budget'); setMeta({monthRecapSeen: meta36.monthRecapSeen || null})`); }
+});

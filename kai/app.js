@@ -1596,6 +1596,7 @@ function viewMoney(){
   <div class="grid2"><button class="mini ${sel==='out'?'on':''}" aria-pressed="${sel==='out'}" data-act="sub" data-k="money" data-v="out"><div style="flex:1;min-width:0"><div class="lbl">${tr("Расходы")}</div><div class="val">${money(so)}</div></div>${donut(segsFor(go,'out'),46,7)}</button>
   <button class="mini ${sel==='in'?'on':''}" aria-pressed="${sel==='in'}" data-act="sub" data-k="money" data-v="in"><div style="flex:1;min-width:0"><div class="lbl">${tr("Доходы")}</div><div class="val">${money(si)}</div></div>${donut(segsFor(gi,'in'),46,7)}</button></div>
   ${budgetCard(m, so)}
+  ${monthRecapCard(m)}
   ${billsCard(m)}
   ${debtsCard(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
@@ -6040,6 +6041,27 @@ function debtAns(a, id, mark){
 
 /* ============ "dinner at 8" is 20:00 ============ */
 const EVENING_RE = /dinner|supper|party|movie|cinema|concert|\bbar\b|club|ужин|вечеринк|кино|концерт|клуб|бар(?![а-яё])/i;
+
+/* ============ the month before, in one card, during a month's first days ============ */
+const prevMonth = m => { const [y, mm] = m.split('-').map(Number), d = new Date(y, mm - 2, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
+function monthRecap(pm){
+  const out = monthTx(pm).filter(t => t.status !== 'fail' && t.type === 'out'); if (!out.length) return null;
+  const sum = out.reduce((a, t) => a + +t.amount, 0), before = monthTx(prevMonth(pm)).filter(t => t.status !== 'fail' && t.type === 'out').reduce((a, t) => a + +t.amount, 0);
+  const by = {}; out.forEach(t => { const k = catInfo('out', t.cat)[0]; by[k] = (by[k] || 0) + +t.amount; });
+  const [top, topSum] = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
+  const budget = S.docs['app/budget']?.monthly || 0;
+  return {sum, pct: before ? Math.round((sum - before) / before * 100) : null, top, topSum, budget, over: budget ? sum - budget : null};
+}
+function monthRecapCard(m, today = todayISO()){
+  if (m !== today.slice(0, 7) || +today.slice(8) > 5) return '';
+  const pm = prevMonth(m); if (meta().monthRecapSeen === pm) return '';
+  const r = monthRecap(pm); if (!r) return '';
+  const [y, mm] = pm.split('-').map(Number), name = MONTHS[mm - 1][0].toUpperCase() + MONTHS[mm - 1].slice(1);
+  const parts = [trf('потрачено {s}', {s: money(r.sum)}) + (r.pct != null && Math.abs(r.pct) >= 5 ? ` (${r.pct > 0 ? '+' : '−'}${Math.abs(r.pct)}%)` : ''), trf('больше всего: {c}, {s}', {c: tr(r.top), s: money(r.topSum)})];
+  if (r.budget) parts.push(r.over > 0 ? trf('бюджет превышен на {s}', {s: money(r.over)}) : tr('в рамках бюджета'));
+  return `<section class="card firstc" aria-labelledby="mrH"><h2 id="mrH">${trf('{m} коротко', {m: name})}</h2><div class="hint">${(x => x[0].toUpperCase() + x.slice(1))(parts.join(' · '))}</div><button class="link" data-act="monthRecapOff" data-m="${pm}">${tr('Понятно')}</button></section>`;
+}
+A.monthRecapOff = el => setMeta({monthRecapSeen: el.dataset.m});
 
 /* ============ init ============ */
 async function init(){

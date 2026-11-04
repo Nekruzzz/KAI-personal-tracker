@@ -2162,4 +2162,9 @@ window.I18N_EN = {
 "{w} вернул {s}?":"Has {w} paid back {s}?",
 "Долги и неделя вперёд":"Debts and the week ahead",
 "Кто кому должен, с напоминанием через две недели. И все дела, пары и платежи на 7 дней в одном окне.":"Who owes whom, with a reminder after two weeks. And every to-do, class and payment for the next 7 days in one place.",
+"потрачено {s}":"spent {s}",
+"больше всего: {c}, {s}":"most on {c}, {s}",
+"бюджет превышен на {s}":"over budget by {s}",
+"в рамках бюджета":"within budget",
+"{m} коротко":"{m} in short",
 };

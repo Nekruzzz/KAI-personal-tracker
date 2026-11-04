@@ -151,6 +151,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Around the app**
 
+- **Publishing the web app:** a manual "Publish web app" workflow (`.github/workflows/pages.yml`) puts `kai/` on GitHub Pages after the tests pass; it never runs by itself, and appears in Actions once it is on `main`. Steps are in the README.
 - **Quick actions: New To-Do and Focus.** (The iPhone build passed with them.) Long-pressing the app icon also offers "New To-Do" (the Day tab with the to-do field ready) and "Focus", in English and Russian; the installed web app gets the same shortcuts. If to-dos are switched off, a note says where to turn them on. `tools/check-release.js` now also wants a Russian title for every quick action.
 - **What's new:** people updating from an earlier version see the main additions once (about two seconds after opening, never over another sheet); new installs skip it.
 - **Store screenshots:** the Money one now shows a budget with regular payments set aside.

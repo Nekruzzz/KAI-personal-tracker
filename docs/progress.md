@@ -142,6 +142,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Tell KAI on the phone**
 
+- **Dates and times in words:** "exam on the 15th", "оплатить телефон 1-го числа", "buy flowers this weekend", "эссе до конца недели", "rent by the end of the month", "lunch at half past one", "в половине второго", "a quarter to nine" and "без четверти девять", in the to-do field and in Tell KAI. "The 2nd floor" and "2-го курса" are not dates. Titles drop "remind me to" / "напомни", a stray "the" and a leading colon ("tonight: finish slides"). Fixed: "drank 3 glasses of water" was logged as 750 g of watermelon ("выпил 3 стакана воды" as oatmeal); it's now left for the AI. Football, tennis, stretching, dancing, hiking and similar count as training time.
 - **Fourth round of reading:** "dinner with Sam on Friday at 8" is 20:00 (an evening word moves 7 to 11 into the evening), "meet Kim tomorrow 3pm" is an event, "вчера продукты 1200" is spending, and day words stay out of money notes.
 - **Tell KAI on the phone, two misreadings fixed and more understood:** "сходил в зал на час" was logged as an hour's walk, and "ran 5 km in 30 minutes" or "slept from 1 to 9" became to-dos. Now read without AI: running, cycling, swimming and yoga as workouts (also with a distance), sleep from one time to another ("slept 11pm to 7am", "спал с часу до 9"), money from family ("got 50 from mom", "получил 2000 от мамы"), spending "at the pharmacy" / "в аптеке", and Uber as transport. "Woke up at 7" is no longer a to-do. A weight typed without a unit is read as kilograms or pounds, whichever is closer to the last weight logged. Found by trying 50 everyday messages in both languages.
 - **Tell KAI on the phone, second round (another 46 everyday messages tried):** "рейс 20 декабря в 6 утра" became a to-do at 18:00 titled "Рейс утра"; it's now an event at 06:00, and "в 9 вечера", "в 3 дня" and "в 11 ночи" work too (while "через 2 дня" stays days). Also new: "midterm in 2 weeks", "через 3 дня", "через неделю", "в следующий понедельник" (no stray "следующий" in the title), flights, weddings and matches as events, "пропустил зал", "10к шагов", reps without commas ("жим 60 на 8 8 6"), a second amount in one sentence ("spent 30 on books and 12 on lunch") and "slept badly, 5 hours".
@@ -193,7 +194,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 185 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 188 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

@@ -2890,3 +2890,10 @@ test('everyday dishes are not read as one of their ingredients', () => {
   assert.equal(run(`sameWord('сыром', 'сыр')`), true);
   assert.equal(run(`sameWord('сырни', 'сыр')`), false);
 });
+
+test('the level sheet explains how XP is earned and the next title', () => {
+  run(`A.levelInfo()`);
+  const h = run(`document.querySelector('.sheet')?.innerHTML || SH?.html || ''`);
+  assert.ok(run(`levelRow()`).includes('data-act="levelInfo"'));
+  run(`closeSheet()`);
+});

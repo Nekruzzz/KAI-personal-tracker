@@ -2254,4 +2254,12 @@ window.I18N_EN = {
 "Суп, ориентир.":"Soup, approx.",
 "Салат Цезарь с курицей, ориентир.":"Chicken Caesar salad, approx.",
 "Маффин":"Muffin",
+"за каждую отмеченную задачу":"for each task checked off",
+"за идеальный день: всё выполнено":"for a perfect day: everything done",
+"за главное дело дня":"for the day's main task",
+"за каждые 2 минуты прогулок, тренировок и учёбы":"for every 2 minutes of walking, workouts and study",
+"за вызов недели, и ещё +100 за все три":"for a weekly challenge, and +100 more for all three",
+"До уровня {n}":"To level {n}",
+"С уровня {n} — «{t}»":"From level {n}: “{t}”",
+"XP не сгорают: пропущенный день не отнимает уровень.":"XP never runs out: a missed day doesn't take a level away.",
 };

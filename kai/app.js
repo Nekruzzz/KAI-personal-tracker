@@ -386,7 +386,7 @@ function buildDay(date){
   if (cls.length) tasks.push({id:'study', title:tr('Учёба · ')+cls.length+' '+plural(cls.length,tr('пара'),tr('пары'),tr('пар')), cat:'study', done:false});
   const ps = posts().filter(p=>p.date===date && p.status!=='Опубликовано');
   if (ps.length && modOn('content')) tasks.push({id:'content', title:tr('Контент · ')+ps.length+' '+plural(ps.length,tr('ролик'),tr('ролика'),tr('роликов')), cat:'content', done:false});
-  (pl.dailyTasks||[]).forEach(t => { if (t.cat==='supps' && (!SUPPS_ON || !(pl.supps||[]).length)) return; tasks.push({...t, done:false}); });
+  (pl.dailyTasks||[]).forEach(t => { if (t.cat==='supps' && (!SUPPS_ON || !(pl.supps||[]).length)) return; if (Array.isArray(t.days) && t.days.length && !t.days.includes(dow(date))) return; const {days, ...x} = t; tasks.push({...x, done:false}); });
   return {date, tasks, meals:[], sets:{}, supps:{}, status:'ok', rating:null, steps:null, sleep:null, weight:null, log:[]};
 }
 function getDay(date){
@@ -3224,7 +3224,7 @@ function viewMore(){
   h += acc('day', 'day', tr('Расписание дня'), trf('Прогулки {m} мин в день · событий впереди: {n}', {m: pl.routine?.walkGoal || 120, n: (pl.routine?.events || []).filter(e => (e.toDate || e.date) >= todayISO()).length}), `<div class="field"><label for="walkGoal">${tr("Цель по прогулкам, минут в день")}</label><input class="in" id="walkGoal" inputmode="numeric" data-ch="walkGoal" value="${pl.routine?.walkGoal || 120}"></div>
     <button class="btn ghost" data-act="evSheet">${ic('star')}${tr("События: фест, экзамены, поездки")}</button>`);
   const cls = (pl.classes || []).map((c, i) => ({...c, i})).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
-  h += acc('tasks', 'list', tr('Ежедневные задачи'), shownDaily(pl).length + ' ' + plural(shownDaily(pl).length, tr('задача'), tr('задачи'), tr('задач')), `<div class="list">${(pl.dailyTasks || []).map((tk, i) => !SUPPS_ON && tk.cat === 'supps' ? '' : `<div class="row"><div class="mid"><div class="t">${esc(tk.title)}</div></div><button class="iconbtn" data-act="dtDel" data-i="${i}" aria-label="${tr("Убрать")} ${esc(tk.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
+  h += acc('tasks', 'list', tr('Ежедневные задачи'), shownDaily(pl).length + ' ' + plural(shownDaily(pl).length, tr('задача'), tr('задачи'), tr('задач')), `<div class="list">${(pl.dailyTasks || []).map((tk, i) => !SUPPS_ON && tk.cat === 'supps' ? '' : `<div class="row"><div class="mid"><div class="t">${esc(tk.title)}</div><button class="link" style="font-size:13.5px;padding:2px 0" data-act="dtDays" data-i="${i}">${esc(daysLabel(tk.days))}</button></div><button class="iconbtn" data-act="dtDel" data-i="${i}" aria-label="${tr("Убрать")} ${esc(tk.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div style="display:flex;gap:8px"><input class="in" id="dtNew" placeholder="${tr("Новая ежедневная задача")}"><button class="btn" data-act="dtAdd" aria-label="${tr("Добавить")}">${ic('plus')}</button></div>`);
   h += isNative() ? acc('remind', 'bell', tr('Напоминания'), m.remindAsked ? tr('Включены') : tr('Не настроены'), `<button class="btn" data-act="notifSheet">${ic('bell')}${tr('Настроить напоминания')}</button>`) + healthRow() : acc('remind', 'bell', tr('Напоминания'), m.icsAt ? tr('Календарь iPhone настроен') : tr('Не настроены'), `<div class="hint">${tr("Календарь iPhone напомнит о тренировке, еде и сне, даже когда приложение закрыто.")}</div><button class="btn" data-act="ics">${ic('day')}${tr("Настроить напоминания в Календарь")}</button>`);
   if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
@@ -6062,6 +6062,20 @@ function monthRecapCard(m, today = todayISO()){
   return `<section class="card firstc" aria-labelledby="mrH"><h2 id="mrH">${trf('{m} коротко', {m: name})}</h2><div class="hint">${(x => x[0].toUpperCase() + x.slice(1))(parts.join(' · '))}</div><button class="link" data-act="monthRecapOff" data-m="${pm}">${tr('Понятно')}</button></section>`;
 }
 A.monthRecapOff = el => setMeta({monthRecapSeen: el.dataset.m});
+
+/* ============ a daily task on chosen weekdays only ============ */
+// dailyTasks[i].days: [1..7] (Monday is 1); none or all seven means every day
+const daysLabel = d => !Array.isArray(d) || !d.length || d.length === 7 ? tr('Каждый день') : [1, 2, 3, 4, 5, 6, 7].filter(n => d.includes(n)).map(n => DOW[n]).join(' ');
+A.dtDays = el => { const i = +el.dataset.i, t = plan().dailyTasks?.[i]; if (!t) return; SH = null;
+  openSheet(t.title, () => `<div class="hint">${tr('В какие дни показывать эту задачу')}</div><div class="ob-goals">${[1, 2, 3, 4, 5, 6, 7].map(n => `<button class="pill ${(SH.dd || []).includes(n) ? 'on' : ''}" aria-pressed="${(SH.dd || []).includes(n)}" data-act="dtDay" data-n="${n}">${DOW_FULL[n]}</button>`).join('')}</div><button class="btn block" data-act="dtDaysSave" data-i="${i}">${tr('Сохранить')}</button>`);
+  SH.dd = Array.isArray(t.days) && t.days.length ? [...t.days] : [1, 2, 3, 4, 5, 6, 7]; drawSheet(); };
+A.dtDay = el => { const n = +el.dataset.n; SH.dd = SH.dd.includes(n) ? SH.dd.filter(x => x !== n) : [...SH.dd, n].sort(); drawSheet(); };
+A.dtDaysSave = el => {
+  if (!SH.dd.length) return toast(tr('Выбери хотя бы один день'));
+  const p = clone(plan()), t = p.dailyTasks[+el.dataset.i]; if (!t) return closeSheet();
+  if (SH.dd.length === 7) delete t.days; else t.days = SH.dd;
+  save('app/plan', p); closeSheet(); toast(tr('Сохранено'));
+};
 
 /* ============ init ============ */
 async function init(){

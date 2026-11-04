@@ -2529,3 +2529,19 @@ test('the month before in one card, in the first five days, until dismissed', ()
     assert.equal(run(`monthRecapCard('2030-11', '2030-11-02')`), '', 'dismissed');
   } finally { run(`remove('money/2030-09'); remove('money/2030-10'); budget36 ? save('app/budget', budget36) : remove('app/budget'); setMeta({monthRecapSeen: meta36.monthRecapSeen || null})`); }
 });
+
+test('a daily task can be limited to some weekdays', () => {
+  const mon = nextDow(1), tue = run(`addDays('${mon}', 1)`);
+  run(`globalThis.plan37 = clone(plan()); (() => { const p = clone(plan()); p.dailyTasks = [{id: 'mp', title: 'Meal prep', cat: 'custom'}]; save('app/plan', p); })()`);
+  try {
+    run(`A.dtDays({dataset: {i: 0}})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(SH.dd)`)), [1, 2, 3, 4, 5, 6, 7]);
+    run(`[2, 3, 4, 5, 6, 7].forEach(n => A.dtDay({dataset: {n}})); A.dtDaysSave({dataset: {i: 0}})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(plan().dailyTasks[0].days)`)), [1]);
+    assert.ok(run(`buildDay('${mon}').tasks.some(t => t.id === 'mp')`), 'on Monday');
+    assert.ok(!run(`buildDay('${tue}').tasks.some(t => t.id === 'mp')`), 'not on Tuesday');
+    assert.equal(run(`'days' in buildDay('${mon}').tasks.find(t => t.id === 'mp')`), false, 'the day keeps no copy of the rule');
+    assert.equal(run(`daysLabel([1])`), run(`DOW[1]`));
+    assert.equal(run(`daysLabel(undefined)`), run(`tr('Каждый день')`));
+  } finally { run(`closeSheetQuiet(); save('app/plan', plan37)`); }
+});

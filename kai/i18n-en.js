@@ -2167,4 +2167,7 @@ window.I18N_EN = {
 "бюджет превышен на {s}":"over budget by {s}",
 "в рамках бюджета":"within budget",
 "{m} коротко":"{m} in short",
+"Каждый день":"Every day",
+"В какие дни показывать эту задачу":"Which days to show this task",
+"Выбери хотя бы один день":"Pick at least one day",
 };

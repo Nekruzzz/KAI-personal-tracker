@@ -97,6 +97,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Money**
 
+- **Due payments are asked about on the Day tab:** "“Rent” ($400) is due today. Paid?" with Paid, Skip month and Later, one payment at a time, while Money is on.
 - **Regular payments (new):** rent, a phone plan, subscriptions or an allowance, added under Money or by switching on "Every month" when saving an entry. Each shows as due, coming, paid or skipped this month and is marked paid with one tap (Undo works); nothing is recorded by itself. The budget sets aside what is still to pay, so "about $15 a day" is what can really be spent. Something paid once a month around the same day, with the same name and amount, is offered as a regular payment (once; "No, thanks" is remembered). With reminders on, the iPhone app reminds at 10:00 on the day, and the morning plan mentions it. Two categories were added for them: Housing and utilities, and Subscriptions; the on-phone reader files "rent 400", "netflix 11" and "phone bill 15" there.
 - **The budget sheet points to regular payments**, which it sets aside in advance.
 - **Subscriptions added up:** the regular payments card shows "Subscriptions: $12.50 a month, $150 a year".
@@ -110,6 +111,8 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **To-dos, study and exams**
 
+- **Repeat intervals:** "every 2 weeks", "every other day", "каждые 3 дня", "раз в 2 недели"; the Calendar export carries the interval.
+- **Notes on to-dos:** an opened to-do has a Note field; repeating ones keep it, and the Calendar export includes it.
 - **Repeating to-dos (new):** "take out the trash every monday", "выносить мусор по понедельникам", "pay rent every month" or "каждое утро зарядка", typed in the to-do field or told to KAI. Checking one off keeps it in the history and adds the next, on the same weekday or day of the month (the 31st falls on a short month's last day). The list shows "↻ every week", and the to-do's details can stop the repeat. "Monthly report due Friday" stays a single to-do. The opened to-do's buttons now share lines (about six rows instead of nine).
 - **Checking off a to-do can be undone:** the toast says "Done: …" with Undo, which takes back the check, the next one of a repeating to-do and any study time it added. Before, a mistaken tap made the to-do disappear with no way back.
 - **To-dos done today:** "Done today: 2" under the list shows what was checked off, struck through; tapping its filled check puts it back on the list (a repeating one takes back the next one it made).
@@ -125,6 +128,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Health and habits**
 
+- **Streak milestones:** checking off a habit that reaches 7, 14, 30, 50, 100, 200 or 365 days in a row shows a short celebration (confetti from 30).
 - **Hold timer for timed exercises:** the plank and other holds get a Timer instead of the Rest link: 3 seconds to get ready, a countdown to the top of the range with a beep at both ends, then the seconds go into the next set and the rest timer starts by itself ("Done" early records what was actually held). Toasts now sit above the rest and focus bars instead of covering their buttons.
 - **A streak for each daily task:** the Daily list shows each habit's own run ("🔥 6 days in a row", or "3 workouts in a row" for the workout, which isn't daily). Days without the task and sick days don't break it, and neither does today while it's still open. Worked out once per change of data: at most about 3 ms with two years of records.
 - **Evening check-in (new, off until turned on):** two hours before bedtime (no later than 22:00), "2 more tasks and the day counts", naming what is left. Only while the day doesn't count yet, never on a sick day.
@@ -181,7 +185,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 168 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 172 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

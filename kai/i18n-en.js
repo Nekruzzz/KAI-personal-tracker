@@ -2178,4 +2178,12 @@ window.I18N_EN = {
 "С прошлых дней: {n}":"From earlier days: {n}",
 "Всё на сегодня":"Move all to today",
 "На сегодня: {n}":"Moved to today: {n}",
+"Сколько часов сна было этой ночью?":"How many hours did you sleep last night?",
+"9 часов и больше":"9 hours or more",
+"Не помню":"Not sure",
+"Записал. Сегодня постарайся лечь пораньше":"Saved. Try to get to bed a bit earlier tonight",
+"Записал сон":"Sleep saved",
+"час":"hour",
+"часа":"hours",
+"часов":"hours",
 };

@@ -3367,15 +3367,15 @@ const isOverdue = t => !t.done && !!t.due && (t.due < todayISO() || (t.due === t
 function taskCard(){
   if (!modOn('tasks')) return '';
   const today = todayISO(), items = smartTasks().filter(t => !t.done && !studyOver(t));
-  const rank = t => isOverdue(t) ? 0 : t.due === today ? 1 : !t.due ? 2 : 3;
+  const rank = t => isMit(t) ? -1 : isOverdue(t) ? 0 : t.due === today ? 1 : !t.due ? 2 : 3;
   const sorted = [...items].sort((a, b) => rank(a) - rank(b) || (a.time || '99').localeCompare(b.time || '99') || a.pri - b.pri);
   const now = sorted.filter(t => rank(t) <= 2), later = sorted.filter(t => rank(t) === 3);
   const row = t => {
     const open = S.open['tk_' + t.id], late = isOverdue(t);
     return `<div class="row task ${late ? 'late' : ''}"><span class="tic" style="--tc:var(--${late ? 'bad' : t.pri === 1 ? 'warn' : t.time ? 'c3' : 'c0'})">${ic(t.time ? 'bell' : 'list')}</span>
-      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.note ? ` · ${ic('edit', 'rep-ic')}${tr('заметка')}` : ''}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${everyText(t)}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
+      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${isMit(t) ? `<span class="tag gold">${tr('главное')}</span> ` : ''}${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.note ? ` · ${ic('edit', 'rep-ic')}${tr('заметка')}` : ''}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${everyText(t)}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
     ${open ? `<div class="detail">${tkNoteField(t)}<div class="hint">${tr("Перенести")}</div><div class="btnrow">${[['h1', tr('+1 час')], ['eve', tr('Вечером')], ['tom', tr('Завтра')], ['wk', tr('В выходные')], ['none', tr('Без срока')]].map(([w, l]) => `<button class="btn ghost" data-act="tkMove" data-id="${t.id}" data-w="${w}">${l}</button>`).join('')}</div>
-      <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}${t.every ? `<button class="btn ghost" data-act="tkStopRepeat" data-id="${t.id}">${ic('repeat')}${tr('Не повторять')}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
+      <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkMit" data-id="${t.id}">${ic('star')}${isMit(t) ? tr('Не главное') : tr('Главное на сегодня')}</button><button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}${t.every ? `<button class="btn ghost" data-act="tkStopRepeat" data-id="${t.id}">${ic('repeat')}${tr('Не повторять')}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
   };
   const doneToday = smartTasks().filter(t => t.done && t.doneAt === today).length;
   return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) + (doneToday ? tr(' · готово ') + doneToday : '') : doneToday ? tr('всё сделано') : ''}</span></div>
@@ -3409,9 +3409,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target?.i
 A.tkOpen = el => { const k = 'tk_' + el.dataset.id; S.open[k] = !S.open[k]; render(); };
 A.tkDone = el => {
   const t = smartTasks().find(x => x.id === el.dataset.id && !x.done); if (!t) return;
-  burstAt(el); xpPop(el); haptic('light'); sound('pop');
+  const main = isMit(t);
+  burstAt(el); xpPop(el, main ? 10 + MIT_XP : 10); haptic(main ? 'success' : 'light'); sound(main ? 'success' : 'pop');
   // a mistaken tap can be taken back: the to-do, the next one of a repeating to-do, and any study time it added
-  withUndo(['app/tasks', 'days/' + todayISO(), 'app/plan'], () => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }, trf('Готово: {t}', {t: t.title.length > 40 ? t.title.slice(0, 39) + '…' : t.title}));
+  withUndo(['app/tasks', 'days/' + todayISO(), 'app/plan'], () => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }, trf(main ? 'Главное на сегодня сделано: {t}' : 'Готово: {t}', {t: t.title.length > 40 ? t.title.slice(0, 39) + '…' : t.title}));
 };
 A.tkDel = el => withUndo(['app/tasks'], () => saveTasks(smartTasks().filter(t => t.id !== el.dataset.id)));
 A.tkPri = el => saveTasks(smartTasks().map(t => t.id === el.dataset.id ? {...t, pri: t.pri === 1 ? 2 : 1} : t));
@@ -3451,6 +3452,7 @@ function checkins(){
   const q = (k, o) => { if (open(k)) out.push({k, ...o}); };
   if (modOn('tasks')){
     if (hr >= 6 && hr < 12 && !smartTasks().some(t => !t.done && t.due === date) && !d.planDone) q('plan', {type: 'plan', text: tr('Что нужно сделать сегодня?')});
+    { const mq = mitQ(date, hr); if (mq) q(mq.k, mq); }
     smartTasks().filter(t => isOverdue(t) && !studyOver(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
     smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
@@ -3480,6 +3482,7 @@ function checkinCard(){
   else if (c.type === 'rate') body = `<div class="rate5">${[1, 2, 3, 4, 5].map(i => `<button data-act="ciAns" data-k="rate" data-a="${i}" aria-label="${i} ${tr("из 5")}">${'★'}<small>${i}</small></button>`).join('')}</div><div class="btnrow">${b('later', tr('Не сейчас'), 'ghost')}</div>`;
   else if (c.type === 'exam') body = examResultBody(c, b);
   else if (c.type === 'sleep') body = sleepQBody(c);
+  else if (c.type === 'mit') body = mitQBody(c);
   else if (c.type === 'debt') body = `<div class="btnrow">${b('yes', tr('Да, вернули'))}${b('no', tr('Ещё нет'), 'ghost')}</div>`;
   else if (c.type === 'bill') body = `<div class="btnrow">${b('paid', c.inc ? tr('Получено') : tr('Оплачено'))}${b('skip', tr('Пропустить месяц'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
@@ -3509,6 +3512,7 @@ A.ciAns = el => {
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
   if (k.startsWith('x_')) return examResultAns(a, id, mark);
   if (k === 'sl') return sleepQAns(a, mark);
+  if (k === 'mit') return a === 'no' ? mark('no') : (setMit(a), mark('yes'));
   if (k.startsWith('p_')) return billDueAns(a, id, mark);
   if (k.startsWith('d_')) return debtAns(a, id, mark);
   if (k === 'rate') return mutDay(date, d => { d.rating = +a; d.asked = {...(d.asked || {}), rate: 'yes'}; });
@@ -4401,7 +4405,7 @@ function totalXP(){
     const done = (d.tasks || []).filter(t => t.done).length, t = timeOn(k);
     xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study) / 2);
   });
-  return xp + smartTasks().filter(t => t.done).length * 10 + challengeXP();
+  return xp + smartTasks().filter(t => t.done).length * 10 + smartTasks().filter(t => t.done && t.mit && t.mit === t.doneAt).length * MIT_XP + challengeXP();
 }
 function levelOf(xp){
   let n = 0; while (xp >= xpFor(n + 1)) n++;
@@ -5714,7 +5718,7 @@ function nextDue(from, every, today = todayISO(), n = 1){
 function tasksDone(list, id, date){
   const t = list.find(x => x.id === id && !x.done); if (!t) return list;
   const out = list.map(x => x.id === id ? {...x, done: true, doneAt: date} : x);
-  if (EVERY[t.every]){ const nt = {...t, id: uid(), done: false, due: nextDue(t.due, t.every, todayISO(), t.n || 1), created: todayISO()}; delete nt.doneAt; delete nt.askedWhen; delete nt.focusMin; out.push(nt); }
+  if (EVERY[t.every]){ const nt = {...t, id: uid(), done: false, due: nextDue(t.due, t.every, todayISO(), t.n || 1), created: todayISO()}; delete nt.doneAt; delete nt.askedWhen; delete nt.focusMin; delete nt.mit; out.push(nt); }
   return out;
 }
 A.tkStopRepeat = el => { saveTasks(smartTasks().map(t => { if (t.id !== el.dataset.id) return t; const x = {...t}; delete x.every; return x; })); toast(tr('Больше не повторяется')); };
@@ -6410,6 +6414,27 @@ A.chSwap = el => {
   setMeta({challenges: {...(meta().challenges || {}), [w.mon]: {list, done: w.done, swapped: true}}});
   haptic('selection'); toast(trf('Новый вызов: {t}', {t: CHALLENGES[id][0]()}));
 };
+
+/* ============ the main task of the day: one to-do first, +20 XP when done ============ */
+const MIT_XP = 20;
+const isMit = t => !!t && !t.done && t.mit === todayISO();
+function setMit(id){
+  const today = todayISO();
+  saveTasks(smartTasks().map(t => t.id === id ? {...t, mit: today, due: !t.due || t.due > today ? today : t.due} : t.mit === today && !t.done ? (({mit, ...x}) => x)(t) : t));
+}
+A.tkMit = el => {
+  const t = smartTasks().find(x => x.id === el.dataset.id); if (!t) return;
+  haptic('selection');
+  if (isMit(t)) return saveTasks(smartTasks().map(x => x.id === t.id ? (({mit, ...y}) => y)(x) : x));
+  setMit(t.id); toast(trf('Главное на сегодня: {t} · +{x} XP, когда сделаешь', {t: t.title.length > 30 ? t.title.slice(0, 29) + '…' : t.title, x: MIT_XP}));
+};
+const mitOptions = date => smartTasks().filter(t => !t.done && t.due && t.due <= date && !studyOver(t)).slice(0, 3);
+function mitQ(date, hr){
+  if (!modOn('tasks') || hr < 6 || hr >= 12 || smartTasks().some(isMit)) return null;
+  return mitOptions(date).length >= 2 ? {k: 'mit', type: 'mit', text: tr('Что главное сегодня? Это дело будет первым в списке')} : null;
+}
+const mitQBody = c => `<div class="list">${mitOptions(todayISO()).map(t => `<button class="row" data-act="ciAns" data-k="mit" data-a="${t.id}"><span class="tic" style="--tc:var(--warn)">${ic('star')}</span><div class="mid"><div class="t">${esc(t.title)}</div></div></button>`).join('')}</div>
+  <div class="btnrow"><button class="btn ghost" data-act="ciAns" data-k="mit" data-a="no">${tr('Без главного')}</button></div>`;
 
 /* ============ init ============ */
 async function init(){

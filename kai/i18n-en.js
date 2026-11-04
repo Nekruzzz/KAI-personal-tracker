@@ -2235,4 +2235,11 @@ window.I18N_EN = {
 "Заменить вызов":"Swap challenge",
 "Новый вызов: {t}":"New challenge: {t}",
 "Заменить":"Swap",
+"Главное на сегодня сделано: {t}":"Today's main task done: {t}",
+"главное":"main",
+"Не главное":"Not the main one",
+"Главное на сегодня":"Main task today",
+"Главное на сегодня: {t} · +{x} XP, когда сделаешь":"Main task today: {t} · +{x} XP when it's done",
+"Что главное сегодня? Это дело будет первым в списке":"What matters most today? It goes to the top of the list",
+"Без главного":"Skip",
 };

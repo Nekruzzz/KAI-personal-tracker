@@ -140,6 +140,8 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **Hours of sleep in one tap:** in the morning (6:00 to 13:00), while the sleep habit is on and the night isn't logged, the Day tab asks "How many hours did you sleep last night?" with 5, 6, 7, 8 and 9+ ("Not sure" closes it). Not asked when Apple Health fills sleep in. The Russian wording is gender-neutral.
 - **Streak freezes (new):** a missed day no longer wipes out weeks of streak. Everyone starts with one freeze; every 7 days in a row earn another (two at most). When a day doesn't count, a freeze covers it by itself the next time KAI is opened ("A streak freeze saved your streak: 9 days"), as long as enough freezes cover the whole gap. The Streak sheet shows "Streak freezes: 1 of 2" and says when one was used. Sick days still don't use one. Stored as an optional `meta.freeze` field, so older installs simply start with one.
 - **Weekly challenges (new):** the Day tab shows three goals for the week under Daily: days that count, plus two that take turns from week to week among workouts (as many as the program has this week), study time, walking, nights of 7+ hours and to-dos done, depending on what the person tracks. Targets are a little above last week (days that count: last week + 1, between 3 and 7; minutes: +10%) and are fixed on Monday, so they don't move mid-week; a first week that starts mid-week asks for its share. Each finished challenge gives +50 XP with confetti, all three another +100 (added to the level). Stored in `meta.challenges` by week, a year kept.
+- **"+10 XP" on every check-off:** checking off a daily task or a to-do floats "+10 XP" up from the check, so the reward is seen at once (not with reduced motion).
+- **After a streak breaks, a kind next step:** the day after a run of 3+ days ends (and no freeze covered it), the Day tab says "Your 9-day streak ended. It happens to everyone. What matters is not missing two days in a row: check off 5 more tasks and the fire is back. Your record of 9 stays." Shown once per break, gone with "Got it" or once the day counts.
 - **Daily tasks on chosen weekdays:** each daily task can run every day or only on some weekdays (More → Daily tasks); streaks skip the days without it.
 - **Streak milestones:** checking off a habit that reaches 7, 14, 30, 50, 100, 200 or 365 days in a row shows a short celebration (confetti from 30).
 - **Hold timer for timed exercises:** the plank and other holds get a Timer instead of the Rest link: 3 seconds to get ready, a countdown to the top of the range with a beep at both ends, then the seconds go into the next set and the rest timer starts by itself ("Done" early records what was actually held). Toasts now sit above the rest and focus bars instead of covering their buttons.
@@ -202,7 +204,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 196 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 197 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

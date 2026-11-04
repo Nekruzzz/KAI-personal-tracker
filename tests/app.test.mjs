@@ -2766,3 +2766,18 @@ test('weekly challenges: fixed on Monday from last week, done once, worth XP', (
     run(`saveTasks(tasks45)`);
   } finally { run(`toast = toast45; save('app/meta', meta45)`); }
 });
+
+test('the day after a streak breaks, a kind card shows one step, once', () => {
+  run(`globalThis.meta46 = clone(meta()); globalThis.days46 = Object.fromEntries([...Array(10)].map((_, i) => ['days/' + addDays(todayISO(), -i), S.docs['days/' + addDays(todayISO(), -i)] && clone(S.docs['days/' + addDays(todayISO(), -i)])]))`);
+  try {
+    run(`save('app/meta', {...meta(), freeze: {n: 0, used: [], day: todayISO()}, comebackSeen: null})`);
+    for (let i = 2; i <= 6; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.status = null; d.tasks.forEach(t => { t.done = true; }); })`);
+    run(`mutDay(addDays(todayISO(), -1), d => { d.status = null; d.tasks.forEach(t => { t.done = false; }); }); mutDay(todayISO(), d => { d.status = null; d.tasks.forEach(t => { t.done = false; }); })`);
+    assert.equal(run(`comebackInfo()?.run`), 5);
+    assert.ok(/data-act="comebackOk"/.test(run(`comebackCard()`)));
+    run(`A.comebackOk()`);
+    assert.equal(run(`comebackCard()`), '', 'dismissed for this break');
+    run(`save('app/meta', {...meta(), comebackSeen: null, freeze: {n: 0, used: [addDays(todayISO(), -1)], day: todayISO()}})`);
+    assert.equal(run(`comebackCard()`), '', 'not when a freeze covered the day');
+  } finally { run(`save('app/meta', meta46); Object.entries(days46).forEach(([k, v]) => v ? save(k, v) : remove(k))`); }
+});

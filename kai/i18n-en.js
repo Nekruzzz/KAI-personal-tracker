@@ -2157,4 +2157,7 @@ window.I18N_EN = {
 "Должны тебе: {w}":"Owes you: {w}",
 "Неделя вперёд":"The week ahead",
 "средняя {a}":"average {a}",
+"Да, вернули":"Yes, paid back",
+"Ещё нет":"Not yet",
+"{w} вернул {s}?":"Has {w} paid back {s}?",
 };

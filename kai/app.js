@@ -3433,6 +3433,7 @@ function checkins(){
   }
   examResultQs(date).forEach(x => q(x.k, x));
   billDueQs(date).forEach(x => q(x.k, x));
+  debtQs(date).forEach(x => q(x.k, x));
   if (modOn('timeline') && plan().routine){
     const {bl, st, endOf} = tlState(date);
     const from = meta().startedOn === date ? meta().startedAt : 0;
@@ -3454,6 +3455,7 @@ function checkinCard(){
   else if (c.type === 'block') body = `<div class="btnrow">${b('yes', tr('Да'))}${b('no', tr('Нет'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'rate') body = `<div class="rate5">${[1, 2, 3, 4, 5].map(i => `<button data-act="ciAns" data-k="rate" data-a="${i}" aria-label="${i} ${tr("из 5")}">${'★'}<small>${i}</small></button>`).join('')}</div><div class="btnrow">${b('later', tr('Не сейчас'), 'ghost')}</div>`;
   else if (c.type === 'exam') body = examResultBody(c, b);
+  else if (c.type === 'debt') body = `<div class="btnrow">${b('yes', tr('Да, вернули'))}${b('no', tr('Ещё нет'), 'ghost')}</div>`;
   else if (c.type === 'bill') body = `<div class="btnrow">${b('paid', c.inc ? tr('Получено') : tr('Оплачено'))}${b('skip', tr('Пропустить месяц'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
   return `<section class="card ci"><div class="nc-l">${tr("Вопрос")}${more ? tr(' · ещё ') + more : ''}</div><div class="t" style="font-weight:700;font-size:17px">${esc(c.text)}</div>${body}</section>`;
@@ -3482,6 +3484,7 @@ A.ciAns = el => {
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
   if (k.startsWith('x_')) return examResultAns(a, id, mark);
   if (k.startsWith('p_')) return billDueAns(a, id, mark);
+  if (k.startsWith('d_')) return debtAns(a, id, mark);
   if (k === 'rate') return mutDay(date, d => { d.rating = +a; d.asked = {...(d.asked || {}), rate: 'yes'}; });
   if (k.startsWith('b_')){
     if (a === 'yes'){
@@ -6017,6 +6020,19 @@ function gradeAverage(grades){
   const small = ns.every(n => n <= 5), big = ns.every(n => n > 5 && n <= 100);
   if (!small && !big) return null;
   return num(ns.reduce((a, b) => a + b, 0) / ns.length, small ? 1 : 0);
+}
+
+/* ============ money owed to you for two weeks gets a question; "not yet" asks again a week later ============ */
+function debtQs(date){
+  if (!modOn('money')) return [];
+  const d = debts().filter(x => x.dir === 'in' && dayDiff(x.date, date) >= 14 && (!x.askedAt || dayDiff(x.askedAt, date) >= 7)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  return d ? [{k: 'd_' + d.id, type: 'debt', id: d.id, text: trf('{w} вернул {s}?', {w: d.who, s: money(d.amount)})}] : [];
+}
+function debtAns(a, id, mark){
+  const doc = debtsDoc(), today = todayISO();
+  save('app/debts', {...doc, list: (doc.list || []).map(x => x.id !== id ? x : a === 'yes' ? {...x, settled: today} : {...x, askedAt: today})});
+  if (a === 'yes') haptic('success');
+  mark(a);
 }
 
 /* ============ init ============ */

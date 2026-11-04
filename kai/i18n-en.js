@@ -2135,4 +2135,6 @@ window.I18N_EN = {
 "месяца":"months",
 "месяцев":"months",
 "каждые {n} {u}":"every {n} {u}",
+"заметка":"note",
+"Детали, ссылки, что взять с собой":"Details, links, what to bring",
 };

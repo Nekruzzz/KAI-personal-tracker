@@ -3005,7 +3005,7 @@ function timelineCard(){
     </div>${open ? `<div class="tl-det">${b.note ? `<div>${esc(b.note)}</div>` : ''}<div class="btnrow">${b.gym ? `<button class="btn" data-act="goTrain">${tr("Открыть тренировку")}</button>` : ''}${b.kind !== 'sleep' ? [15, 30, 60].map(m => `<button class="btn ghost" data-act="tlShift" data-id="${esc(b.id)}" data-m="${m}">+${m} ${tr("мин")}</button>`).join('') : ''}${b.sh || d.ext?.[b.id] || d.trim?.[b.id] || d.auto?.[b.id] ? `<button class="btn ghost" data-act="tlShift" data-id="${esc(b.id)}" data-m="0">${tr("Вернуть время")}</button>` : ''}${!BARRIER_KINDS.includes(b.kind) ? `<button class="btn ghost" data-act="tlLock" data-id="${esc(b.id)}">${d.lock?.[b.id] ? tr('Открепить') : tr('Закрепить время')}</button>` : ''}${b.kind !== 'sleep' && !b.gym ? `<button class="btn ghost" data-act="tlSkip" data-id="${esc(b.id)}">${s === 'skip' ? tr('Вернуть') : tr('Пропустить')}</button>` : ''}${b.evId ? `<button class="btn danger" data-act="evDel" data-id="${esc(b.evId)}">${ic('trash')}${tr("Удалить событие")}</button>` : ''}</div></div>` : ''}`;
   };
   const evs = eventsFor(date).filter(ev => !ev.from);
-  return `<div class="sec-h"><h2>${tr("Расписание дня")}</h2><button class="link" data-act="evSheet">${tr("События")}</button></div>
+  return `<div class="sec-h"><h2>${tr("Расписание дня")}</h2><span><button class="link" data-act="weekAhead">${tr("Неделя")}</button> · <button class="link" data-act="evSheet">${tr("События")}</button></span></div>
   <section class="card" style="padding:14px 18px 6px">
     ${evs.map(ev => `<div class="tl-ev">${ic('star')}<div><b>${esc(ev.title)}</b>${ev.note ? `<div class="s">${esc(ev.note)}</div>` : ''}</div></div>`).join('')}
     <div class="tl-walk"><div class="tl-walk-h"><span>${ic('steps')}${tr("Прогулки")}</span><b>${walked} / ${goal} ${tr("мин")}</b></div><div class="bar"><i style="width:${Math.min(100, walked / goal * 100)}%;background:var(--c3)"></i></div>
@@ -5993,6 +5993,21 @@ A.debtNew = () => { SH = null; openSheet(tr('Долг'), () => `<div class="seg"
   <button class="btn block" data-act="debtSave">${tr('Сохранить')}</button>`); };
 A.debtDir = el => { SH.dw = val('dbW'); SH.da = val('dbA'); SH.ddir = el.dataset.v; drawSheet(); };
 A.debtSave = () => { const who = val('dbW'), amount = Math.abs(toNum(val('dbA'))); if (!who) return toast(tr('Кто?')); if (!amount) return toast(tr('Введи сумму')); debtsAdd([{who, amount, dir: SH.ddir || 'in', note: val('dbN')}]); closeSheet(); toast(tr('Сохранено')); };
+
+/* ============ the week ahead: each of the next 7 days in a few lines ============ */
+function weekAheadDays(today = todayISO()){
+  return [...Array(7)].map((_, i) => {
+    const date = addDays(today, i), items = [];
+    const cls = timedOn(date).filter(x => x.k === 'cls');
+    if (cls.length) items.push({ic: 'cap', t: `${cls.length} ${plural(cls.length, tr('пара'), tr('пары'), tr('пар'))}`, s: cls.map(c => hmStr(c.s)).join(', ')});
+    const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym); if (gym) items.push({ic: 'gym', t: tr('Тренировка'), s: hmStr(gym.s)});
+    eventsFor(date).forEach(e => items.push({ic: e.kind === 'exam' ? 'alert' : e.kind === 'deadline' ? 'list' : 'day', t: e.title, s: [EV_KIND[e.kind]?.[0], e.from].filter(Boolean).join(' · '), warn: e.kind === 'exam' || e.kind === 'deadline'}));
+    smartTasks().filter(t => !t.done && t.due === date && !studyOver(t)).forEach(t => items.push({ic: t.time ? 'bell' : 'checkc', t: t.title, s: [t.time, everyText(t)].filter(Boolean).join(' · ')}));
+    if (modOn('money')) bills().filter(b => b.type !== 'in' && billDue(b, date.slice(0, 7)) === date && billState(b, date) !== 'paid' && billState(b, date) !== 'skip').forEach(b => items.push({ic: 'cash', t: b.title, s: money(b.amount)}));
+    return {date, items};
+  });
+}
+A.weekAhead = () => openSheet(tr('Неделя вперёд'), () => weekAheadDays().map(({date, items}, i) => `<div class="sec-h"><h2 style="font-size:16px">${i === 0 ? tr('Сегодня') : i === 1 ? tr('Завтра') : esc(fmtDay(date))}</h2></div><section class="card" style="padding:4px 16px">${items.length ? `<div class="list">${items.map(x => `<div class="row" style="padding:9px 0"><span class="tic" style="--tc:var(--${x.warn ? 'bad' : 'c0'})">${ic(x.ic)}</span><div class="mid"><div class="t" style="font-size:15px">${esc(x.t)}</div>${x.s ? `<div class="s">${esc(x.s)}</div>` : ''}</div></div>`).join('')}</div>` : `<div class="hint" style="padding:10px 0">${tr('Ничего не запланировано')}</div>`}</section>`).join(''));
 
 /* ============ init ============ */
 async function init(){

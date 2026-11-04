@@ -2213,4 +2213,12 @@ window.I18N_EN = {
 "Заморозка сохранила серию":"A streak freeze saved your streak",
 "Возвращение":"Comeback",
 "Засчитать день сразу после прерванной серии от 3 дней":"Make a day count right after a streak of 3+ days ended",
+"Новичок":"Beginner",
+"Ученик":"Apprentice",
+"Стабильность":"Steady",
+"Упорство":"Determined",
+"Дисциплина":"Disciplined",
+"Мастер режима":"Routine master",
+"Сталь":"Iron",
+"Легенда":"Legend",
 };

@@ -4412,12 +4412,12 @@ function checkLevel(){
   if (seen == null || level < seen) return setMeta({level});
   if (level > seen){
     setMeta({level}); haptic('success'); sound('success'); confetti({n: 90});
-    toast(`${tr('Новый уровень:')} ${level}`, {icon: 'trophy', tone: 'gold', ms: 3400});
+    toast(`${tr('Новый уровень:')} ${level} · ${levelTitle(level)}`, {icon: 'trophy', tone: 'gold', ms: 3400});
   }
 }
 function levelRow(){
   const l = levelOf(totalXP());
-  return `<div class="lvl"><span class="lvl-n">${l.level}</span><div class="mid"><div class="lvl-h"><b>${tr('Уровень')} ${l.level}</b><span class="hint">${l.into} / ${l.need} XP</span></div><div class="bar"><i style="width:${Math.min(100, l.into / l.need * 100)}%;background:var(--accent)"></i></div></div></div>`;
+  return `<div class="lvl"><span class="lvl-n">${l.level}</span><div class="mid"><div class="lvl-h"><b>${tr('Уровень')} ${l.level} · ${levelTitle(l.level)}</b><span class="hint">${l.into} / ${l.need} XP</span></div><div class="bar"><i style="width:${Math.min(100, l.into / l.need * 100)}%;background:var(--accent)"></i></div></div></div>`;
 }
 
 /* ---- weekly recap: a picture to keep or share. It holds only numbers, never names or what was eaten ---- */
@@ -6360,6 +6360,10 @@ function habitBadgeStats(ks){
   }
   return out;
 }
+
+/* ============ level titles: a name for where the person is, not just a number ============ */
+const LEVEL_TITLES = [[1, 'Новичок'], [2, 'Ученик'], [4, 'Стабильность'], [6, 'Упорство'], [9, 'Дисциплина'], [12, 'Мастер режима'], [16, 'Сталь'], [21, 'Легенда']];
+const levelTitle = n => tr(LEVEL_TITLES.filter(([from]) => n >= from).pop()[1]);
 
 /* ============ init ============ */
 async function init(){

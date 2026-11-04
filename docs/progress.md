@@ -97,7 +97,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Money**
 
-- **Debts (new):** a Debts list under Money ("Owes you: Sam, $20", "You owe Alex"), with Paid back and Undo, kept apart from spending. Tell KAI reads "Sam owes me 20", "lent Sam 30", "Петя должен мне 500", "занял 1000 у Маши".
+- **Debts (new):** a Debts list under Money ("Owes you: Sam, $20", "You owe Alex"), with Paid back and Undo, kept apart from spending. Tell KAI reads "Sam owes me 20", "lent Sam 30", "Петя должен мне 500", "занял 1000 у Маши". After two weeks the Day tab asks whether the money came back, then weekly.
 - **Due payments are asked about on the Day tab:** "“Rent” ($400) is due today. Paid?" with Paid, Skip month and Later, one payment at a time, while Money is on.
 - **Regular payments (new):** rent, a phone plan, subscriptions or an allowance, added under Money or by switching on "Every month" when saving an entry. Each shows as due, coming, paid or skipped this month and is marked paid with one tap (Undo works); nothing is recorded by itself. The budget sets aside what is still to pay, so "about $15 a day" is what can really be spent. Something paid once a month around the same day, with the same name and amount, is offered as a regular payment (once; "No, thanks" is remembered). With reminders on, the iPhone app reminds at 10:00 on the day, and the morning plan mentions it. Two categories were added for them: Housing and utilities, and Subscriptions; the on-phone reader files "rent 400", "netflix 11" and "phone bill 15" there.
 - **The budget sheet points to regular payments**, which it sets aside in advance.
@@ -119,7 +119,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **Checking off a to-do can be undone:** the toast says "Done: …" with Undo, which takes back the check, the next one of a repeating to-do and any study time it added. Before, a mistaken tap made the to-do disappear with no way back.
 - **To-dos done today:** "Done today: 2" under the list shows what was checked off, struck through; tapping its filled check puts it back on the list (a repeating one takes back the next one it made).
 - **The iPhone Calendar repeats what repeats:** a repeating to-do sent to the Calendar carries its rule, and the web app's "Set up Calendar reminders" can add each regular payment as a monthly event on its day (the 29th to 31st on a short month's last day).
-- **Exam results (new):** for a week after an exam (from an hour after it ends), a check-in asks how it went: Passed or Didn't pass, with an optional grade or score, or "Don't know yet" to be asked again tomorrow. Events lists past exams of the last year with their result, preparation time and "2 of 3 passed". Tell KAI understands it too: "сдал статистику на 5", "passed the chemistry exam with an A" or "failed chemistry" records the result for a recent exam with that name, shown before Apply.
+- **Exam results (new):** for a week after an exam (from an hour after it ends), a check-in asks how it went: Passed or Didn't pass, with an optional grade or score, or "Don't know yet" to be asked again tomorrow. Events lists past exams of the last year with their result, preparation time and "2 of 3 passed" (with the average when grades are numbers on one scale). Tell KAI understands it too: "сдал статистику на 5", "passed the chemistry exam with an A" or "failed chemistry" records the result for a recent exam with that name, shown before Apply.
 - **A study plan ends with its exam:** topics still open after the exam no longer sit in the to-do list as overdue, and the check-in stops asking about them; they stay in the data. Repeating to-dos are also among the "What can I write?" examples and the empty list's hint.
 - **Focus from an exam card:** each exam card has Focus next to its study plan, and focused minutes count as preparation for that exam. "+30 min of prep" and "To Calendar" became links, so the card has one row of buttons instead of three.
 - **An exam's Focus works on its next study topic** when there is a study plan, so a session counts for that topic and can mark it done.
@@ -187,7 +187,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 174 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 176 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

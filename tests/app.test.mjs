@@ -2714,3 +2714,32 @@ test('a morning question asks for hours of sleep, one tap', () => {
     assert.equal(run(`sleepQ(todayISO(), getDay(todayISO()), 9)`), null, 'not when Apple Health fills it in');
   } finally { run(`save('days/' + todayISO(), day43); [1, 2, 3].forEach((i, j) => S.docs['days/' + addDays(todayISO(), -i)] && mutDay(addDays(todayISO(), -i), d => { if (hk43[j] === undefined) delete d.sleepHealth; else d.sleepHealth = hk43[j]; }))`); }
 });
+
+test('streak freezes: earned every 7 days, used by themselves on a missed day', () => {
+  run(`globalThis.meta44 = clone(meta()); globalThis.days44 = Object.fromEntries([...Array(20)].map((_, i) => ['days/' + addDays(todayISO(), -i), S.docs['days/' + addDays(todayISO(), -i)] && clone(S.docs['days/' + addDays(todayISO(), -i)])]))`);
+  run(`globalThis.toast44 = toast; toast = () => {}`);
+  const secure = i => run(`mutDay(addDays(todayISO(), -${i}), d => { d.status = null; d.tasks.forEach(t => { t.done = true; }); })`);
+  const miss = i => run(`mutDay(addDays(todayISO(), -${i}), d => { d.status = null; d.tasks.forEach(t => { t.done = false; }); })`);
+  try {
+    run(`save('app/meta', {...meta(), freeze: {n: 1, used: []}, startedOn: addDays(todayISO(), -30)})`);
+    for (let i = 2; i <= 10; i++) secure(i);
+    miss(1); miss(0); miss(11);
+    assert.equal(run(`streak()`), 0, 'yesterday was missed');
+    run(`freezeTick()`);
+    assert.equal(run(`streak()`), 9, 'the freeze kept the 9 days');
+    assert.equal(run(`freezeDoc().n`), 0);
+    assert.ok(run(`frozenDays().has(addDays(todayISO(), -1))`));
+    run(`freezeTick()`); assert.equal(run(`freezeDoc().n`), 0, 'once a day');
+    // two missed days with one freeze: nothing is used
+    run(`save('app/meta', {...meta(), freeze: {n: 1, used: []}})`); miss(2);
+    run(`freezeTick()`); assert.equal(run(`freezeDoc().n`), 1);
+    // earning: 7 days in a row
+    run(`save('app/meta', {...meta(), freeze: {n: 0, used: []}})`);
+    for (let i = 0; i <= 6; i++) secure(i); miss(7);
+    assert.equal(run(`streak()`), 7);
+    run(`freezeTick()`); assert.equal(run(`freezeDoc().n`), 1);
+    run(`save('app/meta', {...meta(), freeze: {...freezeDoc(), day: null}})`); run(`freezeTick()`); assert.equal(run(`freezeDoc().n`), 1, 'the same 7 days pay once');
+    assert.ok(/1/.test(run(`freezeRow()`)));
+    assert.ok(run(`bestStreak()`) >= 7);
+  } finally { run(`toast = toast44; save('app/meta', meta44); Object.entries(days44).forEach(([k, v]) => v ? save(k, v) : remove(k))`); }
+});

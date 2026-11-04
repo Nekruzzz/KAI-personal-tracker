@@ -2657,3 +2657,17 @@ test('the Daily list names exercises in short, not by their first word', () => {
   assert.equal(s('Жим штанги лёжа'), 'Жим штанги');
   assert.equal(s('Планка'), 'Планка');
 });
+
+test('to-dos left from earlier days move to today in one tap, with Undo', () => {
+  run(`globalThis.tasks41 = clone(smartTasks()); saveTasks([{id: 'l1', title: 'Old A', due: addDays(todayISO(), -3), done: false, pri: 2}, {id: 'l2', title: 'Old B', due: addDays(todayISO(), -1), time: '00:01', done: false, pri: 2}, {id: 'l3', title: 'Future', due: addDays(todayISO(), 2), done: false, pri: 2}])`);
+  try {
+    assert.ok(/data-act="tkLateToday"/.test(run(`taskCard()`)));
+    run(`A.tkLateToday()`);
+    const ts = JSON.parse(run(`JSON.stringify(smartTasks())`));
+    assert.deepEqual(ts.map(t => t.due === run(`todayISO()`)), [true, true, false]);
+    assert.equal(ts[1].time, null, 'a time already gone is dropped');
+    assert.ok(!/data-act="tkLateToday"/.test(run(`taskCard()`)));
+    run(`A.undoApply()`);
+    assert.ok(JSON.parse(run(`JSON.stringify(smartTasks())`))[0].due < run(`todayISO()`), 'Undo puts them back');
+  } finally { run(`saveTasks(tasks41)`); }
+});

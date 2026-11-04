@@ -3365,7 +3365,7 @@ function taskCard(){
   return `<div class="sec-h"><h2>${tr("Задачи")}</h2><span class="hint">${now.length ? now.length + ' ' + plural(now.length, tr('открыта'), tr('открыты'), tr('открыто')) + (doneToday ? tr(' · готово ') + doneToday : '') : doneToday ? tr('всё сделано') : ''}</span></div>
   <section class="card" style="padding:12px 16px 6px">
     <div class="qadd"><input class="in" id="qa" placeholder="${tr("Что нужно сделать?")}" enterkeyhint="done" aria-label="${tr("Новая задача")}" autocomplete="off"><button class="btn" data-act="qaAdd" aria-label="${tr("Добавить задачу")}">${ic('plus')}</button></div>
-    <div class="list">${now.map(row).join('') || `<div class="hint" style="padding:12px 0">${tr("Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30» или «стирка каждую субботу»: срок, время и повтор я пойму сам.")}</div>`}</div>
+    ${lateBar(items)}<div class="list">${now.map(row).join('') || `<div class="hint" style="padding:12px 0">${tr("Пока пусто. Пиши как удобно, например «позвонить маме завтра в 18:30» или «стирка каждую субботу»: срок, время и повтор я пойму сам.")}</div>`}</div>
     ${later.length ? `<div class="hint" style="padding:10px 0 0;font-weight:700">${tr("Позже")}</div><div class="list">${(S.open.tk_later ? later : later.slice(0, 3)).map(row).join('')}</div>${later.length > 3 ? `<button class="link" data-act="toggleOpen" data-k="tk_later" style="padding:6px 0">${S.open.tk_later ? tr('Свернуть') : tr('Ещё ') + (later.length - 3)}</button>` : ''}` : ''}
     ${doneToday ? doneTodayHTML(today) : ''}
     ${smartTasks().some(t => !t.done && t.due && t.time && t.due >= today) ? `<button class="link" data-act="tasksIcs" style="padding:6px 0">${ic('bell')} ${tr("Напомнить через Календарь")}</button>` : ''}
@@ -6170,6 +6170,17 @@ function exShort(name){
   while (ws.length > 1 && /^(?:к|на|в|во|и|and|a|the|of)$/i.test(ws[ws.length - 1])) ws.pop(); // "Тяга каната к" → "Тяга каната"
   return ws.join(' ') || String(name);
 }
+
+/* ============ several to-dos left from earlier days: all to today in one tap, with Undo ============ */
+const staleTasks = items => items.filter(t => !t.done && t.due && t.due < todayISO());
+function lateBar(items){
+  const n = staleTasks(items).length; if (n < 2) return '';
+  return `<div class="tk-late"><span>${trf('С прошлых дней: {n}', {n})}</span><button class="link" data-act="tkLateToday">${tr('Всё на сегодня')}</button></div>`;
+}
+A.tkLateToday = () => {
+  const today = todayISO(), now = nowHM(), ids = new Set(staleTasks(smartTasks().filter(t => !studyOver(t))).map(t => t.id)); if (!ids.size) return;
+  withUndo(['app/tasks'], () => saveTasks(smartTasks().map(t => ids.has(t.id) ? {...t, due: today, time: t.time && t.time > now ? t.time : null} : t)), trf('На сегодня: {n}', {n: ids.size}));
+};
 
 /* ============ init ============ */
 async function init(){

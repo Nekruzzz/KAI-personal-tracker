@@ -2504,3 +2504,12 @@ test('a debt keeps what it was for', () => {
     assert.deepEqual(db('Петя должен мне 500 за кино'), [{who: 'Петя', amount: 500, dir: 'in', note: 'кино'}]);
   } finally { run(`setMeta({modules: mods35})`); }
 });
+
+test('Tell KAI on the phone: "dinner at 8" is the evening, "meet" is an event, day words stay out of money notes', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.equal(p('dinner with Sam on friday at 8').new_tasks[0].time, '20:00');
+  assert.equal(run(`parseQuick('call the bank at 8').time`), '08:00', 'without an evening word, 8 stays the morning');
+  assert.equal(p('meet Kim tomorrow 3pm').events[0].from, '15:00');
+  assert.equal(p('spent 40 on groceries yesterday').money[0].note, 'groceries');
+  assert.deepEqual([p('вчера продукты 1200').money[0].amount, p('вчера продукты 1200').money[0].cat], [1200, 'Супермаркеты']);
+});

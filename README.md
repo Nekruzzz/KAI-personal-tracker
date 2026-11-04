@@ -14,6 +14,15 @@ python -m http.server 8123 --directory kai
 
 Then open http://localhost:8123.
 
+## Put it online
+
+The web app is just the `kai/` folder, so any static host works. With GitHub Pages:
+
+1. Settings → Pages → Source: **GitHub Actions** (once).
+2. Actions → **Publish web app** → Run workflow, and pick the branch. It runs the app tests first, then publishes `kai/`.
+
+It never publishes by itself. On an iPhone, open the address in Safari and choose Share → Add to Home Screen. Accounts, sync and the built-in AI need the server (`server/README.md`); the iPhone app needs a Mac (`native/README.md`).
+
 ## Project layout
 
 - `kai/`: the app, with no build step. The app itself is `app.js`, the English text is in `i18n-en.js`, `config.js` connects it to the server, and `fonts/` holds the Manrope font (SIL Open Font License), so the app loads nothing from other sites.

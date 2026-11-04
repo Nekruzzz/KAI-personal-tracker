@@ -2819,3 +2819,10 @@ test('the weekly recap counts challenges done', () => {
     assert.ok(JSON.parse(run(`JSON.stringify(recapPlan(recapStats()).tiles)`)).some(t => t[0] === '2 / 3'));
   } finally { run(`save('app/meta', meta48)`); }
 });
+
+test('a plan after spending is not read as a second payment', () => {
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('spent 8 on coffee and pastry, and chem quiz on Monday at 11', todayISO()).r)`));
+  assert.deepEqual(r.money.map(m => m.amount), [8]);
+  const r2 = JSON.parse(run(`JSON.stringify(localTellParse('кофе 200 и встреча в 15', todayISO()).r)`));
+  assert.deepEqual(r2.money.map(m => m.amount), [200]);
+});

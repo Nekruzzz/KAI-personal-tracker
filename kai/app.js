@@ -5679,7 +5679,7 @@ function refWeight(){ const k = dayKeys().reverse().find(x => toNum(S.docs['days
 function moneyMore(c){
   let m = c.match(new RegExp('^' + AMT + '\\s+(?:на|за|on|for)\\s+(.+)$', 'i')), note;
   if (m) note = m[3].trim();
-  else if ((m = c.match(new RegExp('^(?:an?\\s+)?([^\\d$€£₽]{2,30}?)\\s*(?:for|за|:)?\\s*' + AMT + '\\s*$', 'i'))) && !/mood|настроени|sleep|сон|спал|slept|steps|шаг|вес|weigh|pages|страниц|reps|раз|подход|sets/i.test(m[1])){ note = m[1].trim(); m = [m[0], m[2], m[3]]; } // "кофе 200 и булочка 100": the second item of a list of spending
+  else if ((m = c.match(new RegExp('^(?:an?\\s+)?([^\\d$€£₽]{2,30}?)\\s*(?:for|за|:)?\\s*' + AMT + '\\s*$', 'i'))) && !/mood|настроени|sleep|сон|спал|slept|steps|шаг|вес|weigh|pages|страниц|reps|раз|подход|sets|экзамен|зач[её]т|контрольн|exam|quiz|test\b|midterm/i.test(m[1]) && !EVENT_RE.test(m[1]) && !/(?:^|\s)(?:at|on|by|в|во|к|до)$/i.test(m[1].trim()) && !(q => q && (q.due || q.time))(parseQuick(c))){ note = m[1].trim(); m = [m[0], m[2], m[3]]; } // "кофе 200 и булочка 100": the second item of a list of spending
   else return null;
   const amount = amountOf(m[1], m[2]);
   return amount > 0 ? {type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(note)) || [0, 'Другое'])[1], note} : null;

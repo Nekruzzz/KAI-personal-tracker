@@ -2472,3 +2472,11 @@ test('the week ahead lists each day: classes, workout, exams, to-dos and payment
     assert.ok(run(`(A.weekAhead(), SH.body())`).includes('Physics'));
   } finally { run(`closeSheetQuiet(); save('app/plan', plan33); saveTasks(tasks33); save('app/bills', {list: []}); setMeta({modules: mods33})`); }
 });
+
+test('the average of exam grades shows only for numbers on one scale', () => {
+  assert.equal(run(`gradeAverage(['5', '4', null])`), run(`num(4.5, 1)`));
+  assert.equal(run(`gradeAverage(['92%', '80 points'])`), '86');
+  assert.equal(run(`gradeAverage(['A', '5'])`), null, 'a letter: no average');
+  assert.equal(run(`gradeAverage(['5', '92'])`), null, 'two scales: no average');
+  assert.equal(run(`gradeAverage(['4'])`), null, 'one grade is not an average');
+});

@@ -2156,4 +2156,5 @@ window.I18N_EN = {
 "Твой долг: {w}, {s}":"You owe {w}: {s}",
 "Должны тебе: {w}":"Owes you: {w}",
 "Неделя вперёд":"The week ahead",
+"средняя {a}":"average {a}",
 };

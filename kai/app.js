@@ -1764,6 +1764,16 @@ const PRODUCTS = [
   [tr('Протеиновый коктейль на воде'), 36, 7.3, 0.6, 1, [tr('порция'), 330]],
   [tr('Шоколадный батончик'), 490, 6, 24, 62, [tr('шт'), 50]],
   [tr('Котлета'), 230, 15, 16, 8, [tr('шт'), 80]],
+  // everyday dishes, so they aren't read as one of their ingredients
+  [tr('Хот-дог'), 260, 10, 15, 22, [tr('шт'), 120]],
+  [tr('Сырники'), 220, 15, 9, 20, [tr('шт'), 50]],
+  [tr('Вареники с картошкой'), 200, 5, 5, 33],
+  [tr('Блины'), 230, 6, 8, 33, [tr('шт'), 50]],
+  [tr('Борщ'), 50, 2.5, 2.5, 5],
+  [tr('Суп, ориентир.'), 45, 2, 1.5, 6],
+  [tr('Суп чечевичный'), 70, 4.5, 1.5, 10],
+  [tr('Салат Цезарь с курицей, ориентир.'), 180, 10, 13, 6],
+  [tr('Маффин'), 380, 6, 18, 50, [tr('шт'), 100]],
 ];
 // each food's name in the other language too, so "rice" and "рис" both find it
 const RU_OF = (() => { const ru = {}; Object.entries(window.I18N_EN || {}).forEach(([k, v]) => { ru[v] = ru[v] || k; }); return ru; })();
@@ -4829,14 +4839,16 @@ const sameWord = (a, b) => {
   let i = 0; while (i < a.length && a[i] === b[i]) i++;
   if (i < 3) return false;
   const n = Math.min(a.length, b.length);
-  if (/[a-z]/.test(a) || i >= n) return i >= n;
+  if (/[a-z]/.test(a)) return i >= n;
+  if (i >= n){ const extra = (a.length > b.length ? a : b).slice(n); return extra.length <= 2 && /^[аеиоуыэюяйьм]*$/.test(extra); } // "сыр" is "сыра" or "сыром", not "сырники"
   if (i < n - 1) return false;
   return n > 4 || (/[аеиоуыэюяйь]/.test(a[i]) && /[аеиоуыэюяйь]/.test(b[i])); // a short word differs only in its ending: "яйца" is "яйцо", "кота" is not "котлета"
 };
+const PREP_WORD_RE = /^(?:вар[её]н(?:ая|ый|ое|ые|ой)$|cooked|boiled|dry|сух|raw|сыр(?:ой|ая|ое|ые)$|approx|ориентир|uncooked)/i; // how a food is prepared isn't its name: vareniki are not boiled chicken
 const RAW_RE = /сыр(?:ой|ая|ое|ые)|сух(?:ой|ая|ие|ое)|raw|dry|uncooked/i, COOKED_RE = /варён|варен|cooked|boiled/i;
 // everyday portions in grams, for "a cup of rice", "горсть орехов", "стакан кефира"
 const PORTIONS = [[/cups?|стакан[а-яё]*|кружк[а-яё]*|mugs?/i, 200], [/glass(?:es)?/i, 250], [/bowls?|тарелк[а-яё]*|миск[а-яё]*/i, 300], [/slices?|ломтик[а-яё]*|кус(?:ок|ка|очек|очка|ки)/i, 30], [/handfuls?|горст[а-яё]*/i, 30], [/tablespoons?|tbsp|столов[а-яё]* ложк[а-яё]*|ложк[а-яё]*/i, 15], [/teaspoons?|tsp|чайн[а-яё]* ложк[а-яё]*/i, 5], [/scoops?|мерн[а-яё]* ложк[а-яё]*/i, 30], [/servings?|portions?|порци[а-яё]*/i, 200]];
-const ALIAS = {toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи', snickers: 'chocolate bar', twix: 'chocolate bar', mars: 'chocolate bar', bounty: 'chocolate bar', kitkat: 'chocolate bar', сникерс: 'батончик', твикс: 'батончик', марс: 'батончик', баунти: 'батончик', кофейку: 'кофе'};
+const ALIAS = {burger: 'hamburger', burgers: 'hamburger', cheeseburger: 'hamburger', бургер: 'гамбургер', чизбургер: 'гамбургер', kebab: 'shawarma', doner: 'shawarma', кебаб: 'шаурма', донер: 'шаурма', шаверма: 'шаурма', доширак: 'лапша', ролтон: 'лапша', ramen: 'noodles', toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи', snickers: 'chocolate bar', twix: 'chocolate bar', mars: 'chocolate bar', bounty: 'chocolate bar', kitkat: 'chocolate bar', сникерс: 'батончик', твикс: 'батончик', марс: 'батончик', баунти: 'батончик', кофейку: 'кофе'};
 function portionOf(c){
   for (const [re, gr] of PORTIONS){
     const m = c.match(new RegExp('(?:(\\d{1,2}|a|an|one|two|three|один|одна|одну|два|две|три)\\s+)?(?:' + re.source + ')\\s+(?:of\\s+)?([a-zа-яё]{3,})', 'i'));
@@ -4862,12 +4874,13 @@ function localMeal(c, opts){
   if (words.length && !(c.match(/[a-zа-яё]{3,}/gi) || []).some(w => !WATER_WORDS.has(w.toLowerCase()) && !/^(?:drank|drink|had|выпил[аи]?|пил[аи]?|glass(?:es)?|cups?|liters?|litres?|стакан[а-яё]*|литр[а-яё]*|кружк[а-яё]*)$/i.test(w) && !/^\d/.test(w))) return null; // "drank 3 glasses of water" isn't watermelon or oatmeal
   let best = null;
   PRODUCTS.forEach((p, i) => {
-    const names = (p[0] + ' ' + (PRODUCTS_ALT[i] || '')).split(/[^a-zа-яё]+/i).filter(x => x.length >= 3 && !WATER_WORDS.has(x.toLowerCase())).map(stem);
+    const names = (p[0] + ' ' + (PRODUCTS_ALT[i] || '')).split(/[^a-zа-яё]+/i).filter(x => x.length >= 3 && !WATER_WORDS.has(x.toLowerCase()) && !PREP_WORD_RE.test(x)).map(stem);
     const score = words.filter(w => names.some(nm => sameWord(w, nm))).length; if (!score) return;
+    const exact = words.filter(w => names.includes(w)).length; // last tie-break: "burger" is a hamburger, not ham
     const raw = RAW_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || '')), cooked = COOKED_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || ''));
     const pref = RAW_RE.test(c) ? (raw ? 1 : 0) : (cooked ? 1 : raw ? -1 : 0); // people mostly log what they ate, cooked
     const fits = g || p[5] ? 1 : 0; // a count needs a piece weight, so foods that have one win
-    if (!best || score > best.score || (score === best.score && (fits > best.fits || fits === best.fits && pref > best.pref))) best = {p, score, pref, fits};
+    if (!best || score > best.score || (score === best.score && (fits > best.fits || fits === best.fits && (pref > best.pref || pref === best.pref && exact > best.exact)))) best = {p, score, pref, fits, exact};
   });
   if (!best || (bare && (best.score < words.length || !best.p[5]))) return null; // on its own, every word must name the food, and it must come in pieces
   const [name, kcal, pr, fat, carb, unit] = best.p;

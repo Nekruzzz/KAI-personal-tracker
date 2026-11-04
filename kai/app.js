@@ -4432,7 +4432,7 @@ function checkLevel(){
 }
 function levelRow(){
   const l = levelOf(totalXP());
-  return `<div class="lvl"><span class="lvl-n">${l.level}</span><div class="mid"><div class="lvl-h"><b>${tr('Уровень')} ${l.level} · ${levelTitle(l.level)}</b><span class="hint">${l.into} / ${l.need} XP</span></div><div class="bar"><i style="width:${Math.min(100, l.into / l.need * 100)}%;background:var(--accent)"></i></div></div></div>`;
+  return `<button class="lvl" data-act="levelInfo"><span class="lvl-n">${l.level}</span><div class="mid"><div class="lvl-h"><b>${tr('Уровень')} ${l.level} · ${levelTitle(l.level)}</b><span class="hint">${l.into} / ${l.need} XP</span></div><div class="bar"><i style="width:${Math.min(100, l.into / l.need * 100)}%;background:var(--accent)"></i></div></div></button>`;
 }
 
 /* ---- weekly recap: a picture to keep or share. It holds only numbers, never names or what was eaten ---- */
@@ -6458,6 +6458,17 @@ function challengeNudge(today){
   const v = c => { const n = challengeProgress(c, w.mon), min = CHALLENGES[c.id][3] === 'min'; return `${CHALLENGES[c.id][0]()} ${min ? fmtMin(n) : n} / ${min ? fmtMin(c.goal) : c.goal}`; };
   return {key: 'ch' + w.mon, at: atMin(sat, 11 * 60), title: trf('Вызовы недели: осталось {n}', {n: open.length}), body: open.map(v).join(' · ') + '. ' + tr('Выходные, чтобы успеть.')};
 }
+
+/* ============ how XP is earned, and the next title: a reward is worth more when the way to it is clear ============ */
+A.levelInfo = () => {
+  haptic('selection');
+  const l = levelOf(totalXP()), nextT = LEVEL_TITLES.find(([from]) => from > l.level);
+  const src = [['+10', tr('за каждую отмеченную задачу')], ['+20', tr('за идеальный день: всё выполнено')], ['+' + MIT_XP, tr('за главное дело дня')], ['+1', tr('за каждые 2 минуты прогулок, тренировок и учёбы')], ['+' + CH_XP, tr('за вызов недели, и ещё +100 за все три')]];
+  openSheet(tr('Уровень'), `<div style="display:grid;place-items:center;gap:6px;padding:6px 0 2px"><span class="lvl-n" style="width:72px;height:72px;font-size:30px;border-radius:22px">${l.level}</span><div class="hero-num" style="font-size:26px;text-align:center">${levelTitle(l.level)}</div><div class="muted">${num(l.xp)} XP</div></div>
+    <section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><b>${trf('До уровня {n}', {n: l.level + 1})}</b><span class="muted">${l.need - l.into} XP</span></div><div class="bar"><i style="width:${Math.min(100, l.into / l.need * 100)}%;background:var(--accent)"></i></div>${nextT ? `<div class="hint">${trf('С уровня {n} — «{t}»', {n: nextT[0], t: tr(nextT[1])})}</div>` : ''}</section>
+    <section class="card" style="padding:4px 16px"><div class="list">${src.map(([v, t]) => `<div class="row"><b class="xp-v">${v}</b><div class="mid"><div class="t" style="font-weight:500">${t}</div></div></div>`).join('')}</div></section>
+    <div class="hint">${tr('XP не сгорают: пропущенный день не отнимает уровень.')}</div>`);
+};
 
 /* ============ init ============ */
 async function init(){

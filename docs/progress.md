@@ -112,6 +112,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **To-dos, study and exams**
 
+- **The week ahead:** a "Week" link on the Day schedule opens the next 7 days: classes, workout, exams and events, to-dos and payments due.
 - **Repeat intervals:** "every 2 weeks", "every other day", "каждые 3 дня", "раз в 2 недели"; the Calendar export carries the interval.
 - **Notes on to-dos:** an opened to-do has a Note field; repeating ones keep it, and the Calendar export includes it.
 - **Repeating to-dos (new):** "take out the trash every monday", "выносить мусор по понедельникам", "pay rent every month" or "каждое утро зарядка", typed in the to-do field or told to KAI. Checking one off keeps it in the history and adds the next, on the same weekday or day of the month (the 31st falls on a short month's last day). The list shows "↻ every week", and the to-do's details can stop the repeat. "Monthly report due Friday" stays a single to-do. The opened to-do's buttons now share lines (about six rows instead of nine).
@@ -186,7 +187,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 173 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 174 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

@@ -2495,3 +2495,12 @@ test('money owed for two weeks is asked about; "not yet" waits a week, "yes" clo
     assert.ok(!run(`debts().some(x => x.id === 'dq')`), 'closed');
   } finally { run(`setMeta({modules: mods34}); debts34 ? save('app/debts', debts34) : remove('app/debts'); day34 ? save('days/${d}', day34) : remove('days/${d}')`); }
 });
+
+test('a debt keeps what it was for', () => {
+  run(`globalThis.mods35 = meta().modules; setMeta({modules: {...(mods35 || {}), money: true}})`);
+  try {
+    const db = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.debts || [])`));
+    assert.deepEqual(db('Sam owes me 20 for the cinema'), [{who: 'Sam', amount: 20, dir: 'in', note: 'the cinema'}]);
+    assert.deepEqual(db('Петя должен мне 500 за кино'), [{who: 'Петя', amount: 500, dir: 'in', note: 'кино'}]);
+  } finally { run(`setMeta({modules: mods35})`); }
+});

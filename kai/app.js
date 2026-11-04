@@ -3302,6 +3302,7 @@ function monthDate(m){
 function parseQuick(raw, defDue){
   let t = ' ' + String(raw).trim() + ' ', due = null, time = null, pri = 2, parsed = false;
   const today = todayISO(), rp = repeatOf(t), every = rp.every, every_n = rp.n; t = rp.text;
+  t = spelledClock(t);
   if (/!/.test(t) || /срочно|\burgent\b/i.test(t)){ pri = 1; t = t.replace(/!+/g, ' ').replace(/срочно|\burgent\b/ig, ' '); }
   let m = t.match(/(^|\s)((?:в|к)\s+)?(\d{1,2})(?:[:.]([0-5]\d))?\s+(утра|дня|вечера|ночи)(?![а-яё])/i);
   if (m && (m[2] || m[5].toLowerCase() !== 'дня') && +m[3] >= 1 && +m[3] <= 12){ const n = +m[3], pt = m[5].toLowerCase(), h = pt === 'утра' ? n % 12 : pt === 'ночи' ? (n === 12 ? 0 : n <= 4 ? n : n + 12) : n === 12 ? 12 : n + 12; time = pad(h) + ':' + (m[4] || '00'); t = t.replace(m[0], m[1] + ' '); parsed = true; } // "в 6 утра" is 06:00, "в 11 ночи" is 23:00; "через 2 дня" is days, not 2 in the afternoon
@@ -3313,11 +3314,13 @@ function parseQuick(raw, defDue){
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})\s*(?:час[а-яё]*|ч)(?![а-яё])/i)) && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; }
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 1 && +m[1] < 24){ const h = +m[1] <= 6 ? +m[1] + 12 : +m[1]; time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day; "в 5" is the afternoon
   else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; if (!m[2] && (h >= 1 && h <= 6 || h >= 7 && h <= 11 && EVENING_RE.test(t))) h += 12; /* "at 5" means the afternoon; "dinner at 8" the evening */ if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
-  if (/послезавтра(?![а-яё])|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра(?![а-яё])|\bday after tomorrow\b/ig, ' '); }
+  if (/послезавтра(?![а-яё])|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра(?![а-яё])|(?:\bthe\s+)?\bday after tomorrow\b/ig, ' '); }
   else if (/завтра(?![а-яё])|\btomorrow\b/i.test(t)){ due = addDays(today, 1); t = t.replace(/завтра(?![а-яё])|\btomorrow\b/ig, ' '); } // not "завтрак", breakfast
   else if (/сегодня|\btoday\b/i.test(t)){ due = today; t = t.replace(/сегодня|\btoday\b/ig, ' '); }
   else if ((m = t.match(/(?:\bin|через)\s+(?:(\d{1,2}|a|one|two|three|одну|один|два|две|три)\s+)?(days?|weeks?|дн(?:я|ей)|день|недел[юиь])(?![a-zа-яё])/i))){ const w = {a: 1, one: 1, two: 2, three: 3, одну: 1, один: 1, два: 2, две: 2, три: 3}, n = +(w[(m[1] || '').toLowerCase()] || m[1] || 1); due = addDays(today, n * (/^(?:w|н)/i.test(m[2]) ? 7 : 1)); t = t.replace(m[0], ' '); } // "midterm in 2 weeks"
   else if ((m = t.match(MONTH_DATE))){ due = monthDate(m); t = t.replace(m[0], ' '); }
+  else if ((m = t.match(SOFT_DATE_RE))){ due = softDate(m[0], today); t = t.replace(m[0], ' '); }
+  else if ((m = t.match(DOM_RE)) && domN(m) >= 1 && domN(m) <= 31){ due = domDate(domN(m), today); t = t.replace(m[0], ' '); }
   else for (const [w, n] of WD_RU){
     const re = new RegExp('(?:^|\\s)(?:(?:в|во|до|к|на|on|by|next)\\s+)?(?:следующ(?:ий|ую|ее|ей)\\s+)?' + w + '(?![а-яёa-z])', 'i');
     if (re.test(t)){ due = addDays(today, ((n - dow(today) + 7) % 7) || 7); t = t.replace(re, ' '); break; }
@@ -3334,7 +3337,7 @@ function parseQuick(raw, defDue){
   if (time && !due) due = time <= nowHM() ? addDays(today, 1) : today;
   if (!due && defDue) due = defDue;
   if (!due && every) due = today; // a repeating to-do starts today
-  const title = t.replace(/\s+/g, ' ').trim();
+  const title = t.replace(/\s+/g, ' ').trim().replace(/^[:;,.—–-]+\s*|\s*[:;,—–-]+$/g, '').replace(QUICK_INTENT_RE, '').trim(); // "tonight: finish slides", "remind me to call mom in 2 hours"
   if (!title) return null;
   return {id: uid(), title: title[0].toUpperCase() + title.slice(1), due, time, pri, done:false, created: today, ...(every ? {every, ...(every_n > 1 ? {n: every_n} : {})} : {})};
 }
@@ -4771,7 +4774,7 @@ function localTellParse(text, date, opts = {}){
       const range = cq.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? cq.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : cq);
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
-        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit/i.test(c);
+        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c);
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
@@ -4826,9 +4829,10 @@ function localMeal(c, opts){
   if (!g && !n) return null;
   // with a count, the food is the word right after it: "2 eggs", not "by 25 January"
   const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and'].includes(w));
+  if (words.length && !(c.match(/[a-zа-яё]{3,}/gi) || []).some(w => !WATER_WORDS.has(w.toLowerCase()) && !/^(?:drank|drink|had|выпил[аи]?|пил[аи]?|glass(?:es)?|cups?|liters?|litres?|стакан[а-яё]*|литр[а-яё]*|кружк[а-яё]*)$/i.test(w) && !/^\d/.test(w))) return null; // "drank 3 glasses of water" isn't watermelon or oatmeal
   let best = null;
   PRODUCTS.forEach((p, i) => {
-    const names = (p[0] + ' ' + (PRODUCTS_ALT[i] || '')).split(/[^a-zа-яё]+/i).filter(x => x.length >= 3).map(stem);
+    const names = (p[0] + ' ' + (PRODUCTS_ALT[i] || '')).split(/[^a-zа-яё]+/i).filter(x => x.length >= 3 && !WATER_WORDS.has(x.toLowerCase())).map(stem);
     const score = words.filter(w => names.some(nm => sameWord(w, nm))).length; if (!score) return;
     const raw = RAW_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || '')), cooked = COOKED_RE.test(p[0] + ' ' + (PRODUCTS_ALT[i] || ''));
     const pref = RAW_RE.test(c) ? (raw ? 1 : 0) : (cooked ? 1 : raw ? -1 : 0); // people mostly log what they ate, cooked
@@ -5642,7 +5646,7 @@ function remindGroups(){
 }
 
 /* ============ Tell KAI on the phone: running, cycling, swimming and yoga; a weight's unit ============ */
-const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]';
+const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]|football|soccer|basketball|tennis|volleyball|badminton|hockey|boxing|climbing|hiked|hiking|danced|dancing|stretch(?:ed|ing)?|pilates|skated|skating|rowing|футбол[а-яё]*|баскетбол[а-яё]*|теннис[а-яё]*|волейбол[а-яё]*|бадминтон[а-яё]*|хокке[йяю]|бокс[а-яё]*|скалодром[а-яё]*|танц[а-яё]*|растяжк[а-яё]*|пилатес[а-яё]*|кататься на коньках|на коньках|гребл[а-яё]*';
 const DIST = '(?:\\s*\\d+(?:[.,]\\d+)?\\s*(?:km|км|mi|miles?|k)(?![a-zа-яё]))?'; // "ran 5 km in 30 minutes"
 /* the last weight logged, or the profile's: tells "вес 70" in kilograms from "weight 154" in pounds */
 function refWeight(){ const k = dayKeys().reverse().find(x => toNum(S.docs['days/' + x]?.weight) > 0); return k ? toNum(S.docs['days/' + k].weight) : toNum(profile().weight) || 0; }
@@ -6108,6 +6112,47 @@ function splitNote(title){
   const m = String(title).match(/^(.{2,80}?)\s*(?::\s|\s[—–-]\s)\s*(.{2,})$/);
   if (!m || /^\d/.test(m[2])) return {title}; // "Room 2: 10:00" style times stay as they are
   return {title: m[1].trim(), note: m[2].trim()};
+}
+
+/* ============ dates and times in words: "on the 15th", "this weekend", "by the end of the week", "half past one", "в половине второго" ============ */
+const QUICK_INTENT_RE = /^(?:remind me to|don.?t forget to|напомни(?:те)?(?: мне)?|не забыть)\s+/i;
+const WATER_WORDS = new Set(['water', 'вода', 'воды', 'воду', 'водой', 'воде', 'водички', 'водичку']);
+const SOFT_DATE_RE = /(?:^|\s)(?:(?:on|this|at|over|by|until|till|before|for)\s+)?(?:the\s+)?(?:(?:this\s+)?weekend|end of (?:the |this )?(?:week|month))(?![a-z])|(?:^|\s)(?:(?:на|в|к|до)\s+)?(?:(?:эти|этих)\s+)?выходн(?:ых|ые)(?![а-яё])|(?:^|\s)(?:до|к)\s+конц[уа]\s+(?:этой\s+|этого\s+)?(?:недели|месяца)(?![а-яё])/i;
+function softDate(s, today){
+  const d = dow(today);
+  if (/weekend|выходн/i.test(s)) return d >= 6 ? today : addDays(today, 6 - d); // a Saturday or Sunday is already the weekend
+  if (/month|месяц/i.test(s)){ const y = +today.slice(0, 4), mo = +today.slice(5, 7); return `${y}-${pad(mo)}-${pad(new Date(y, mo, 0).getDate())}`; }
+  return d <= 5 ? addDays(today, 5 - d) : today; // the end of the week is Friday; at the weekend, today
+}
+// "the 15th", "on the 1st", "15-го", "1-го числа", "до 20 числа"; not "the 2nd floor" or "2-го курса"
+const DOM_RE = /(?:^|\s)(?:(?:on|by|until|till|before|до|к|на)\s+)?(?:the\s+(\d{1,2})(?:st|nd|rd|th)|(\d{1,2})(?:-?го|-?е)(?:\s+числа)?|(\d{1,2})\s+числа)(?![a-zа-яё\d])(?!\s+(?:floor|year|grade|place|time|этаж|курс|класс|урок|подъезд|раз|мест))/i;
+const domN = m => +(m[1] || m[2] || m[3]);
+function domDate(n, today){
+  const y = +today.slice(0, 4), mo = +today.slice(5, 7), last = (yy, mm) => new Date(yy, mm, 0).getDate();
+  let k = `${y}-${pad(mo)}-${pad(Math.min(n, last(y, mo)))}`;
+  if (k < today){ const y2 = mo === 12 ? y + 1 : y, m2 = mo === 12 ? 1 : mo + 1; k = `${y2}-${pad(m2)}-${pad(Math.min(n, last(y2, m2)))}`; }
+  return k;
+}
+const CLOCK_EN = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12};
+const CLOCK_RU = ['первого', 'второго', 'третьего', 'четв[её]ртого', 'пятого', 'шестого', 'седьмого', 'восьмого', 'девятого', 'десятого', 'одиннадцатого', 'двенадцатого'];
+const CLOCK_RU_RE = '(' + CLOCK_RU.join('|') + '|\\d{1,2}-?го)';
+const ruHour = w => { const i = CLOCK_RU.findIndex(x => new RegExp('^' + x + '$', 'i').test(w)); return i >= 0 ? i + 1 : parseInt(w, 10); };
+/* turns a clock time in words into "13:30" (or "7:30 pm", "7:30 вечера" when the part of the day is said), for parseQuick */
+function spelledClock(t){
+  const out = (h, mm, suffix, all) => {
+    h = (h + 12) % 12 || 12; // 1..12 on the dial
+    if (suffix) return ' ' + h + ':' + pad(mm) + ' ' + suffix + ' ';
+    if (h <= 6 || (h <= 11 && EVENING_RE.test(all))) h += 12; // "half past one" is lunchtime, "dinner at half past seven" the evening
+    return ' ' + pad(h % 24 || 12) + ':' + pad(mm) + ' ';
+  };
+  const SUF = '(?:\\s+(am|pm|a\\.m\\.|p\\.m\\.|утра|дня|вечера|ночи)(?![a-zа-яё]))?';
+  const enH = '(\\d{1,2}|' + Object.keys(CLOCK_EN).join('|') + ')', enN = w => CLOCK_EN[w.toLowerCase()] || +w;
+  return t
+    .replace(new RegExp('(?:\\bat\\s+)?\\b(?:a\\s+)?(half|quarter)\\s+past\\s+' + enH + '(?![a-z\\d])' + SUF, 'gi'), (m0, k, w, s) => out(enN(w), /half/i.test(k) ? 30 : 15, s && s.replace(/\./g, ''), t))
+    .replace(new RegExp('(?:\\bat\\s+)?\\b(?:a\\s+)?quarter\\s+to\\s+' + enH + '(?![a-z\\d])' + SUF, 'gi'), (m0, w, s) => out(enN(w) - 1, 45, s && s.replace(/\./g, ''), t))
+    .replace(new RegExp('(?:^|\\s)(?:в\\s+)?половин[еуa]\\s+' + CLOCK_RU_RE + '(?![а-яё\\d])' + SUF, 'gi'), (m0, w, s) => out(ruHour(w) - 1, 30, s, t))
+    .replace(new RegExp('(?:^|\\s)(?:в\\s+)?без\\s+четверти\\s+(\\d{1,2}|один|два|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать)(?![а-яё\\d])' + SUF, 'gi'), (m0, w, s) => out((({один: 1, два: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9, десять: 10, одиннадцать: 11, двенадцать: 12})[w.toLowerCase()] || +w) - 1, 45, s, t))
+    .replace(new RegExp('(?:^|\\s)(?:в\\s+)?четверть\\s+' + CLOCK_RU_RE + '(?![а-яё\\d])' + SUF, 'gi'), (m0, w, s) => out(ruHour(w) - 1, 15, s, t));
 }
 
 /* ============ init ============ */

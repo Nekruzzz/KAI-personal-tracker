@@ -2595,3 +2595,43 @@ test('a colon before the date keeps the date: "exam: physics on friday at 10"', 
   assert.equal(r.events.length, 1);
   assert.equal(run(`dow('${r.events[0].date}')`), 5);
 });
+
+test('dates and times in words: the 15th, this weekend, end of the week, half past one', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
+  const today = run(`todayISO()`), d = run(`dow(todayISO())`);
+  const dom = q('exam on the 15th').due, dom2 = q('экзамен 15-го').due;
+  assert.equal(dom.slice(8), '15'); assert.ok(dom >= today); assert.equal(dom, dom2);
+  assert.equal(run(`domDate(31, '2030-02-10')`), '2030-02-28', 'a short month ends early');
+  assert.equal(run(`domDate(5, '2030-12-10')`), '2031-01-05', 'a passed day is next month');
+  assert.equal(q('room on the 2nd floor').due, null, 'a floor is not a date');
+  assert.equal(q('лекция для 2-го курса').due, null);
+  const wk = q('buy flowers this weekend').due;
+  assert.equal(wk, d >= 6 ? today : run(`addDays(todayISO(), ${6 - d})`));
+  assert.equal(q('купить цветы на выходных').due, wk);
+  assert.equal(run(`dow('${q('essay due end of the week').due}')`), d <= 5 ? 5 : d);
+  assert.equal(run(`softDate('end of the month', '2030-02-10')`), '2030-02-28');
+  assert.equal(q('lunch at half past one').time, '13:30');
+  assert.equal(q('обед в половине второго').time, '13:30');
+  assert.equal(q('ужин в половине восьмого вечера').time, '19:30');
+  assert.equal(q('dinner at half past 7 pm').time, '19:30');
+  assert.equal(q('call at a quarter to nine').time, '08:45');
+  assert.equal(q('созвон без четверти девять').time, '08:45');
+  assert.equal(q('stand-up at a quarter past 9').title, 'Stand-up');
+});
+
+test('to-do titles drop "remind me to", stray "the" and a leading colon', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`)).title;
+  assert.equal(q('remind me to call mom in 2 hours'), 'Call mom');
+  assert.equal(q('напомни позвонить маме через 2 часа'), 'Позвонить маме');
+  assert.equal(q('dentist the day after tomorrow at 11'), 'Dentist');
+  assert.equal(q('tonight: finish slides'), 'Finish slides');
+});
+
+test('water is not logged as food; sports count as training time', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.ok(!(p('drank 3 glasses of water').meals || []).length);
+  assert.ok(!(p('выпил 3 стакана воды').meals || []).length);
+  assert.ok(/Watermelon/.test(p('ate watermelon 200g').meals[0].name), 'watermelon is still found');
+  assert.deepEqual(p('played football for 90 minutes').time_log, [{kind: 'gym', min: 90}]);
+  assert.deepEqual(p('растяжка 15 мин').time_log, [{kind: 'gym', min: 15}]);
+});

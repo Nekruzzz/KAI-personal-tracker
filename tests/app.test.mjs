@@ -2010,7 +2010,7 @@ test('Tell KAI on the phone: parts of the day, "in 2 weeks", "next Monday", flig
   run(`save('app/plan', plan12)`);
   assert.deepEqual(p('10к шагов').steps, 10000);
   assert.equal(p('жим 60 кг на 8 8 6').sets.map(x => x.r).join(','), '8,8,6');
-  assert.deepEqual(p('spent 30 on books and 12 on lunch').money.map(m => [m.amount, m.cat]), [[30, 'Другое'], [12, 'Кафе и рестораны']]);
+  assert.deepEqual(p('spent 30 on books and 12 on lunch').money.map(m => [m.amount, m.cat]), [[30, 'Учёба'], [12, 'Кафе и рестораны']]);
   assert.equal(p('12 on lunch').money.length, 0, 'an amount alone is only spending after another spending');
   assert.equal(p('slept badly, 5 hours').sleep_h, 5);
   assert.equal(p('плохо спал, 5 часов').sleep_h, 5);
@@ -2681,4 +2681,20 @@ test('on the first day, past blocks are not "checked off 0"', () => {
     run(`setMeta({startedOn: addDays(todayISO(), -5)})`);
     assert.ok(/0/.test(run(`pastDone([{id: 'x'}], ${st}, todayISO())`)), 'later days still say it');
   } finally { run(`save('app/meta', meta42)`); }
+});
+
+test('money in more everyday words: "$5 coffee", "lunch for 12", "1,200", stipend, refund, a second item', () => {
+  const m = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.money)`));
+  assert.deepEqual(m('$5 coffee').map(x => [x.type, x.amount]), [['out', 5]]);
+  assert.deepEqual(m('lunch for 12').map(x => x.amount), [12]);
+  assert.deepEqual(m('обед за 400').map(x => x.amount), [400]);
+  assert.deepEqual(m('spent 1,200 on rent').map(x => [x.amount, x.cat]), [[1200, 'Жильё и коммуналка']]);
+  assert.deepEqual(m('stipend 300').map(x => [x.type, x.cat]), [['in', 'Доход']]);
+  assert.deepEqual(m('получил стипендию 3000').map(x => [x.type, x.amount]), [['in', 3000]]);
+  assert.deepEqual(m('refund 20 from amazon').map(x => [x.type, x.note]), [['in', 'refund from amazon']]);
+  assert.deepEqual(m('train ticket 22').map(x => x.cat), ['Транспорт']);
+  assert.deepEqual(m('подарок маме 1500').map(x => x.note), ['подарок маме']);
+  assert.deepEqual(m('кофе 200 и булочка 100').map(x => x.amount), [200, 100]);
+  assert.deepEqual(m('2 pizzas'), [], 'a count without a currency is food, not money');
+  assert.deepEqual(m('spent 10 on lunch and weight 70'), m('spent 10 on lunch'), 'a weight after money is not a second payment');
 });

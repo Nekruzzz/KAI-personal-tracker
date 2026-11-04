@@ -2545,3 +2545,13 @@ test('a daily task can be limited to some weekdays', () => {
     assert.equal(run(`daysLabel(undefined)`), run(`tr('Каждый день')`));
   } finally { run(`closeSheetQuiet(); save('app/plan', plan37)`); }
 });
+
+test('a to-do repeating on several weekdays becomes one per weekday; one-off days are left alone', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  let r = p('english class every tuesday and thursday at 18:00');
+  assert.deepEqual(r.new_tasks.map(t => [t.title, run(`dow('${t.date}')`), t.time, t.every]), [['English class', 2, '18:00', 'week'], ['English class', 4, '18:00', 'week']]);
+  r = p('зал по понедельникам и пятницам');
+  assert.deepEqual(r.new_tasks.map(t => [t.title, run(`dow('${t.date}')`)]), [['Зал', 1], ['Зал', 5]]);
+  r = p('meeting on monday and tuesday');
+  assert.ok(!r.new_tasks.some(t => t.every), 'two one-off days are not a repeat');
+});

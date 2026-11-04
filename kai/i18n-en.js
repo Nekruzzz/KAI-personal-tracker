@@ -2223,4 +2223,7 @@ window.I18N_EN = {
 "Легенда":"Legend",
 "Ещё {n} {t} — и серия {s} {d} продолжится":"{n} more {t} to keep your {s}-day streak",
 "вызовов недели":"weekly challenges",
+"Заморозки серии":"Streak freezes",
+"Один пропущенный день больше не сжигает серию: заморозка спасёт её сама. Каждые 7 дней подряд дают новую.":"One missed day no longer ends your streak: a freeze saves it by itself. Every 7 days in a row earn a new one.",
+"Три цели на неделю, чуть выше прошлой. За каждую +50 XP, а у уровней теперь есть названия.":"Three goals for the week, a little above the last one. Each gives +50 XP, and levels now have names.",
 };

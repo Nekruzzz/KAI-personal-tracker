@@ -4697,15 +4697,15 @@ const NUM = '(\\d+(?:[.,]\\d+)?)';
 const toN = x => +String(x).replace(',', '.');
 const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*)';
 const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
-const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|uber|lyft|bolt|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/аптек|pharmacy|drugstore|лекарств|medicine/i, 'Спорт и здоровье'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
+const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|uber|lyft|bolt|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/аптек|pharmacy|drugstore|лекарств|medicine|gym membership|абонемент|спортзал/i, 'Спорт и здоровье'], [/книг|books?\b|textbook|учебник|tuition|course|курс[ыа]?\b|printing|печать|распечат/i, 'Учёба'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
 const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул[аи]?сь|встал[аи]?(?![а-яё])/i;
 const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован|\bmeet\b|flight|рейс|вылет|самол[её]т|wedding|свадьб|exhibition|выставк|матч/i;
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
-const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
-const amountOf = (whole, cents) => +(whole.replace(/[\s ]/g, '') + (cents ? '.' + cents : ''));
-const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|phone bill|internet|netflix|spotify|pharmacy|uber|gas|fuel|квартплата|коммуналка|интернет|аптека|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин';
+const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d{1,3}(?:,\\d{3})+(?![\\d])|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
+const amountOf = (whole, cents) => +(whole.replace(/[\s ,]/g, '') + (cents ? '.' + cents : ''));
+const SPEND_WORDS = 'lunch|dinner|breakfast|coffee|taxi|uber|bus|groceries|rent|cinema|movie|subscription|phone bill|internet|netflix|spotify|pharmacy|uber|gas|fuel|квартплата|коммуналка|интернет|аптека|обед|ужин|завтрак|кофе|такси|автобус|продукты|аренда|кино|подписка|бензин|tips?|haircut|books?|textbooks?|gifts?|present|pizza|tickets?|train|metro|subway|snacks?|clothes|shoes|gym membership|laundry|printing|чаевые|стрижк[аи]|книг[аи]|учебник[аи]?|подар(?:ок|ки)|пицц[аы]|билет[ыа]?|поезд|метро|электричка|перекус|одежда|обувь|абонемент|стирка|печать|распечатк[аи]';
 function localMoney(c){
   c = c.replace(/^\s*(?:вчера|позавчера|сегодня|yesterday|today)[,\s]+/i, '').replace(/[,\s]+(?:вчера|позавчера|сегодня|yesterday|today)\s*$/i, ''); // "вчера продукты 1200", "spent 40 on groceries yesterday"
   // "netflix 11 every month": the entry, offered as a regular payment too
@@ -4715,13 +4715,18 @@ function localMoney(c){
   // income first: "got paid" also contains "paid"
   let m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + AMT, 'i'));
   if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return out({type: 'in', amount, cat: 'Доход', note: c}); }
+  m = c.match(new RegExp('(stipend|scholarship|стипенди[яюи]|refund(?:ed)?|вернули|возврат[а-яё]*|sold|продал[аи]?)(\\D{0,30}?)' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|%|km|км))', 'i'));
+  if (m){ const amount = amountOf(m[3], m[4]), note = (m[1] + m[2].replace(/\s*(?:for|за|of|:)\s*$/i, '') + ' ' + c.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(); if (amount > 0) return out({type: 'in', amount, cat: /stipend|scholarship|стипенди/i.test(m[1]) ? 'Доход' : 'Другое', note}); } // "stipend 300", "refund 20 from amazon", "продал велик за 5000"
   m = c.match(new RegExp('(?:got|received|получил[аи]?)\\s+' + AMT + '\\s+(?:from|от)\\s+\\S|(?:скинул[аи]?|перевел[аи]?|перевёл|прислал[аи]?|отправил[аи]?)\\s+мне\\s+' + AMT, 'i'));
   if (m){ const amount = m[1] ? amountOf(m[1], m[2]) : amountOf(m[3], m[4]); if (amount > 0) return out({type: 'in', amount, cat: 'Переводы входящие', note: c}); }
   m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for|at|в|во)\\s+(.+))?$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
-  m = c.match(new RegExp('^(' + SPEND_WORDS + ')\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
-  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); }
+  m = c.match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
+  if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); } // "gift for mom 30", "lunch for 12", "билет на поезд 1200"
+  // "$5 coffee", "300р такси": the amount first, but only with a currency, so "2 pizzas" stays food
+  m = c.match(new RegExp('^(' + AMT + ')\\s+((?:' + SPEND_WORDS + ')(?![a-zа-яё]).{0,30})$', 'i'));
+  if (m && /[$€£₽]|р\.?$|руб|dollars?|bucks|euros?|usd|eur/i.test(m[1].trim())){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[4].trim()}); }
   return null;
 }
 function localTellParse(text, date, opts = {}){
@@ -4760,7 +4765,7 @@ function localTellParse(text, date, opts = {}){
       if (lb) w = Math.round(w / LB * 10) / 10;
       if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
     }
-    const mo = localMoney(c) || (r.money.length ? moneyMore(c) : null);
+    const mo = localMoney(c) || (r.money.length && !hit ? moneyMore(c) : null);
     if (mo){ r.money.push(mo); hit = true; }
     const future = !/(?:^|\s)(?:ate|had|съел[аи]?|выпил[аи]?|поел[аи]?|перекусил[аи]?)(?![a-zа-яё])/i.test(c) && (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal; "вечером съел…" already happened
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
@@ -5653,8 +5658,11 @@ function refWeight(){ const k = dayKeys().reverse().find(x => toNum(S.docs['days
 
 /* "...and 12 on lunch": after one spending in the same message, an amount on something is spending too */
 function moneyMore(c){
-  const m = c.match(new RegExp('^' + AMT + '\\s+(?:на|за|on|for)\\s+(.+)$', 'i')); if (!m) return null;
-  const amount = amountOf(m[1], m[2]), note = m[3].trim();
+  let m = c.match(new RegExp('^' + AMT + '\\s+(?:на|за|on|for)\\s+(.+)$', 'i')), note;
+  if (m) note = m[3].trim();
+  else if ((m = c.match(new RegExp('^(?:an?\\s+)?([^\\d$€£₽]{2,30}?)\\s*(?:for|за|:)?\\s*' + AMT + '\\s*$', 'i'))) && !/mood|настроени|sleep|сон|спал|slept|steps|шаг|вес|weigh|pages|страниц|reps|раз|подход|sets/i.test(m[1])){ note = m[1].trim(); m = [m[0], m[2], m[3]]; } // "кофе 200 и булочка 100": the second item of a list of spending
+  else return null;
+  const amount = amountOf(m[1], m[2]);
   return amount > 0 ? {type: 'out', amount, cat: (MONEY_CAT.find(([re]) => re.test(note)) || [0, 'Другое'])[1], note} : null;
 }
 

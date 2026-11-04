@@ -205,6 +205,18 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 **To see it**, run this branch, not `main`: `python3 -m http.server 8123 --directory kai` and open http://localhost:8123, or build the iPhone app from this branch. An installed web app may need one extra reload to drop its cached copy.
 
+## Gamification: why these pieces
+
+Asked to think about rewards that keep people using KAI every day. The app already had a streak flame, streak milestones, 25 awards, XP levels, confetti for perfect days and habit milestones. What was missing was mostly about what happens *after a slip* and about goals at the scale of a week, so the additions are:
+
+- **Streak freezes:** the biggest reason people quit a streak app is losing a long streak to one bad day ("what the hell, it's gone anyway"). A freeze absorbs a single missed day by itself; they're earned by consistency (one per 7 days), so they reward the habit rather than replace it.
+- **A kind comeback card:** when a streak does end, the message is "never miss twice": one clear step today and a reminder that the record stays. No red, no blame.
+- **Weekly challenges:** three goals a week, set a little above the person's own last week (not fixed numbers), fixed on Monday so they can't drift. Two of them rotate so weeks feel different. Small, reachable goals keep progress visible between the long streak milestones.
+- **Instant feedback:** "+10 XP" floats from every check, level titles give the number a name, and the evening nudge names the streak at stake, from 3 days.
+- **New awards** for the new behaviours (a challenge, a clean week, a saved streak, a comeback), so the trophy shelf rewards resilience, not only unbroken runs.
+
+All of it is counted from data the app already keeps, plus three optional fields in `app/meta` (`freeze`, `challenges`, `comebackSeen`); nothing is sent anywhere, and nothing costs money or needs AI. Health rules are unchanged: sick days still pause the streak, and no challenge is about eating less or weight.
+
 ## How it was tested
 
 - `node --test tests/app.test.mjs`: 201 tests, all pass (36 at the start).
@@ -239,3 +251,6 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 15. **Gendered Russian buttons.** Like the existing "Сделал" and "Болею", the new exam buttons say "Сдал" / "Не сдал" (masculine). The app doesn't know the person's grammatical gender; the profile's "Sex (for the calorie estimate)" could drive it, or the wording could be neutral ("Сдано" / "Не сдано"). Left as it is until you decide.
 16. **New categories.** Regular payments needed two money categories, "Жильё и коммуналка" (Housing and utilities) and "Подписки" (Subscriptions). They're added at the end of the list, before "Другое"; existing entries keep their categories. If you'd rather keep the original list, they can be folded into "Другое".
 17. **Payment reminders are on by default** (at 10:00 on the day) for anyone who adds a regular payment, like the exam reminders; the evening check-in and morning plan stay off until turned on. Say if payments should start off too.
+18. **Streak freezes: one to start, two at most, one per 7 days.** These are the defaults chosen (similar to well-known habit apps). A larger cap makes streaks feel cheap; zero to start makes the first slip in week one hurt most. Easy to change in `FREEZE_MAX` and `freezeDoc()`.
+19. **Should the evening check-in be on by default now?** It is the one reminder that protects a streak ("2 more tasks to keep your 12-day streak"), but it stays off until turned on, as before. Turning it on by default would help daily use; it was left off because reminders that weren't asked for can feel pushy.
+

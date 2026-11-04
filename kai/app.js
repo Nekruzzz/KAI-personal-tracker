@@ -3438,6 +3438,7 @@ function checkins(){
     smartTasks().filter(t => isOverdue(t) && !studyOver(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
     smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
+  { const sq = sleepQ(date, d, hr); if (sq) q(sq.k, sq); }
   examResultQs(date).forEach(x => q(x.k, x));
   billDueQs(date).forEach(x => q(x.k, x));
   debtQs(date).forEach(x => q(x.k, x));
@@ -3462,6 +3463,7 @@ function checkinCard(){
   else if (c.type === 'block') body = `<div class="btnrow">${b('yes', tr('Да'))}${b('no', tr('Нет'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'rate') body = `<div class="rate5">${[1, 2, 3, 4, 5].map(i => `<button data-act="ciAns" data-k="rate" data-a="${i}" aria-label="${i} ${tr("из 5")}">${'★'}<small>${i}</small></button>`).join('')}</div><div class="btnrow">${b('later', tr('Не сейчас'), 'ghost')}</div>`;
   else if (c.type === 'exam') body = examResultBody(c, b);
+  else if (c.type === 'sleep') body = sleepQBody(c);
   else if (c.type === 'debt') body = `<div class="btnrow">${b('yes', tr('Да, вернули'))}${b('no', tr('Ещё нет'), 'ghost')}</div>`;
   else if (c.type === 'bill') body = `<div class="btnrow">${b('paid', c.inc ? tr('Получено') : tr('Оплачено'))}${b('skip', tr('Пропустить месяц'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
@@ -3490,6 +3492,7 @@ A.ciAns = el => {
   if (a === 'later') return mark(Date.now() + 3600000);
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
   if (k.startsWith('x_')) return examResultAns(a, id, mark);
+  if (k === 'sl') return sleepQAns(a, mark);
   if (k.startsWith('p_')) return billDueAns(a, id, mark);
   if (k.startsWith('d_')) return debtAns(a, id, mark);
   if (k === 'rate') return mutDay(date, d => { d.rating = +a; d.asked = {...(d.asked || {}), rate: 'yes'}; });
@@ -6194,6 +6197,22 @@ A.tkLateToday = () => {
 function pastDone(past, st, date){
   const n = past.filter(b => st(b) === 'done').length;
   return !n && meta().startedOn === date ? '' : ` ${tr("· отмечено")} ${n}`;
+}
+
+/* ============ a morning question: hours of sleep, one tap, when the sleep habit is on and nothing logged it yet ============ */
+function sleepQ(date, d, hr){
+  if (hr < 6 || hr >= 13 || (d.sleep != null && d.sleep !== '')) return null;
+  if (!(d.tasks || []).some(t => t.cat === 'sleep')) return null;
+  if ([0, 1, 2, 3].some(i => S.docs['days/' + addDays(date, -i)]?.sleepHealth)) return null; // Apple Health fills it in
+  return {k: 'sl', type: 'sleep', text: tr('Сколько часов сна было этой ночью?')};
+}
+const sleepQBody = c => `<div class="rate5 sl5">${[5, 6, 7, 8, 9].map(h => `<button data-act="ciAns" data-k="sl" data-a="${h}" aria-label="${h === 9 ? tr('9 часов и больше') : h + ' ' + plural(h, tr('час'), tr('часа'), tr('часов'))}">${h}${h === 9 ? '+' : ''}<small>${tr('ч')}</small></button>`).join('')}</div>
+  <div class="btnrow"><button class="btn ghost" data-act="ciAns" data-k="sl" data-a="no">${tr('Не помню')}</button></div>`;
+function sleepQAns(a, mark){
+  if (a === 'no') return mark('no');
+  const h = +a; if (!(h > 0 && h <= 16)) return;
+  mutDay(todayISO(), d => { d.sleep = h; d.asked = {...(d.asked || {}), sl: 'yes'}; });
+  toast(h < 7 ? tr('Записал. Сегодня постарайся лечь пораньше') : tr('Записал сон'));
 }
 
 /* ============ init ============ */

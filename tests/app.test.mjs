@@ -2698,3 +2698,19 @@ test('money in more everyday words: "$5 coffee", "lunch for 12", "1,200", stipen
   assert.deepEqual(m('2 pizzas'), [], 'a count without a currency is food, not money');
   assert.deepEqual(m('spent 10 on lunch and weight 70'), m('spent 10 on lunch'), 'a weight after money is not a second payment');
 });
+
+test('a morning question asks for hours of sleep, one tap', () => {
+  const date = run(`todayISO()`);
+  run(`globalThis.hk43 = [1, 2, 3].map(i => S.docs['days/' + addDays(todayISO(), -i)]?.sleepHealth); [1, 2, 3].forEach(i => S.docs['days/' + addDays(todayISO(), -i)] && mutDay(addDays(todayISO(), -i), d => { delete d.sleepHealth; }))`);
+  run(`globalThis.day43 = clone(getDay(todayISO())); mutDay(todayISO(), d => { delete d.sleep; d.asked = {}; if (!d.tasks.some(t => t.cat === 'sleep')) d.tasks.push({id: 'sl43', cat: 'sleep', title: 'Sleep', done: false}); })`);
+  try {
+    assert.equal(run(`sleepQ(todayISO(), getDay(todayISO()), 9)?.k`), 'sl', run(`JSON.stringify([getDay(todayISO()).sleep, getDay(todayISO()).tasks.map(t => t.cat), [0,1,2,3].map(i => S.docs['days/' + addDays(todayISO(), -i)]?.sleepHealth)])`));
+    assert.equal(run(`sleepQ(todayISO(), getDay(todayISO()), 15)`), null, 'not in the afternoon');
+    assert.ok(/data-a="9"/.test(run(`sleepQBody({})`)));
+    run(`globalThis.toast43 = toast; toast = () => {}; A.ciAns({dataset: {k: 'sl', a: '6', id: ''}}); toast = toast43`);
+    assert.equal(run(`getDay(todayISO()).sleep`), 6);
+    assert.equal(run(`sleepQ(todayISO(), getDay(todayISO()), 9)`), null, 'answered once');
+    run(`mutDay(addDays(todayISO(), -1), d => { d.sleepHealth = true; }); mutDay(todayISO(), d => { delete d.sleep; })`);
+    assert.equal(run(`sleepQ(todayISO(), getDay(todayISO()), 9)`), null, 'not when Apple Health fills it in');
+  } finally { run(`save('days/' + todayISO(), day43); [1, 2, 3].forEach((i, j) => S.docs['days/' + addDays(todayISO(), -i)] && mutDay(addDays(todayISO(), -i), d => { if (hk43[j] === undefined) delete d.sleepHealth; else d.sleepHealth = hk43[j]; }))`); }
+});

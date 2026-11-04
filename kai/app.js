@@ -1026,6 +1026,7 @@ A.streakInfo = () => {
   openSheet(tr('Серия'), `<div style="display:grid;place-items:center;gap:6px;padding:8px 0 4px">${flame(flameLevel(st), st || secured ? 'lit big' : 'big', 72)}<div class="hero-num" style="font-size:48px">${st}</div><div class="muted">${plural(st, tr('день'), tr('дня'), tr('дней'))} ${tr("подряд · рекорд")} ${best}</div></div>
     <div class="note">${secured ? tr('Сегодня уже засчитан. Огонь горит.') : `${tr("Сегодня ещё не засчитан: отметь ещё")} ${need} ${plural(need, tr('задачу'), tr('задачи'), tr('задач'))}${tr(", чтобы огонь не погас.")}`}</div>
     ${next ? `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between"><b>${tr("Следующая награда")}</b><span class="muted">${st} / ${next}</span></div><div class="bar"><i style="width:${st / next * 100}%;background:linear-gradient(90deg,#ff7a1f,#ffd84d)"></i></div></section>` : ''}
+    ${chainGrid()}
     ${freezeRow()}
     <div class="hint">${tr("День засчитывается, когда выполнено 70% задач. Дни, отмеченные «Болею», серию не сжигают. С 7 дней огонь разгорается сильнее, с 30 — становится синим.")}</div>`);
 };
@@ -6372,6 +6373,25 @@ const levelTitle = n => tr(LEVEL_TITLES.filter(([from]) => n >= from).pop()[1]);
 function nudgeTitle(need, run){
   const t = plural(need, tr('задача'), tr('задачи'), tr('задач'));
   return run >= 3 ? trf('Ещё {n} {t} — и серия {s} {d} продолжится', {n: need, t, s: run, d: plural(run, tr('день'), tr('дня'), tr('дней'))}) : trf('Ещё {n} {t}, и день засчитан', {n: need, t});
+}
+
+/* ============ the chain: 13 weeks of days at a glance, in the Streak sheet ============ */
+function chainGrid(){
+  const today = todayISO(), mon = addDays(today, 1 - dow(today)), start = addDays(mon, -12 * 7), from = trackedFrom(), fz = frozenDays();
+  let counted = 0, tracked = 0;
+  const cell = k => {
+    if (k > today) return '<i class="cg-f"></i>';
+    if (k < from) return '<i class="cg-n"></i>';
+    const d = S.docs['days/' + k], sc = d ? dayScore(d) || 0 : 0; tracked++;
+    if (d?.status === 'sick') return `<i class="cg-s" title="${fmtShort(k)}"></i>`;
+    if (fz.has(k)) return `<i class="cg-z" title="${fmtShort(k)}"></i>`;
+    if (sc >= .7){ counted++; return `<i class="cg-g" title="${fmtShort(k)}"></i>`; }
+    return `<i class="${sc > 0 ? 'cg-w' : 'cg-b'}${k === today ? ' cg-t' : ''}" title="${fmtShort(k)}"></i>`;
+  };
+  const cols = [...Array(13)].map((_, w) => `<div class="cg-col">${[...Array(7)].map((_, i) => cell(addDays(start, w * 7 + i))).join('')}</div>`).join('');
+  return `<section class="card cg"><div class="cg-h"><b>${tr('Цепочка')}</b><span class="muted">${trf('{a} из {b} дней засчитано', {a: counted, b: tracked})}</span></div>
+    <div class="cg-grid" role="img" aria-label="${esc(trf('Последние 13 недель: {a} из {b} дней засчитано', {a: counted, b: tracked}))}"><div class="cg-col cg-dl">${[1, 3, 5].map(i => `<span style="grid-row:${i}">${DOW[i]}</span>`).join('')}</div>${cols}</div>
+    <div class="legend"><span><i class="cg-g"></i>${tr('засчитан')}</span><span><i class="cg-w"></i>${tr('частично')}</span><span><i class="cg-z"></i>${tr('заморозка')}</span><span><i class="cg-s"></i>${tr('болезнь')}</span></div></section>`;
 }
 
 /* ============ init ============ */

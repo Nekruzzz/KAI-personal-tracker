@@ -145,6 +145,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **Five new awards for the habit loop:** "Challenge accepted" (a weekly challenge), "Clean sweep" (all of a week's challenges), "Month of challenges" (4 such weeks), "Cool head" (a freeze saved the streak) and "Comeback" (a day that counts right after a streak of 3+ days ended), counted from what is already stored, so 30 awards in all.
 - **Level titles:** "Level 4 · Steady", from Beginner through Apprentice, Steady, Determined, Disciplined, Routine master and Iron to Legend (level 21+), also in the level-up toast. The Russian titles are nouns, so they read the same for anyone.
 - **The streak at stake, named:** from 3 days in a row, the evening check-in says "2 more tasks to keep your 12-day streak" instead of "2 more tasks and the day counts". The weekly recap picture adds "2 / 3 weekly challenges".
+- **The chain:** the Streak sheet shows the last 13 weeks as a grid of days (counted, partial, missed, freeze, sick; days before KAI are dimmed), with "49 of 71 days counted". Screen readers get the same sentence.
 - **Daily tasks on chosen weekdays:** each daily task can run every day or only on some weekdays (More → Daily tasks); streaks skip the days without it.
 - **Streak milestones:** checking off a habit that reaches 7, 14, 30, 50, 100, 200 or 365 days in a row shows a short celebration (confetti from 30).
 - **Hold timer for timed exercises:** the plank and other holds get a Timer instead of the Rest link: 3 seconds to get ready, a countdown to the top of the range with a beep at both ends, then the seconds go into the next set and the rest timer starts by itself ("Done" early records what was actually held). Toasts now sit above the rest and focus bars instead of covering their buttons.
@@ -219,7 +220,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 202 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 203 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

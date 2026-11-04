@@ -2226,4 +2226,10 @@ window.I18N_EN = {
 "Заморозки серии":"Streak freezes",
 "Один пропущенный день больше не сжигает серию: заморозка спасёт её сама. Каждые 7 дней подряд дают новую.":"One missed day no longer ends your streak: a freeze saves it by itself. Every 7 days in a row earn a new one.",
 "Три цели на неделю, чуть выше прошлой. За каждую +50 XP, а у уровней теперь есть названия.":"Three goals for the week, a little above the last one. Each gives +50 XP, and levels now have names.",
+"Цепочка":"The chain",
+"{a} из {b} дней засчитано":"{a} of {b} days counted",
+"Последние 13 недель: {a} из {b} дней засчитано":"Last 13 weeks: {a} of {b} days counted",
+"засчитан":"counted",
+"заморозка":"freeze",
+"болезнь":"sick day",
 };

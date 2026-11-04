@@ -2826,3 +2826,9 @@ test('a plan after spending is not read as a second payment', () => {
   const r2 = JSON.parse(run(`JSON.stringify(localTellParse('кофе 200 и встреча в 15', todayISO()).r)`));
   assert.deepEqual(r2.money.map(m => m.amount), [200]);
 });
+
+test('the chain shows 13 weeks of days in the Streak sheet', () => {
+  const h = run(`chainGrid()`);
+  assert.equal((h.split("class=\"legend\"")[0].match(/<i class="cg-/g) || []).length, 91);
+  assert.ok(/role="img"/.test(h));
+});

@@ -2671,3 +2671,14 @@ test('to-dos left from earlier days move to today in one tap, with Undo', () => 
     assert.ok(JSON.parse(run(`JSON.stringify(smartTasks())`))[0].due < run(`todayISO()`), 'Undo puts them back');
   } finally { run(`saveTasks(tasks41)`); }
 });
+
+test('on the first day, past blocks are not "checked off 0"', () => {
+  const st = `b => null`;
+  run(`globalThis.meta42 = clone(meta()); setMeta({startedOn: todayISO()})`);
+  try {
+    assert.equal(run(`pastDone([{id: 'x'}], ${st}, todayISO())`), '');
+    assert.ok(/1/.test(run(`pastDone([{id: 'x'}], b => 'done', todayISO())`)));
+    run(`setMeta({startedOn: addDays(todayISO(), -5)})`);
+    assert.ok(/0/.test(run(`pastDone([{id: 'x'}], ${st}, todayISO())`)), 'later days still say it');
+  } finally { run(`save('app/meta', meta42)`); }
+});

@@ -2781,3 +2781,18 @@ test('the day after a streak breaks, a kind card shows one step, once', () => {
     assert.equal(run(`comebackCard()`), '', 'not when a freeze covered the day');
   } finally { run(`save('app/meta', meta46); Object.entries(days46).forEach(([k, v]) => v ? save(k, v) : remove(k))`); }
 });
+
+test('awards for challenges, freezes and coming back after a break', () => {
+  run(`globalThis.meta47 = clone(meta()); globalThis.days47 = Object.fromEntries([...Array(10)].map((_, i) => ['days/' + addDays(todayISO(), -i), S.docs['days/' + addDays(todayISO(), -i)] && clone(S.docs['days/' + addDays(todayISO(), -i)])]))`);
+  try {
+    run(`save('app/meta', {...meta(), challenges: {'2030-01-07': {list: [{id: 'counted', goal: 3}, {id: 'walk', goal: 150}], done: ['counted', 'walk']}}, freeze: {n: 0, used: [addDays(todayISO(), -9)]}})`);
+    for (let i = 3; i <= 7; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.status = null; d.tasks.forEach(t => { t.done = true; }); })`);
+    run(`mutDay(addDays(todayISO(), -2), d => { d.status = null; d.tasks.forEach(t => { t.done = false; }); }); mutDay(addDays(todayISO(), -1), d => { d.status = null; d.tasks.forEach(t => { t.done = true; }); })`);
+    const st = JSON.parse(run(`JSON.stringify(habitBadgeStats(dayKeys()))`));
+    assert.equal(st.chDone, 2); assert.equal(st.chWeeks, 1); assert.equal(st.frozen, 1);
+    assert.ok(st.comeback >= 1, 'the day after the break counted');
+    const ids = JSON.parse(run(`JSON.stringify(earnedBadgeIds())`));
+    for (const id of ['ch1', 'chWeek', 'freeze1', 'comeback']) assert.ok(ids.includes(id), id);
+    assert.ok(!ids.includes('chWeek4'));
+  } finally { run(`save('app/meta', meta47); Object.entries(days47).forEach(([k, v]) => v ? save(k, v) : remove(k))`); }
+});

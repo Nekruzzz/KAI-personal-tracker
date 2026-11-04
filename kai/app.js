@@ -1115,6 +1115,11 @@ const BADGES = [
   {id:'focusClean', icon:'target', c:'#9085e9', t:tr('Без отвлечений'), d:tr('Фокус от 45 минут, ни разу не выйдя из KAI'), k:'focusClean', n:1},
   {id:'focus10h', icon:'target', c:'#ffd84d', t:tr('Глубокая работа'), d:tr('10 часов в фокусе'), k:'focusH', n:10},
   {id:'safe', icon:'shield', c:'#2ebd6b', t:tr('Данные в безопасности'), d:tr('Сделать резервную копию'), k:'backup', n:1},
+  {id:'ch1', icon:'target', c:'#2ebd6b', t:tr('Вызов принят'), d:tr('Выполнить вызов недели'), k:'chDone', n:1},
+  {id:'chWeek', icon:'trophy', c:'#ffd84d', t:tr('Чистая неделя'), d:tr('Выполнить все вызовы недели'), k:'chWeeks', n:1},
+  {id:'chWeek4', icon:'crown', c:'#ffb020', t:tr('Месяц вызовов'), d:tr('4 недели со всеми вызовами'), k:'chWeeks', n:4},
+  {id:'freeze1', icon:'snow', c:'#4fa8ff', t:tr('Холодный расчёт'), d:tr('Заморозка сохранила серию'), k:'frozen', n:1},
+  {id:'comeback', icon:'flame', c:'#ff8a2e', t:tr('Возвращение'), d:tr('Засчитать день сразу после прерванной серии от 3 дней'), k:'comeback', n:1},
 ];
 function badgeStats(){
   const ks = dayKeys(), t = targets();
@@ -1136,6 +1141,7 @@ function badgeStats(){
   const ws = ks.filter(k => k >= season().start).map(k => toNum(S.docs['days/' + k].weight)).filter(Boolean);
   if (ws.length >= 10){ const a = ws.slice(0, 5).reduce((x, y) => x + y, 0) / 5, b = ws.slice(-5).reduce((x, y) => x + y, 0) / 5; st.lost = Math.max(0, Math.floor((a - b) * 10) / 10); }
   st.posts = posts().filter(p => p.status === 'Опубликовано').length;
+  Object.assign(st, habitBadgeStats(ks));
   return st;
 }
 let badgeTimer = null;
@@ -6339,6 +6345,21 @@ function comebackCard(){
     <button class="link" data-act="comebackOk" style="padding:4px 0 0">${tr('Понятно')}</button></div></section>`;
 }
 A.comebackOk = () => { const c = comebackInfo(); if (c) setMeta({comebackSeen: c.key}); };
+
+/* ============ awards for the habit loop: weekly challenges, streak freezes, coming back the day after a break ============ */
+function habitBadgeStats(ks){
+  const ch = Object.values(meta().challenges || {}), fz = frozenDays();
+  const out = {chDone: ch.reduce((a, w) => a + (w.done || []).length, 0), chWeeks: ch.filter(w => w.list?.length && (w.done || []).length === w.list.length).length, frozen: fz.size, comeback: 0};
+  if (!ks.length) return out;
+  let run = 0, pending = false;
+  for (let k = ks[0], today = todayISO(), i = 0; k <= today && i < 2000; k = addDays(k, 1), i++){
+    const d = S.docs['days/' + k];
+    if (fz.has(k) || d?.status === 'sick') continue;
+    if (daySecured(d)){ if (pending) out.comeback++; pending = false; run++; }
+    else if (k !== today){ pending = run >= 3; run = 0; } // today may still count
+  }
+  return out;
+}
 
 /* ============ init ============ */
 async function init(){

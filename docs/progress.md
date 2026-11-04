@@ -148,6 +148,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **The streak at stake, named:** from 3 days in a row, the evening check-in says "2 more tasks to keep your 12-day streak" instead of "2 more tasks and the day counts". The weekly recap picture adds "2 / 3 weekly challenges".
 - **The chain:** the Streak sheet shows the last 13 weeks as a grid of days (counted, partial, missed, freeze, sick; days before KAI are dimmed), with "49 of 71 days counted". Screen readers get the same sentence.
 - **Swap a weekly challenge:** once a week, one challenge that isn't done (not "Days that count") can be swapped for another the person tracks, with its target from last week.
+- **A Saturday reminder for weekly challenges** (iPhone app, off until turned on, under "Daily rhythm"): at 11:00 on Saturday, if any are open, "This week's challenges: 2 to go" with where each stands.
 - **Daily tasks on chosen weekdays:** each daily task can run every day or only on some weekdays (More → Daily tasks); streaks skip the days without it.
 - **Streak milestones:** checking off a habit that reaches 7, 14, 30, 50, 100, 200 or 365 days in a row shows a short celebration (confetti from 30).
 - **Hold timer for timed exercises:** the plank and other holds get a Timer instead of the Rest link: 3 seconds to get ready, a countdown to the top of the range with a beep at both ends, then the seconds go into the next set and the rest timer starts by itself ("Done" early records what was actually held). Toasts now sit above the rest and focus bars instead of covering their buttons.
@@ -222,7 +223,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 205 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 206 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -255,5 +256,5 @@ All of it is counted from data the app already keeps, plus three optional fields
 16. **New categories.** Regular payments needed two money categories, "Жильё и коммуналка" (Housing and utilities) and "Подписки" (Subscriptions). They're added at the end of the list, before "Другое"; existing entries keep their categories. If you'd rather keep the original list, they can be folded into "Другое".
 17. **Payment reminders are on by default** (at 10:00 on the day) for anyone who adds a regular payment, like the exam reminders; the evening check-in and morning plan stay off until turned on. Say if payments should start off too.
 18. **Streak freezes: one to start, two at most, one per 7 days.** These are the defaults chosen (similar to well-known habit apps). A larger cap makes streaks feel cheap; zero to start makes the first slip in week one hurt most. Easy to change in `FREEZE_MAX` and `freezeDoc()`.
-19. **Should the evening check-in be on by default now?** It is the one reminder that protects a streak ("2 more tasks to keep your 12-day streak"), but it stays off until turned on, as before. Turning it on by default would help daily use; it was left off because reminders that weren't asked for can feel pushy.
+19. **Should the evening check-in (and the new Saturday challenges reminder) be on by default now?** It is the one reminder that protects a streak ("2 more tasks to keep your 12-day streak"), but it stays off until turned on, as before. Turning it on by default would help daily use; it was left off because reminders that weren't asked for can feel pushy.
 

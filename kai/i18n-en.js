@@ -2242,4 +2242,7 @@ window.I18N_EN = {
 "Главное на сегодня: {t} · +{x} XP, когда сделаешь":"Main task today: {t} · +{x} XP when it's done",
 "Что главное сегодня? Это дело будет первым в списке":"What matters most today? It goes to the top of the list",
 "Без главного":"Skip",
+"В субботу в 11:00, если что-то не выполнено":"Saturday at 11:00, if any are open",
+"Вызовы недели: осталось {n}":"This week's challenges: {n} to go",
+"Выходные, чтобы успеть.":"The weekend is still ahead.",
 };

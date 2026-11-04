@@ -2864,3 +2864,16 @@ test('the main task of the day: one at a time, first in the list, +20 XP', () =>
     assert.equal(run(`totalXP()`), xp + 30);
   } finally { run(`toast = toast50; saveTasks(tasks50)`); }
 });
+
+test('a Saturday reminder lists the challenges still open, when turned on', () => {
+  run(`globalThis.meta51 = clone(meta())`);
+  try {
+    const mon = run(`addDays(todayISO(), 1 - dow(todayISO()))`);
+    run(`save('app/meta', {...meta(), challenges: {'${mon}': {list: [{id: 'counted', goal: 7}, {id: 'todos', goal: 40}], done: []}}})`);
+    const c = JSON.parse(run(`JSON.stringify(challengeNudge(todayISO()))`));
+    if (run(`dow(todayISO())`) <= 6){ assert.ok(c && /2/.test(c.title)); assert.equal(run(`dow('${mon}') + 5`), 6); }
+    assert.ok(!run(`buildReminders(0).some(r => r.key.startsWith('ch'))`), 'off until turned on');
+    run(`setMeta({remind: {...(meta().remind || {}), challenges: true}})`);
+    if (run(`dow(todayISO())`) < 6) assert.ok(run(`buildReminders(0).some(r => r.key.startsWith('ch'))`));
+  } finally { run(`save('app/meta', meta51)`); }
+});

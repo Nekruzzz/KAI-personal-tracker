@@ -3297,7 +3297,7 @@ function monthDate(m){
 }
 function parseQuick(raw, defDue){
   let t = ' ' + String(raw).trim() + ' ', due = null, time = null, pri = 2, parsed = false;
-  const today = todayISO(), rp = repeatOf(t), every = rp.every; t = rp.text;
+  const today = todayISO(), rp = repeatOf(t), every = rp.every, every_n = rp.n; t = rp.text;
   if (/!/.test(t) || /срочно|\burgent\b/i.test(t)){ pri = 1; t = t.replace(/!+/g, ' ').replace(/срочно|\burgent\b/ig, ' '); }
   let m = t.match(/(^|\s)((?:в|к)\s+)?(\d{1,2})(?:[:.]([0-5]\d))?\s+(утра|дня|вечера|ночи)(?![а-яё])/i);
   if (m && (m[2] || m[5].toLowerCase() !== 'дня') && +m[3] >= 1 && +m[3] <= 12){ const n = +m[3], pt = m[5].toLowerCase(), h = pt === 'утра' ? n % 12 : pt === 'ночи' ? (n === 12 ? 0 : n <= 4 ? n : n + 12) : n === 12 ? 12 : n + 12; time = pad(h) + ':' + (m[4] || '00'); t = t.replace(m[0], m[1] + ' '); parsed = true; } // "в 6 утра" is 06:00, "в 11 ночи" is 23:00; "через 2 дня" is days, not 2 in the afternoon
@@ -3332,7 +3332,7 @@ function parseQuick(raw, defDue){
   if (!due && every) due = today; // a repeating to-do starts today
   const title = t.replace(/\s+/g, ' ').trim();
   if (!title) return null;
-  return {id: uid(), title: title[0].toUpperCase() + title.slice(1), due, time, pri, done:false, created: today, ...(every ? {every} : {})};
+  return {id: uid(), title: title[0].toUpperCase() + title.slice(1), due, time, pri, done:false, created: today, ...(every ? {every, ...(every_n > 1 ? {n: every_n} : {})} : {})};
 }
 function dueLabel(t){
   if (!t.due) return tr('без срока');
@@ -3350,7 +3350,7 @@ function taskCard(){
   const row = t => {
     const open = S.open['tk_' + t.id], late = isOverdue(t);
     return `<div class="row task ${late ? 'late' : ''}"><span class="tic" style="--tc:var(--${late ? 'bad' : t.pri === 1 ? 'warn' : t.time ? 'c3' : 'c0'})">${ic(t.time ? 'bell' : 'list')}</span>
-      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${EVERY[t.every]()}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
+      <button class="mid" data-act="tkOpen" data-id="${t.id}" aria-expanded="${!!open}" style="text-align:left"><div class="t">${esc(t.title)}${t.pri === 1 ? ` <span class="tag warn">${tr("срочно")}</span>` : ''}</div><div class="s ${late ? 'bad' : ''}">${esc(dueLabel(t))}${t.every && EVERY[t.every] ? ` · ${ic('repeat', 'rep-ic')}${everyText(t)}` : ''}</div></button><button class="chk" data-act="tkDone" data-id="${t.id}" aria-label="${tr("Выполнено:")} ${esc(t.title)}">${ic('check')}</button></div>
     ${open ? `<div class="detail"><div class="hint">${tr("Перенести")}</div><div class="btnrow">${[['h1', tr('+1 час')], ['eve', tr('Вечером')], ['tom', tr('Завтра')], ['wk', tr('В выходные')], ['none', tr('Без срока')]].map(([w, l]) => `<button class="btn ghost" data-act="tkMove" data-id="${t.id}" data-w="${w}">${l}</button>`).join('')}</div>
       <div class="btnrow">${!t.done && !FOCUS ? `<button class="btn ghost" data-act="focusTask" data-id="${t.id}">${ic('target')}${tr('Фокус')}</button>` : ''}<button class="btn ghost" data-act="tkPri" data-id="${t.id}">${t.pri === 1 ? tr('Не срочно') : tr('Срочно')}</button>${t.due && t.time ? `<button class="btn ghost" data-act="tkIcs" data-id="${t.id}">${ic('bell')}${tr("В Календарь")}</button>` : ''}${t.every ? `<button class="btn ghost" data-act="tkStopRepeat" data-id="${t.id}">${ic('repeat')}${tr('Не повторять')}</button>` : ''}<button class="btn danger" data-act="tkDel" data-id="${t.id}">${ic('trash')}${tr("Удалить")}</button></div></div>` : ''}`;
   };
@@ -3404,13 +3404,13 @@ function icsText2(events){
   events.forEach(e => {
     const s = e.date.replace(/-/g, '') + 'T' + e.time.replace(':', '') + '00', end = hmStr(Math.min(hm(e.time) + (e.min || 15), 23 * 60 + 59));
     const esc2 = x => String(x).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
-    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@kai', 'DTSTAMP:' + stamp, 'DTSTART:' + s, 'DTEND:' + e.date.replace(/-/g, '') + 'T' + end.replace(':', '') + '00', 'SUMMARY:' + esc2(e.title), ...(ICS_FREQ[e.every] ? ['RRULE:FREQ=' + ICS_FREQ[e.every]] : []),
+    L.push('BEGIN:VEVENT', 'UID:' + e.id + '@kai', 'DTSTAMP:' + stamp, 'DTSTART:' + s, 'DTEND:' + e.date.replace(/-/g, '') + 'T' + end.replace(':', '') + '00', 'SUMMARY:' + esc2(e.title), ...(ICS_FREQ[e.every] ? ['RRULE:FREQ=' + ICS_FREQ[e.every] + (e.n > 1 ? ';INTERVAL=' + e.n : '')] : []),
       'BEGIN:VALARM', 'TRIGGER:-PT10M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(e.title), 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(e.title), 'END:VALARM', 'END:VEVENT');
   });
   L.push('END:VCALENDAR'); return L.join('\r\n');
 }
 async function exportTasksIcs(list){
-  const ev = list.filter(t => t.due && t.time && t.due >= todayISO()).map(t => ({id: t.id, title: t.title, date: t.due, time: t.time, every: t.every}));
+  const ev = list.filter(t => t.due && t.time && t.due >= todayISO()).map(t => ({id: t.id, title: t.title, date: t.due, time: t.time, every: t.every, n: t.n}));
   if (!ev.length) return toast(tr('Нужны задачи с датой и временем'));
   const ok = await shareOrDownload('kai-zadachi.ics', new Blob([icsText2(ev)], {type: 'text/calendar'}));
   if (ok) toast(tr('Файл готов: открой его и нажми «Добавить»'));
@@ -3882,7 +3882,7 @@ function cleanEv(x){
 function cleanTask(x){
   if (!x || !x.title) return null;
   const today = todayISO(), due = x.date === 'today' ? today : x.date === 'tomorrow' ? addDays(today, 1) : DATE_RE.test(x.date || '') ? x.date : null;
-  return {id: uid(), title: String(x.title).slice(0, 160), due, time: due && HM_RE.test(x.time || '') ? x.time : null, pri: 2, done: false, created: today, ...(EVERY[x.every] && due ? {every: x.every} : {})};
+  return {id: uid(), title: String(x.title).slice(0, 160), due, time: due && HM_RE.test(x.time || '') ? x.time : null, pri: 2, done: false, created: today, ...(EVERY[x.every] && due ? {every: x.every, ...(+x.n >= 2 && +x.n <= 30 ? {n: +x.n} : {})} : {})};
 }
 function tellPlan(r){
   const pl = clone(plan()); pl.routine = pl.routine || clone(DEFAULT_ROUTINE);
@@ -3911,7 +3911,7 @@ function tellPlanLines(r){
   (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(`+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
   (r.update_events || []).filter(u => allEvents().some(e => e.id === u?.id)).forEach(u => lines.push(`${tr("Изменить «")}${name(u.id)}${tr('»')}: ${[u.date && DATE_RE.test(u.date) ? fmtShort(u.date) : '', u.from || ''].filter(Boolean).join(tr(' в '))}`));
   (r.cancel_events || []).filter(id => allEvents().some(e => e.id === id)).forEach(id => lines.push(`${tr("Отменить «")}${name(id)}${tr('»')}`));
-  tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}${t.every ? ' · ' + EVERY[t.every]() : ''}`));
+  tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}${t.every ? ' · ' + everyText(t) : ''}`));
   moves.forEach(m => lines.push(m.to ? `${tr("Перенести тренировку:")} ${fmtShort(m.from)} → ${fmtShort(m.to)}` : `${tr("Убрать тренировку")} ${fmtShort(m.from)}`));
   const tn = {walk:tr('Ходьба'), gym:tr('Тренировка'), study:tr('Учёба')};
   (r.time_log || []).filter(x => tn[x?.kind] && +x.min > 0).forEach(x => lines.push(`${tn[x.kind]}: ${fmtMin(+x.min)}`));
@@ -4761,7 +4761,7 @@ function localTellParse(text, date, opts = {}){
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
-        else if (t.time || t.every || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, ...(t.every ? {every: t.every} : {})});
+        else if (t.time || t.every || TODO_RE.test(c)) r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, ...(t.every ? {every: t.every, ...(t.n ? {n: t.n} : {})} : {})});
         else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;
       } else if (INTENT_RE.test(c)){ // "remind me to buy a charger": a to-do without a date
@@ -5645,6 +5645,12 @@ function moneyMore(c){
 const EVERY = {day: () => tr('каждый день'), week: () => tr('каждую неделю'), month: () => tr('каждый месяц')};
 const WD_DAT = [['понедельникам', 'понедельник'], ['вторникам', 'вторник'], ['средам', 'среда'], ['четвергам', 'четверг'], ['пятницам', 'пятница'], ['субботам', 'суббота'], ['воскресеньям', 'воскресенье'], ['mondays', 'monday'], ['tuesdays', 'tuesday'], ['wednesdays', 'wednesday'], ['thursdays', 'thursday'], ['fridays', 'friday'], ['saturdays', 'saturday'], ['sundays', 'sunday']];
 function repeatOf(t){
+  const iv = t.match(/(^|\s)(?:every\s+(other|\d{1,2})\s+(days?|weeks?|months?)|(?:каждые|раз\s+в)\s+(\d{1,2})\s+(дн(?:я|ей)|недел[иьюя]|месяц(?:а|ев)?))(?![a-zа-яё])/i);
+  if (iv){ // "every 2 weeks", "every other day", "каждые 3 дня", "раз в 2 недели"
+    const n = iv[2] ? (/other/i.test(iv[2]) ? 2 : +iv[2]) : +iv[4], u = (iv[3] || iv[5]).toLowerCase();
+    const every = /^(?:day|дн)/.test(u) ? 'day' : /^(?:week|недел)/.test(u) ? 'week' : 'month';
+    if (n >= 1 && n <= 30) return {every, n: n > 1 ? n : undefined, text: t.replace(iv[0], iv[1])};
+  }
   for (const [pl, one] of WD_DAT){ const re = new RegExp('(^|\\s)(?:по|on)\\s+' + pl + '(?![а-яёa-z])', 'i'); if (re.test(t)) return {every: 'week', text: t.replace(re, '$1' + one)}; } // "по пятницам", "on Fridays"
   const wd = t.match(/(^|\s)(?:every|each|каждый|каждую|каждое)\s+(?=(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень|monday|tuesday|wednesday|thursday|friday|saturday|sunday))/i);
   if (wd) return {every: 'week', text: t.replace(wd[0], wd[1])};
@@ -5653,16 +5659,16 @@ function repeatOf(t){
   return {every: null, text: t};
 }
 /* the next date after a done one, never in the past: a monthly one keeps its day, the 31st becomes the month's last day */
-function nextDue(from, every, today = todayISO()){
-  let d = from || today;
-  const step = x => { if (every === 'day') return addDays(x, 1); if (every === 'week') return addDays(x, 7); const [y, m, dd] = x.split('-').map(Number), n = new Date(y, m, 1), last = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(); return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(Math.min(+(from || today).slice(8), last))}`; };
+function nextDue(from, every, today = todayISO(), n = 1){
+  let d = from || today; n = Math.max(1, Math.round(+n) || 1);
+  const step = x => { if (every === 'day') return addDays(x, n); if (every === 'week') return addDays(x, 7 * n); const [y, m, dd] = x.split('-').map(Number), n2 = new Date(y, m - 1 + n, 1), last = new Date(n2.getFullYear(), n2.getMonth() + 1, 0).getDate(); return `${n2.getFullYear()}-${pad(n2.getMonth() + 1)}-${pad(Math.min(+(from || today).slice(8), last))}`; };
   do d = step(d); while (d <= today);
   return d;
 }
 function tasksDone(list, id, date){
   const t = list.find(x => x.id === id && !x.done); if (!t) return list;
   const out = list.map(x => x.id === id ? {...x, done: true, doneAt: date} : x);
-  if (EVERY[t.every]){ const nt = {...t, id: uid(), done: false, due: nextDue(t.due, t.every), created: todayISO()}; delete nt.doneAt; delete nt.askedWhen; delete nt.focusMin; out.push(nt); }
+  if (EVERY[t.every]){ const nt = {...t, id: uid(), done: false, due: nextDue(t.due, t.every, todayISO(), t.n || 1), created: todayISO()}; delete nt.doneAt; delete nt.askedWhen; delete nt.focusMin; out.push(nt); }
   return out;
 }
 A.tkStopRepeat = el => { saveTasks(smartTasks().map(t => { if (t.id !== el.dataset.id) return t; const x = {...t}; delete x.every; return x; })); toast(tr('Больше не повторяется')); };
@@ -5678,7 +5684,7 @@ const SCREEN_A = new RegExp(SCREEN_W + '\\D{0,14}?' + SCREEN_D, 'i'), SCREEN_B =
 /* ============ to-dos done today: shown on request, and one can go back on the list ============ */
 function doneTodayHTML(today){
   const list = smartTasks().filter(t => t.done && t.doneAt === today), open = !!S.open.tk_done;
-  return `<button class="link" data-act="toggleOpen" data-k="tk_done" aria-expanded="${open}" style="padding:6px 0;display:block">${open ? tr('Скрыть сделанное') : trf('Сделано сегодня: {n}', {n: list.length})}</button>${open ? `<div class="list">${list.map(t => `<div class="row task done"><span class="tic" style="--tc:var(--good)">${ic('check')}</span><div class="mid"><div class="t">${esc(t.title)}</div>${t.every && EVERY[t.every] ? `<div class="s">${ic('repeat', 'rep-ic')}${EVERY[t.every]()}</div>` : ''}</div><button class="chk on" data-act="tkReopen" data-id="${esc(t.id)}" aria-pressed="true" aria-label="${esc(trf('Открыть снова: {t}', {t: t.title}))}">${ic('check')}</button></div>`).join('')}</div>` : ''}`;
+  return `<button class="link" data-act="toggleOpen" data-k="tk_done" aria-expanded="${open}" style="padding:6px 0;display:block">${open ? tr('Скрыть сделанное') : trf('Сделано сегодня: {n}', {n: list.length})}</button>${open ? `<div class="list">${list.map(t => `<div class="row task done"><span class="tic" style="--tc:var(--good)">${ic('check')}</span><div class="mid"><div class="t">${esc(t.title)}</div>${t.every && EVERY[t.every] ? `<div class="s">${ic('repeat', 'rep-ic')}${everyText(t)}</div>` : ''}</div><button class="chk on" data-act="tkReopen" data-id="${esc(t.id)}" aria-pressed="true" aria-label="${esc(trf('Открыть снова: {t}', {t: t.title}))}">${ic('check')}</button></div>`).join('')}</div>` : ''}`;
 }
 A.tkReopen = el => {
   const list = smartTasks(), t = list.find(x => x.id === el.dataset.id && x.done); if (!t) return;
@@ -5797,7 +5803,7 @@ function enrichTell(r, text, date){
   (lp.money || []).filter(m => m.rep).forEach(m => { const x = out.money.find(a => !a.rep && (a.type === 'in') === (m.type === 'in') && Math.abs(+a.amount - m.amount) < 0.01); if (x) x.rep = true; });
   (lp.new_tasks || []).filter(t => t.every).forEach(t => {
     const x = out.new_tasks.find(a => !a.every && wordsOf(a.title || '').some(w => wordsOf(t.title).some(v => sameWord(w, v))));
-    if (x){ x.every = t.every; if (!DATE_RE.test(x.date || '')) x.date = t.date; }
+    if (x){ x.every = t.every; if (t.n) x.n = t.n; if (!DATE_RE.test(x.date || '')) x.date = t.date; }
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
@@ -5928,6 +5934,14 @@ function habitMilestone(t){
   const unit = t.id === 'gym' ? plural(n, tr('тренировка'), tr('тренировки'), tr('тренировок')) : plural(n, tr('день'), tr('дня'), tr('дней'));
   setTimeout(() => { toast(trf('«{t}»: {n} {u} подряд!', {t: t.title, n, u: unit}), {icon: 'flame', tone: 'gold', ms: 3500}); if (n >= 30) confetti({n: 90, y: innerHeight * .4}); }, 450); // after the check-off's own feedback
   return true;
+}
+
+/* ============ how often a to-do repeats, in words: "every week", "every 2 weeks" ============ */
+function everyText(t){
+  if (!t?.every || !EVERY[t.every]) return '';
+  const n = +t.n || 1; if (n < 2) return EVERY[t.every]();
+  const u = t.every === 'day' ? plural(n, tr('день'), tr('дня'), tr('дней')) : t.every === 'week' ? plural(n, tr('неделя'), tr('недели'), tr('недель')) : plural(n, tr('месяц'), tr('месяца'), tr('месяцев'));
+  return trf('каждые {n} {u}', {n, u});
 }
 
 /* ============ init ============ */

@@ -2391,3 +2391,28 @@ test('a habit reaching 7 days in a row gets a moment, other days do not', () => 
     assert.equal(run(`habitMilestone({id: 'hm', title: 'Stretch'})`), false, '6 days: nothing yet');
   } finally { run(`${JSON.stringify(keep)}.forEach(([k, v]) => v ? save('days/' + k, v) : remove('days/' + k))`); }
 });
+
+test('repeat intervals: "every 2 weeks", "every other day", "каждые 3 дня", "раз в 2 недели"', () => {
+  const q = t => JSON.parse(run(`JSON.stringify(parseQuick(${JSON.stringify(t)}))`));
+  let t = q('change the bedsheets every 2 weeks');
+  assert.deepEqual([t.title, t.every, t.n], ['Change the bedsheets', 'week', 2]);
+  t = q('water the plants every other day');
+  assert.deepEqual([t.title, t.every, t.n], ['Water the plants', 'day', 2]);
+  t = q('полить цветы каждые 3 дня');
+  assert.deepEqual([t.title, t.every, t.n], ['Полить цветы', 'day', 3]);
+  t = q('уборка раз в 2 недели');
+  assert.deepEqual([t.every, t.n], ['week', 2]);
+  assert.equal(q('pay rent every month').n, undefined, 'plain repeats keep no interval');
+  assert.equal(run(`nextDue('2030-01-06', 'week', '2030-01-06', 2)`), '2030-01-20');
+  assert.equal(run(`nextDue('2030-01-31', 'month', '2030-01-31', 3)`), '2030-04-30');
+  assert.equal(run(`nextDue('2030-01-31', 'month', '2030-01-31')`), '2030-02-28');
+  assert.equal(run(`everyText({every: 'week', n: 2})`), run(`trf('каждые {n} {u}', {n: 2, u: plural(2, tr('неделя'), tr('недели'), tr('недель'))})`));
+  assert.match(run(`icsText2([{id: 'i1', title: 'Sheets', date: '2030-01-06', time: '10:00', every: 'week', n: 2}])`), /RRULE:FREQ=WEEKLY;INTERVAL=2/);
+  const today = run(`todayISO()`);
+  run(`globalThis.tasks30 = clone(smartTasks()); globalThis.toastQ = toast; toast = () => {}; saveTasks([{id: 'iv', title: 'Sheets', due: '${today}', done: false, pri: 2, every: 'week', n: 2}])`);
+  try {
+    run(`A.tkDone({dataset: {id: 'iv'}})`);
+    const next = JSON.parse(run(`JSON.stringify(smartTasks().find(x => !x.done))`));
+    assert.deepEqual([next.due, next.n], [run(`addDays('${today}', 14)`), 2]);
+  } finally { run(`toast = toastQ; saveTasks(tasks30)`); }
+});

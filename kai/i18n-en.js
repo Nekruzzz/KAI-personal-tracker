@@ -2172,4 +2172,7 @@ window.I18N_EN = {
 "Выбери хотя бы один день":"Pick at least one day",
 "Добавлено: {n} {t}":"Added: {n} {t}",
 "Перерыв 5 мин":"5-min break",
+"Прошлый раз все подходы по {n} {u}: держи на 5 сек дольше":"Last time every set reached {n} {u}: hold 5 sec longer",
+"Прошлый раз все подходы на {n}: пора к трудному варианту, он в «Как делать»":"Last time every set reached {n}: time for the harder variant, see “How to do it”",
+"· держи чуть дольше":"· hold a little longer",
 };

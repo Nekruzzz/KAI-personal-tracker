@@ -1438,13 +1438,13 @@ function hTrain(){
   h += w.ex.map(e => {
     const last = lastSets(e.id, logDate), cur = d.sets?.[e.id] || [], pb = bestBefore(e.id, logDate);
     let hint = '';
-    if (last){ const top = last.sets.length>=setsFor(e, logDate) && last.sets.every(s=>(+s.r||0)>=e.hi); hint = top ? `<span class="hint good">${tr("Прошлый раз все подходы на")} ${e.hi}${isUS() ? tr(': добавь 5 фнт') : tr(": добавь 2.5 кг")}</span>` : `<span class="hint">${tr("Прошлый раз")} ${last.sets.map(s=>s.w?W(s.w)+'×'+s.r:s.r).join(', ')} ${tr("· добавь по повтору")}</span>`; }
+    if (last){ const top = last.sets.length>=setsFor(e, logDate) && last.sets.every(s=>(+s.r||0)>=e.hi); hint = top ? `<span class="hint good">${exTopHint(e)}</span>` : `<span class="hint">${tr("Прошлый раз")} ${last.sets.map(s=>s.w?W(s.w)+'×'+s.r:s.r).join(', ')}${e.unit ? ' ' + e.unit : ''} ${e.unit ? tr('· держи чуть дольше') : tr("· добавь по повтору")}</span>`; }
     const open = S.open['ex_'+e.id];
     return `<section class="card" style="padding:14px 16px">
       <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;min-width:0"><div class="t" style="font-weight:700">${esc(e.name)}</div><div class="hint">${setsFor(e, logDate)} × ${e.lo}–${e.hi}${e.unit?' '+e.unit:tr(' повт.')} ${tr("· отдых")} ${esc(e.rest)}</div>${hint}</div>
       <div style="display:flex;gap:14px;align-items:center;flex:none"><button class="link" data-act="toggleOpen" data-k="ex_${e.id}">${open?tr('Скрыть'):tr('Как делать')}</button>${e.unit ? `<button class="link" data-act="holdStart" data-ex="${esc(e.id)}">${tr("Таймер")}</button>` : `<button class="link" data-act="restStart" data-r="${esc(e.rest)}" data-n="${esc(e.name)}">${tr("Отдых")}</button>`}</div></div>
       ${open?`<div class="note" style="margin-top:8px">${esc(e.how)}</div>`:''}
-      <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit||e.bw?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit||e.bw?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
+      <div class="srows"><div class="sr-h"><span>${tr("Подход")}</span><span>${tr("Прошлый раз")}</span><span>${e.unit||exBw(e)?'':isUS()?tr('Фнт'):tr('Кг')}</span><span>${e.unit?tr('Сек'):tr('Повт')}</span></div>${[...Array(setsFor(e, logDate))].map((_,i)=>{ const s = cur[i]||{}; const pl2 = last?.sets[i]||{}; const hasPrev = !!last?.sets[i]; const prev = hasPrev ? (pl2.w ? W(pl2.w)+' × '+pl2.r : String(pl2.r??'–')) : '–'; const isPR = pb > 0 && e1rm(s) > pb; return `<div class="sr ${isPR?'pr':''}"><span class="sn">${isPR?ic('trophy'):i+1}</span>${hasPrev?`<button class="sp" data-act="setPrev" data-ex="${e.id}" data-i="${i}" data-w="${pl2.w??''}" data-r="${pl2.r??''}" aria-label="${tr("Подставить прошлый раз:")} ${esc(prev)}">${esc(prev)}</button>`:'<span class="sp none">–</span>'}${e.unit||exBw(e)?'<span></span>':`<input aria-label="${tr("Вес, подход")} ${i+1}" inputmode="decimal" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="w" value="${W(s.w)??''}" placeholder="${W(pl2.w)??kgU()}">`}<input aria-label="${e.unit?tr('Секунды'):tr('Повторы')}${tr(", подход")} ${i+1}" inputmode="numeric" data-ch="set" data-ex="${e.id}" data-i="${i}" data-f="r" value="${s.r??''}" placeholder="${pl2.r??(e.unit?tr('сек'):tr('повт'))}"></div>`; }).join('')}</div>
     </section>`;
   }).join('');
   if (sel===todayW || !todayW) h += `<button class="btn block" data-act="finishW" data-v="${sel}">${ic('check')}${trf('Тренировка {w} выполнена', {w: tr(sel)})}</button>`;
@@ -1459,7 +1459,7 @@ function hTrain(){
   const sp = [...Array(14)].map((_,i)=>addDays(date,i-13)).map(k=>({x:fmtShort(k).split(' ')[0], y:+(S.docs['days/'+k]?.steps||0)}));
   h += `<div class="sec-h"><h2>${tr("Шаги")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="stepsIn2">${tr("Шаги сегодня")}</label><input class="in" id="stepsIn2" inputmode="numeric" data-ch="steps" value="${d.steps??''}" placeholder="${tr("из приложения Здоровье на iPhone")}"></div>${barChart(sp,{target:tg.steps, unit:tr('шагов'), c:'c3', label:tr('Шаги за 14 дней'), colorFn:p=>p.y>=tg.steps?'var(--c3)':'var(--good-bg)'})}</section>`;
   // progress
-  const allEx = Object.values(pl.workouts).flatMap(w=>w.ex).filter(e=>!e.unit && !e.bw).filter((e, i, a) => a.findIndex(x => x.id === e.id) === i);
+  const allEx = Object.values(pl.workouts).flatMap(w=>w.ex).filter(e=>!e.unit && !exBw(e)).filter((e, i, a) => a.findIndex(x => x.id === e.id) === i);
   const pe = S.sub.pe || allEx[0]?.id;
   const ex = allEx.find(e=>e.id===pe) || allEx[0];
   const pts = dayKeys().filter(k=>S.docs['days/'+k].sets?.[ex.id]?.some(s=>s&&s.w&&s.r)).map(k=>{ const best = Math.max(...S.docs['days/'+k].sets[ex.id].filter(s=>s&&s.w&&s.r).map(s=>(+s.w)*(1+(+s.r)/30))); return {x:fmtShort(k), y:Math.round(W(best)*10)/10}; });
@@ -2818,7 +2818,7 @@ const EASY_WORKOUTS = {
     {id:'bridge', name:tr('Ягодичный мост или hip thrust'), sets:3, lo:10, hi:12, rest:tr('60–90 сек'), how:tr('Лопатки на скамье или пол, вверху пауза 1 секунду и сжатие ягодиц.')},
     {id:'revlunge', name:tr('Выпады назад или шаги на платформу'), sets:3, lo:10, hi:12, rest:tr('60–90 сек'), how:tr('Шаг назад, корпус прямой. Без веса или с лёгкими гантелями. Это на каждую ногу.')},
     {id:'calf', name:tr('Подъёмы на носки'), sets:3, lo:12, hi:15, rest:tr('60 сек'), how:tr('Вверху пауза, вниз 2 секунды.')},
-    {id:'deadbug', name:tr('Dead bug (мёртвый жук)'), sets:2, lo:8, hi:10, rest:tr('45 сек'), how:tr('Поясница прижата к полу. Опускай противоположные руку и ногу медленно. Повторы на каждую сторону.')},
+    {id:'deadbug', bw:true, name:tr('Dead bug (мёртвый жук)'), sets:2, lo:8, hi:10, rest:tr('45 сек'), how:tr('Поясница прижата к полу. Опускай противоположные руку и ногу медленно. Повторы на каждую сторону.')},
   ]},
 };
 const EASY_SCHEDULE = {1:'Верх', 2:'Низ', 4:'Верх', 5:'Низ'};
@@ -2843,7 +2843,7 @@ const HOME_WORKOUTS = {
     {id:'hpush', bw:true, name:tr('Отжимания от стола или стены'), sets:3, lo:6, hi:12, rest:tr('60–90 сек'), how:tr('Чем выше опора, тем легче. Тело прямое, локти под углом около 45°. Когда 12 повторов даются легко, опора ниже: стол, потом пол с колен, потом пол.')},
     {id:'hcalf', bw:true, name:tr('Подъёмы на носки'), sets:3, lo:12, hi:20, rest:tr('45 сек'), how:tr('Держись за стену. Вверху пауза, вниз 2 секунды. Когда станет легко, на одной ноге.')},
     {id:'hside', name:tr('Боковая планка с колен'), sets:2, lo:15, hi:25, rest:tr('45 сек'), unit:tr('сек'), how:tr('На каждую сторону. Колени согнуты, локоть под плечом, таз поднят. Тело от головы до колен в одну линию.')},
-    {id:'deadbug', name:tr('Dead bug (мёртвый жук)'), sets:2, lo:8, hi:10, rest:tr('45 сек'), how:tr('Поясница прижата к полу. Опускай противоположные руку и ногу медленно. Повторы на каждую сторону.')},
+    {id:'deadbug', bw:true, name:tr('Dead bug (мёртвый жук)'), sets:2, lo:8, hi:10, rest:tr('45 сек'), how:tr('Поясница прижата к полу. Опускай противоположные руку и ногу медленно. Повторы на каждую сторону.')},
   ]},
 };
 const HOME_SCHEDULE = {1:'Дом 1', 3:'Дом 2', 5:'Дом 1'};
@@ -6153,6 +6153,14 @@ function spelledClock(t){
     .replace(new RegExp('(?:^|\\s)(?:в\\s+)?половин[еуa]\\s+' + CLOCK_RU_RE + '(?![а-яё\\d])' + SUF, 'gi'), (m0, w, s) => out(ruHour(w) - 1, 30, s, t))
     .replace(new RegExp('(?:^|\\s)(?:в\\s+)?без\\s+четверти\\s+(\\d{1,2}|один|два|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать)(?![а-яё\\d])' + SUF, 'gi'), (m0, w, s) => out((({один: 1, два: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9, десять: 10, одиннадцать: 11, двенадцать: 12})[w.toLowerCase()] || +w) - 1, 45, s, t))
     .replace(new RegExp('(?:^|\\s)(?:в\\s+)?четверть\\s+' + CLOCK_RU_RE + '(?![а-яё\\d])' + SUF, 'gi'), (m0, w, s) => out(ruHour(w) - 1, 15, s, t));
+}
+
+/* ============ the next step at the top of the range: weight for barbell lifts, a harder variant at home, longer holds ============ */
+const exBw = e => !!e.bw || e.id === 'deadbug'; // plans saved before the dead bug was marked as bodyweight keep working
+function exTopHint(e){
+  if (e.unit) return trf('Прошлый раз все подходы по {n} {u}: держи на 5 сек дольше', {n: e.hi, u: e.unit});
+  if (exBw(e)) return trf('Прошлый раз все подходы на {n}: пора к трудному варианту, он в «Как делать»', {n: e.hi});
+  return `${tr("Прошлый раз все подходы на")} ${e.hi}${isUS() ? tr(': добавь 5 фнт') : tr(": добавь 2.5 кг")}`;
 }
 
 /* ============ init ============ */

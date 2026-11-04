@@ -2635,3 +2635,14 @@ test('water is not logged as food; sports count as training time', () => {
   assert.deepEqual(p('played football for 90 minutes').time_log, [{kind: 'gym', min: 90}]);
   assert.deepEqual(p('растяжка 15 мин').time_log, [{kind: 'gym', min: 15}]);
 });
+
+test('the top of the range: weight for lifts, a harder variant at home, longer holds', () => {
+  const h = e => run(`exTopHint(${JSON.stringify(e)})`);
+  assert.ok(!/kg|кг|lb|фнт/i.test(h({bw: true, hi: 12})), 'no weight for a bodyweight exercise');
+  assert.ok(/12/.test(h({bw: true, hi: 12})));
+  assert.ok(!/kg|кг|lb|фнт/i.test(h({unit: run(`tr('сек')`), hi: 30})), 'no weight for a plank');
+  assert.ok(/2[.,]5|5 (?:lb|фнт)/i.test(h({hi: 10})), 'barbell lifts still add weight');
+  const days = run(`JSON.stringify(Object.values(HOME_WORKOUTS).flatMap(w => w.ex).filter(e => !e.bw && !e.unit).map(e => e.id))`);
+  assert.equal(days, "[]", "every home exercise is bodyweight or a hold");
+  assert.ok(run(`exBw({id: "deadbug"})`), "an older plan’s dead bug counts as bodyweight");
+});

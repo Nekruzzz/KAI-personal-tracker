@@ -2457,3 +2457,18 @@ test('debts: read on the phone, kept apart from spending, settled with Undo', ()
     assert.equal(run(`debts().length`), 1, 'Undo brings it back');
   } finally { run(`toast = toastD2; remove('inbox/td1'); setMeta({modules: mods32}); save('money/${m}', money32); debts32 ? save('app/debts', debts32) : remove('app/debts')`); }
 });
+
+test('the week ahead lists each day: classes, workout, exams, to-dos and payments', () => {
+  const t1 = run(`addDays(todayISO(), 1)`), t3 = run(`addDays(todayISO(), 3)`);
+  run(`globalThis.plan33 = clone(plan()); globalThis.tasks33 = clone(smartTasks()); globalThis.mods33 = meta().modules; setMeta({modules: {...(mods33 || {}), money: true}})`);
+  setPlan([{id: 'wa', date: t3, title: 'Physics', kind: 'exam', from: '10:00'}], [{day: run(`dow('${t1}')`), time: '09:00', title: 'Algebra'}]);
+  try {
+    run(`saveTasks([{id: 'wt', title: 'Buy pens', due: '${t1}', done: false, pri: 2}]); save('app/bills', {list: [{id: 'wb', title: 'Phone', amount: 15, type: 'out', cat: 'Связь и интернет', day: ${+t3.slice(8)}}]})`);
+    const days = JSON.parse(run(`JSON.stringify(weekAheadDays())`));
+    assert.equal(days.length, 7);
+    const d1 = days[1].items.map(x => x.t), d3 = days[3].items.map(x => x.t);
+    assert.ok(d1.includes('Buy pens') && d1.some(t => /1/.test(t)), 'a class and the to-do tomorrow');
+    assert.ok(d3.includes('Physics') && d3.includes('Phone'), 'the exam and the payment');
+    assert.ok(run(`(A.weekAhead(), SH.body())`).includes('Physics'));
+  } finally { run(`closeSheetQuiet(); save('app/plan', plan33); saveTasks(tasks33); save('app/bills', {list: []}); setMeta({modules: mods33})`); }
+});

@@ -19,7 +19,7 @@ Then open http://localhost:8123.
 The web app is just the `kai/` folder, so any static host works. With GitHub Pages:
 
 1. Settings → Pages → Source: **GitHub Actions** (once).
-2. Actions → **Publish web app** → Run workflow, and pick the branch. It runs the app tests first, then publishes `kai/`.
+2. Actions → **Publish web app** → Run workflow, and pick the branch. It runs the app tests first, then publishes `kai/`. GitHub shows this workflow only once `.github/workflows/pages.yml` is on `main`, so merge it first.
 
 It never publishes by itself. On an iPhone, open the address in Safari and choose Share → Add to Home Screen. Accounts, sync and the built-in AI need the server (`server/README.md`); the iPhone app needs a Mac (`native/README.md`).
 

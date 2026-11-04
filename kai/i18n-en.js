@@ -2201,4 +2201,6 @@ window.I18N_EN = {
 "ещё {n} {d}":"{n} {d} left",
 "последний день":"last day",
 "За каждый вызов +{a} XP, за все три ещё +{b}. Цели — чуть выше прошлой недели.":"Each challenge gives +{a} XP, all three another +{b}. Goals are a little above last week.",
+"Серия в {n} {d} прервалась":"Your {n}-day streak ended",
+"Так бывает у всех. Главное — не пропустить второй день подряд: отметь ещё {k} {t}, и огонь снова загорится. Рекорд {b} никуда не делся.":"It happens to everyone. What matters is not missing two days in a row: check off {k} more {t} and the fire is back. Your record of {b} stays.",
 };

@@ -1268,6 +1268,7 @@ function viewDay(){
       <button data-act="rate">${ic('star')}${d.rating?'<span class="stars">'+'★'.repeat(d.rating)+'<i>'+'★'.repeat(5-d.rating)+'</i></span>':tr('Оценить день')}</button>
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
+  h += comebackCard();
   h += firstTellCard();
   h += timetableCard();
   h += suppsGoneNote();
@@ -2200,7 +2201,7 @@ A.toggleOpen = el => { const k = el.dataset.k; S.open[k] = !S.open[k]; if (SH &&
 A.openTask = el => { const k = 't_'+el.dataset.id; S.open[k] = !S.open[k]; render(); };
 A.toggleTask = el => {
   const t0 = getDay(todayISO()).tasks.find(x=>x.id===el.dataset.id); if (!t0) return;
-  if (!t0.done){ S.fx = {...(S.fx||{}), task: t0.id, t: Date.now()}; burstAt(el); haptic('light'); sound('pop'); }
+  if (!t0.done){ S.fx = {...(S.fx||{}), task: t0.id, t: Date.now()}; burstAt(el); xpPop(el); haptic('light'); sound('pop'); }
   else haptic('selection');
   mutDay(todayISO(), d => { const t = d.tasks.find(x=>x.id===el.dataset.id); if (t) t.done = !t.done; });
   if (!t0.done) habitMilestone(t0);
@@ -3401,7 +3402,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target?.i
 A.tkOpen = el => { const k = 'tk_' + el.dataset.id; S.open[k] = !S.open[k]; render(); };
 A.tkDone = el => {
   const t = smartTasks().find(x => x.id === el.dataset.id && !x.done); if (!t) return;
-  burstAt(el); haptic('light'); sound('pop');
+  burstAt(el); xpPop(el); haptic('light'); sound('pop');
   // a mistaken tap can be taken back: the to-do, the next one of a repeating to-do, and any study time it added
   withUndo(['app/tasks', 'days/' + todayISO(), 'app/plan'], () => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }, trf('Готово: {t}', {t: t.title.length > 40 ? t.title.slice(0, 39) + '…' : t.title}));
 };
@@ -6312,6 +6313,32 @@ function challengeCard(){
   return `<div class="sec-h"><h2>${tr('Вызовы недели')}</h2><span class="hint">${n === w.list.length ? tr('все выполнены') : left ? trf('ещё {n} {d}', {n: left, d: plural(left, tr('день'), tr('дня'), tr('дней'))}) : tr('последний день')}</span></div>
   <section class="card chls">${w.list.map(row).join('')}<div class="hint">${trf('За каждый вызов +{a} XP, за все три ещё +{b}. Цели — чуть выше прошлой недели.', {a: CH_XP, b: CH_ALL_XP})}</div></section>`;
 }
+
+/* ============ "+10 XP" where the check was tapped, so the reward is seen at once ============ */
+function xpPop(el, n = 10){
+  if (!el?.getBoundingClientRect || reduceMotion()) return;
+  const r = el.getBoundingClientRect(), x = document.createElement('div');
+  x.className = 'xp-pop'; x.setAttribute('aria-hidden', 'true'); x.textContent = '+' + n + ' XP';
+  x.style.left = Math.max(8, r.left + r.width / 2 - 60) + 'px'; x.style.top = (r.top - 6) + 'px';
+  document.body.append(x); setTimeout(() => x.remove(), 1000);
+}
+
+/* ============ the day after a streak breaks: no shame, one clear step. "Never miss twice" ============ */
+function comebackInfo(){
+  const today = todayISO(), y = addDays(today, -1);
+  if (streak() > 0 || daySecured(S.docs['days/' + today]) || daySecured(S.docs['days/' + y]) || frozenDays().has(y) || S.docs['days/' + y]?.status === 'sick') return null;
+  const run = streakFrom(addDays(today, -2)); if (run < 3) return null;
+  const key = addDays(today, -2) + ':' + run;
+  return meta().comebackSeen === key ? null : {run, key};
+}
+function comebackCard(){
+  const c = comebackInfo(); if (!c) return '';
+  const d = getDay(todayISO()), need = Math.max(1, Math.ceil(d.tasks.length * .7) - d.tasks.filter(t => t.done).length);
+  return `<section class="card cb"><span class="frz-ic">${ic('flame')}</span><div class="mid"><b>${trf('Серия в {n} {d} прервалась', {n: c.run, d: plural(c.run, tr('день'), tr('дня'), tr('дней'))})}</b>
+    <div class="hint">${trf('Так бывает у всех. Главное — не пропустить второй день подряд: отметь ещё {k} {t}, и огонь снова загорится. Рекорд {b} никуда не делся.', {k: need, t: plural(need, tr('задачу'), tr('задачи'), tr('задач')), b: Math.max(bestStreak(), c.run)})}</div>
+    <button class="link" data-act="comebackOk" style="padding:4px 0 0">${tr('Понятно')}</button></div></section>`;
+}
+A.comebackOk = () => { const c = comebackInfo(); if (c) setMeta({comebackSeen: c.key}); };
 
 /* ============ init ============ */
 async function init(){

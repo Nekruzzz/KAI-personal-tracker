@@ -116,7 +116,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **The week ahead:** a "Week" link on the Day schedule opens the next 7 days: classes, workout, exams and events, to-dos and payments due.
 - **Several weekdays:** "english class every Tuesday and Thursday at 18:00" or "зал по понедельникам и пятницам" makes one weekly to-do per day.
 - **Repeat intervals:** "every 2 weeks", "every other day", "каждые 3 дня", "раз в 2 недели"; the Calendar export carries the interval.
-- **Notes on to-dos:** an opened to-do has a Note field; repeating ones keep it, and the Calendar export includes it.
+- **Notes on to-dos:** an opened to-do has a Note field; repeating ones keep it, and the Calendar export includes it. Typing "lab report tomorrow: sections 3-4" puts the part after the colon into the note.
 - **Repeating to-dos (new):** "take out the trash every monday", "выносить мусор по понедельникам", "pay rent every month" or "каждое утро зарядка", typed in the to-do field or told to KAI. Checking one off keeps it in the history and adds the next, on the same weekday or day of the month (the 31st falls on a short month's last day). The list shows "↻ every week", and the to-do's details can stop the repeat. "Monthly report due Friday" stays a single to-do. The opened to-do's buttons now share lines (about six rows instead of nine).
 - **Checking off a to-do can be undone:** the toast says "Done: …" with Undo, which takes back the check, the next one of a repeating to-do and any study time it added. Before, a mistaken tap made the to-do disappear with no way back.
 - **To-dos done today:** "Done today: 2" under the list shows what was checked off, struck through; tapping its filled check puts it back on the list (a repeating one takes back the next one it made).
@@ -193,7 +193,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 183 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 185 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

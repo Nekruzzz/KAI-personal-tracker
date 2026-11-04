@@ -136,6 +136,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 - **Home workouts no longer say "add 2.5 kg":** when every set reached the top of the range, a bodyweight exercise now points to its harder variant (in "How to do it"), and a plank or other hold says "hold 5 sec longer"; below the top, holds say "hold a little longer" instead of "add a rep". The dead bug is marked as bodyweight, so it has no weight column (older plans too).
 - **The Daily list names exercises properly:** "5 exercises · Reverse lunges, Push-ups…" instead of "Reverse, Push-ups…" (and "Жим штанги" instead of "Жим").
+- **The first day isn't "checked off 0":** on the day KAI is set up, the schedule's past blocks (which ended before it was installed) are listed without "· checked off 0".
 - **Daily tasks on chosen weekdays:** each daily task can run every day or only on some weekdays (More → Daily tasks); streaks skip the days without it.
 - **Streak milestones:** checking off a habit that reaches 7, 14, 30, 50, 100, 200 or 365 days in a row shows a short celebration (confetti from 30).
 - **Hold timer for timed exercises:** the plank and other holds get a Timer instead of the Rest link: 3 seconds to get ready, a countdown to the top of the range with a beep at both ends, then the seconds go into the next set and the rest timer starts by itself ("Done" early records what was actually held). Toasts now sit above the rest and focus bars instead of covering their buttons.
@@ -197,7 +198,7 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 191 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 192 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

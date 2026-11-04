@@ -4736,7 +4736,7 @@ function localTellParse(text, date, opts = {}){
   }
   if (sets.length) r.sets = sets;
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
-    .reduce((a, x) => { if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
+    .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c of parts){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
@@ -4761,7 +4761,8 @@ function localTellParse(text, date, opts = {}){
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
     if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
-    if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; } // "ran 5k yesterday morning" is not a to-do for tomorrow
+    if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; }
+    if (!hit){ const ts = weekdayCopies(c).map(x => parseQuick(x)).filter(t => t?.every && t.due); if (ts.length > 1){ ts.forEach(t => r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, every: t.every})); hit = true; } } // "ran 5k yesterday morning" is not a to-do for tomorrow
     if (!hit){
       const range = c.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? c.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : c);
@@ -6076,6 +6077,24 @@ A.dtDaysSave = el => {
   if (SH.dd.length === 7) delete t.days; else t.days = SH.dd;
   save('app/plan', p); closeSheet(); toast(tr('Сохранено'));
 };
+
+/* ============ a to-do repeating on several weekdays: "every Tuesday and Thursday at 18:00", "по понедельникам и пятницам" ============ */
+const WD_WORD = '(?:mon|tues|wednes|thurs|fri|satur|sun)days?(?![a-z])|(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)[а-яё]*';
+const WD_START = new RegExp('^(?:(?:on|every|по|в|во|каждый|каждую|каждое)\\s+)?(?:' + WD_WORD + ')', 'i');
+const REPEAT_CUE = /every|each|каждый|каждую|каждое|(?:^|\s)по\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)[а-яё]*ам(?![а-яё])|(?:^|\s)on\s+(?:mon|tues|wednes|thurs|fri|satur|sun)days/i;
+/* one text per weekday named, the others taken out with their "and"; fewer than two weekdays: none */
+function weekdayCopies(c){
+  if (!REPEAT_CUE.test(c)) return [];
+  const re = new RegExp('(?:^|[\\s,])(?:(?:and|и|,)\\s+)?(?:(?:on|every|по|в|во|каждый|каждую|каждое)\\s+)?(' + WD_WORD + ')', 'ig');
+  const hits = [...c.matchAll(re)]; if (hits.length < 2) return [];
+  return hits.map((h, i) => {
+    let t = c;
+    hits.forEach((o, j) => { if (j !== i) t = t.replace(o[0], ' '); });
+    const lead = c.match(/(?:^|\s)(every|each|каждый|каждую|каждое|по|on)\s+/i)?.[1] || 'every'; // the first day kept its "every"/"по"; a later one needs it
+    if (!new RegExp('(?:every|each|каждый|каждую|каждое|по|on)\\s+' + h[1], 'i').test(t)) t = t.replace(h[1], lead + ' ' + h[1]);
+    return t.replace(/(^|\s)(?:and|и|,)(?=\s+(?:every|each|каждый|каждую|каждое|по|on)\s)/ig, '$1').replace(/\s+/g, ' ').trim();
+  });
+}
 
 /* ============ init ============ */
 async function init(){

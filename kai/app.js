@@ -5979,7 +5979,8 @@ function localDebt(c){
     const m = c.trim().match(re); if (!m) continue;
     const amount = amountOf(m[ai], m[ai + 1]); if (!(amount > 0)) continue;
     const who = m[wi]; if (/^(?:me|you|him|her|them|мне|тебе|ему|ей|им)$/i.test(who)) continue;
-    return {who: who[0].toUpperCase() + who.slice(1), amount, dir};
+    const note = (c.trim().slice(m.index + m[0].length).match(/^\s*(?:for|за|на)\s+(.{2,60})$/i) || [])[1]; // "for the cinema", "за кино"
+    return {who: who[0].toUpperCase() + who.slice(1), amount, dir, ...(note ? {note: note.trim()} : {})};
   }
   return null;
 }

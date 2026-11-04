@@ -2431,3 +2431,29 @@ test('a to-do can carry a note: saved, shown as text, kept by the next repeat, r
     assert.equal(run(`'note' in smartTasks().find(t => !t.done)`), false);
   } finally { run(`toast = toastN; S.open.tk_tn = false; saveTasks(tasks31)`); }
 });
+
+test('debts: read on the phone, kept apart from spending, settled with Undo', () => {
+  const d = run(`todayISO()`), m = d.slice(0, 7);
+  run(`globalThis.mods32 = meta().modules; globalThis.debts32 = S.docs['app/debts'] ? clone(S.docs['app/debts']) : undefined; globalThis.money32 = clone(S.docs['money/${m}'] || {tx: []}); globalThis.toastD2 = toast; toast = () => {};
+    setMeta({modules: {...(mods32 || {}), money: true}}); save('app/debts', {list: []})`);
+  try {
+    const db = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, '${d}').r.debts || [])`));
+    assert.deepEqual(db('Sam owes me 20'), [{who: 'Sam', amount: 20, dir: 'in'}]);
+    assert.deepEqual(db('I owe Alex 15'), [{who: 'Alex', amount: 15, dir: 'out'}]);
+    assert.deepEqual(db('lent Sam 30'), [{who: 'Sam', amount: 30, dir: 'in'}]);
+    assert.deepEqual(db('borrowed 50 from Jo'), [{who: 'Jo', amount: 50, dir: 'out'}]);
+    assert.deepEqual(db('Петя должен мне 500'), [{who: 'Петя', amount: 500, dir: 'in'}]);
+    assert.deepEqual(db('я должен Пете 300'), [{who: 'Пете', amount: 300, dir: 'out'}]);
+    assert.deepEqual(db('занял 1000 у Маши'), [{who: 'Маши', amount: 1000, dir: 'out'}]);
+    assert.deepEqual(db('spent 12 on lunch'), []);
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('Sam owes me 20', '${d}').r.money)`)).length, 0, 'not spending');
+    run(`save('inbox/td1', {id: 'td1', kind: 'tell', meta: {date: '${d}', text: 'Sam owes me 20'}, done: false, created: new Date().toISOString(), result: localTellParse('Sam owes me 20', '${d}').r}); A.tellApply({dataset: {id: 'td1'}})`);
+    assert.equal(run(`debts().length`), 1);
+    assert.ok(run(`debtsCard(curMonth())`).includes('data-act="debtSettle"'));
+    const id = run(`debts()[0].id`);
+    run(`A.debtSettle({dataset: {id: '${id}'}})`);
+    assert.equal(run(`debts().length`), 0);
+    run(`A.undoApply()`);
+    assert.equal(run(`debts().length`), 1, 'Undo brings it back');
+  } finally { run(`toast = toastD2; remove('inbox/td1'); setMeta({modules: mods32}); save('money/${m}', money32); debts32 ? save('app/debts', debts32) : remove('app/debts')`); }
+});

@@ -1597,6 +1597,7 @@ function viewMoney(){
   <button class="mini ${sel==='in'?'on':''}" aria-pressed="${sel==='in'}" data-act="sub" data-k="money" data-v="in"><div style="flex:1;min-width:0"><div class="lbl">${tr("Доходы")}</div><div class="val">${money(si)}</div></div>${donut(segsFor(gi,'in'),46,7)}</button></div>
   ${budgetCard(m, so)}
   ${billsCard(m)}
+  ${debtsCard(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
@@ -2330,6 +2331,7 @@ function tellLines0(r, date){
   (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}`));
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
+  (r.debts || []).forEach(x => lines.push(debtLine(x)));
   (r.exam_results || []).forEach(x => { const e = allEvents().find(y => y.id === x.id); if (e) lines.push(trf(x.passed ? 'Результат «{e}»: сдан{g}' : 'Результат «{e}»: не сдан{g}', {e: e.title, g: x.grade ? ' · ' + x.grade : ''})); });
   return lines;
 }
@@ -2341,7 +2343,7 @@ A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
   // everything this answer can change, kept so one tap can undo it
-  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills']);
+  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
@@ -2356,6 +2358,7 @@ A.tellApply = el => {
     d.log = (d.log||[]).concat([{t:now.toISOString(), text:(it.meta.text||'').slice(0,2000)}]).slice(-20);
   });
   tellPlanApply(r, date);
+  if ((r.debts || []).length && modOn('money')) debtsAdd(r.debts, date);
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -4732,6 +4735,7 @@ function localTellParse(text, date, opts = {}){
   for (const c of parts){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
+    if (modOn('money')){ const db = localDebt(c); if (db){ (r.debts = r.debts || []).push(db); hit = true; } }
     { const xr = localExamResult(c, date); if (xr){ (r.exam_results = r.exam_results || []).push(xr); hit = true; } }
     if (modOn('screentime') && (m = c.match(SCREEN_A) || c.match(SCREEN_B))){ const v = parseDur(m[1]); if (v > 0 && v <= 1440){ r.screen_min = v; hit = true; } }
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
@@ -5806,6 +5810,7 @@ function enrichTell(r, text, date){
     if (x){ x.every = t.every; if (t.n) x.n = t.n; if (!DATE_RE.test(x.date || '')) x.date = t.date; }
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
+  if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
   return out;
 }
@@ -5947,6 +5952,47 @@ function everyText(t){
 /* ============ a note on a to-do ("sections 3-4, template B") ============ */
 const tkNoteField = t => `<label class="hint" for="tkN_${esc(t.id)}">${tr('Заметка')}</label><textarea class="in tk-note" id="tkN_${esc(t.id)}" data-ch="tkNote" data-id="${esc(t.id)}" maxlength="1000" rows="2" placeholder="${tr('Детали, ссылки, что взять с собой')}">${esc(t.note || '')}</textarea>`;
 CH.tkNote = el => { const v = String(el.value || '').trim().slice(0, 1000); saveTasks(smartTasks().map(t => { if (t.id !== el.dataset.id) return t; const x = {...t}; if (v) x.note = v; else delete x.note; return x; })); };
+
+/* ============ debts: who owes whom ("Sam owes me 20", "я должен Пете 300") ============ */
+// app/debts: {list: [{id, who, amount, dir: 'in' (owed to you) | 'out' (you owe), date, note, settled}]}. Not money entries: lending isn't spending.
+const debtsDoc = () => S.docs['app/debts'] || {list: []};
+const debts = () => (debtsDoc().list || []).filter(d => !d.settled);
+const debtLine = x => trf(x.dir === 'in' ? 'Долг тебе: {w}, {s}' : 'Твой долг: {w}, {s}', {w: x.who, s: money(x.amount)});
+function debtsAdd(list, date = todayISO()){
+  const doc = debtsDoc(), add = list.filter(x => x && x.who && +x.amount > 0).map(x => ({id: uid(), who: String(x.who).slice(0, 40), amount: Math.abs(+x.amount), dir: x.dir === 'out' ? 'out' : 'in', date, ...(x.note ? {note: String(x.note).slice(0, 120)} : {})}));
+  if (add.length) save('app/debts', {...doc, list: [...(doc.list || []), ...add]});
+}
+/* on-phone reading: the person, the amount and who owes whom */
+function localDebt(c){
+  const W = '([A-ZА-ЯЁa-zа-яё][a-zа-яё]{1,20})';
+  const pats = [[new RegExp('^' + W + '\\s+(?:owes|owe)\\s+me\\s+' + AMT, 'i'), 'in', 1, 2], [new RegExp('^i\\s+owe\\s+' + W + '\\s+' + AMT, 'i'), 'out', 1, 2],
+    [new RegExp('^(?:i\\s+)?lent\\s+' + W + '\\s+' + AMT, 'i'), 'in', 1, 2], [new RegExp('^(?:i\\s+)?borrowed\\s+' + AMT + '\\s+from\\s+' + W, 'i'), 'out', 3, 1],
+    [new RegExp('^' + W + '\\s+долж(?:ен|на|ны)\\s+мне\\s+' + AMT, 'i'), 'in', 1, 2], [new RegExp('^(?:я\\s+)?должен\\s+' + W + '\\s+' + AMT, 'i'), 'out', 1, 2], [new RegExp('^(?:я\\s+)?должна\\s+' + W + '\\s+' + AMT, 'i'), 'out', 1, 2],
+    [new RegExp('^(?:я\\s+)?(?:одолжил[аи]?|дал[аи]?\\s+в\\s+долг|занял[аи]?)\\s+' + W + '\\s+' + AMT, 'i'), 'in', 1, 2],
+    [new RegExp('^(?:я\\s+)?(?:занял[аи]?|взял[аи]?\\s+в\\s+долг|одолжил[аи]?)\\s+' + AMT + '\\s+у\\s+' + W, 'i'), 'out', 3, 1]];
+  for (const [re, dir, wi, ai] of pats){
+    const m = c.trim().match(re); if (!m) continue;
+    const amount = amountOf(m[ai], m[ai + 1]); if (!(amount > 0)) continue;
+    const who = m[wi]; if (/^(?:me|you|him|her|them|мне|тебе|ему|ей|им)$/i.test(who)) continue;
+    return {who: who[0].toUpperCase() + who.slice(1), amount, dir};
+  }
+  return null;
+}
+function debtsCard(m){
+  if (m !== curMonth()) return '';
+  const list = debts(); if (!list.length) return `<button class="link debt-add" data-act="debtNew">${ic('swap', 'link-ic')}${tr('Записать долг')}</button>`;
+  const owed = list.filter(d => d.dir === 'in').reduce((a, d) => a + d.amount, 0), owe = list.filter(d => d.dir === 'out').reduce((a, d) => a + d.amount, 0);
+  return `<div class="sec-h"><h2>${tr('Долги')}</h2><button class="link" data-act="debtNew">${tr('+ Добавить')}</button></div><section class="card bills"><div class="list">${list.map(d => `<div class="row bill"><span class="ic" style="background:var(--${d.dir === 'in' ? 'c3' : 'c8'});color:#fff">${ic('swap')}</span><div class="mid"><div class="t">${esc(trf(d.dir === 'in' ? 'Должны тебе: {w}' : 'Ты должен: {w}', {w: d.who}))}</div><div class="s">${money(d.amount)} · ${fmtShort(d.date)}${d.note ? ' · ' + esc(d.note) : ''}</div></div><button class="btn ghost sm" data-act="debtSettle" data-id="${esc(d.id)}" aria-label="${esc(trf('Вернули: {w}', {w: d.who}))}">${tr('Вернули')}</button></div>`).join('')}</div>
+    <div class="hint bills-left">${[owed ? trf('Тебе должны: {s}', {s: money(owed)}) : '', owe ? trf('Ты должен: {s}', {s: money(owe)}) : ''].filter(Boolean).join(' · ')}</div></section>`;
+}
+A.debtSettle = el => withUndo(['app/debts'], () => { const doc = debtsDoc(); save('app/debts', {...doc, list: (doc.list || []).map(d => d.id === el.dataset.id ? {...d, settled: todayISO()} : d)}); haptic('success'); }, tr('Отмечено: долг закрыт'));
+A.debtNew = () => { SH = null; openSheet(tr('Долг'), () => `<div class="seg"><button class="${(SH.ddir || 'in') === 'in' ? 'on' : ''}" data-act="debtDir" data-v="in">${tr('Мне должны')}</button><button class="${SH.ddir === 'out' ? 'on' : ''}" data-act="debtDir" data-v="out">${tr('Я должен')}</button></div>
+  <div class="fgrid"><div class="field"><label for="dbW">${tr('Кто')}</label><input class="in" id="dbW" maxlength="40" value="${esc(SH.dw || '')}"></div><div class="field"><label for="dbA">${tr('Сумма')}</label><input class="in" id="dbA" inputmode="decimal" value="${esc(SH.da || '')}"></div></div>
+  <div class="field"><label for="dbN">${tr('Заметка')}</label><input class="in" id="dbN" maxlength="120" placeholder="${tr('за что, до какого числа')}"></div>
+  <div class="hint">${tr('Долги не считаются расходами или доходами: это просто памятка, кто кому должен.')}</div>
+  <button class="btn block" data-act="debtSave">${tr('Сохранить')}</button>`); };
+A.debtDir = el => { SH.dw = val('dbW'); SH.da = val('dbA'); SH.ddir = el.dataset.v; drawSheet(); };
+A.debtSave = () => { const who = val('dbW'), amount = Math.abs(toNum(val('dbA'))); if (!who) return toast(tr('Кто?')); if (!amount) return toast(tr('Введи сумму')); debtsAdd([{who, amount, dir: SH.ddir || 'in', note: val('dbN')}]); closeSheet(); toast(tr('Сохранено')); };
 
 /* ============ init ============ */
 async function init(){

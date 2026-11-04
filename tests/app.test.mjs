@@ -2796,3 +2796,10 @@ test('awards for challenges, freezes and coming back after a break', () => {
     assert.ok(!ids.includes('chWeek4'));
   } finally { run(`save('app/meta', meta47); Object.entries(days47).forEach(([k, v]) => v ? save(k, v) : remove(k))`); }
 });
+
+test('levels have titles', () => {
+  assert.notEqual(run(`levelTitle(1)`), run(`levelTitle(5)`));
+  assert.equal(run(`levelTitle(3)`), run(`levelTitle(2)`));
+  assert.equal(run(`levelTitle(99)`), run(`levelTitle(21)`));
+  assert.ok(run(`levelRow()`).includes(run(`levelTitle(levelOf(totalXP()).level)`)));
+});

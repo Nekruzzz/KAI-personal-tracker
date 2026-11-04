@@ -2646,3 +2646,14 @@ test('the top of the range: weight for lifts, a harder variant at home, longer h
   assert.equal(days, "[]", "every home exercise is bodyweight or a hold");
   assert.ok(run(`exBw({id: "deadbug"})`), "an older plan’s dead bug counts as bodyweight");
 });
+
+test('the Daily list names exercises in short, not by their first word', () => {
+  const s = n => run(`exShort(${JSON.stringify(n)})`);
+  assert.equal(s('Reverse lunges with support'), 'Reverse lunges');
+  assert.equal(s('Push-ups against a table or wall'), 'Push-ups');
+  assert.equal(s('Incline dumbbell press (30°)'), 'Incline dumbbell press');
+  assert.equal(s('Тяга каната к лицу (face pull)'), 'Тяга каната');
+  assert.equal(s('Отжимания на брусьях'), 'Отжимания на брусьях');
+  assert.equal(s('Жим штанги лёжа'), 'Жим штанги');
+  assert.equal(s('Планка'), 'Планка');
+});

@@ -2832,3 +2832,16 @@ test('the chain shows 13 weeks of days in the Streak sheet', () => {
   assert.equal((h.split("class=\"legend\"")[0].match(/<i class="cg-/g) || []).length, 91);
   assert.ok(/role="img"/.test(h));
 });
+
+test('one weekly challenge can be swapped, once a week', () => {
+  run(`globalThis.meta49 = clone(meta()); globalThis.toast49 = toast; toast = () => {}`);
+  try {
+    run(`save('app/meta', {...meta(), challenges: {[addDays(todayISO(), 1 - dow(todayISO()))]: {list: [{id: 'counted', goal: 7}, {id: 'todos', goal: 40}], done: []}}})`);
+    assert.ok(/data-act="chSwap"/.test(run(`challengeCard()`)));
+    run(`A.chSwap({dataset: {id: 'todos'}})`);
+    const w = JSON.parse(run(`JSON.stringify(weekChallenges())`));
+    assert.ok(w.swapped); assert.ok(!w.list.some(c => c.id === 'todos')); assert.equal(w.list.length, 2);
+    assert.ok(!/data-act="chSwap"/.test(run(`challengeCard()`)), 'once a week');
+    run(`challengeTick()`); assert.ok(run(`weekChallenges().swapped`), 'kept after a tick');
+  } finally { run(`toast = toast49; save('app/meta', meta49)`); }
+});

@@ -1312,7 +1312,7 @@ function viewDay(){
 const statsSummary = (st, avg7) => `${tr('Уровень')} ${levelOf(totalXP()).level} · ${tr("серия")} ${st} ${tr("· выполнено")} ${Math.round(avg7*100)}${tr("% за 7 дней")}`;
 function taskSub(t, d){
   const pl = plan(), tg = targets();
-  if (t.cat==='gym'){ const w = pl.workouts[workoutFor(d.date)]; return w ? w.ex.length+tr(' упражнений · ')+w.ex.slice(0,2).map(e=>e.name.split(' ')[0]).join(', ')+'…' : ''; }
+  if (t.cat==='gym'){ const w = pl.workouts[workoutFor(d.date)]; return w ? w.ex.length+tr(' упражнений · ')+w.ex.slice(0,2).map(e=>exShort(e.name)).join(', ')+'…' : ''; }
   if (t.cat==='food'){ const e = eaten(d); return tg.ok ? `${num(e.kcal)} / ${num(tg.kcal)} ${tr("ккал · белок")} ${num(e.p)} / ${tg.p} ${tr("г")}` : tr('заполни профиль для нормы'); }
   if (t.cat==='study'){ const c = (pl.classes||[]).filter(c=>Number(c.day)===dow(d.date)).sort((a,b)=>a.time.localeCompare(b.time)); return c.map(x=>x.time).join(', '); }
   if (t.cat==='content'){ const ps = posts().filter(p=>p.date===d.date); return ps.map(p=>p.title).join(' · '); }
@@ -6161,6 +6161,14 @@ function exTopHint(e){
   if (e.unit) return trf('Прошлый раз все подходы по {n} {u}: держи на 5 сек дольше', {n: e.hi, u: e.unit});
   if (exBw(e)) return trf('Прошлый раз все подходы на {n}: пора к трудному варианту, он в «Как делать»', {n: e.hi});
   return `${tr("Прошлый раз все подходы на")} ${e.hi}${isUS() ? tr(': добавь 5 фнт') : tr(": добавь 2.5 кг")}`;
+}
+
+/* ============ short exercise names for the Daily list: "Reverse lunges", not "Reverse"; "Жим штанги", not "Жим" ============ */
+function exShort(name){
+  const n = String(name).replace(/\s*\([^)]*\)/g, '').split(/\s+(?:or|with|on|against|to|from|или|со|с|от|до|лёжа|лежа|сидя)(?=\s|$)/i)[0].trim();
+  const ws = n.split(/\s+/).slice(0, 3);
+  while (ws.length > 1 && /^(?:к|на|в|во|и|and|a|the|of)$/i.test(ws[ws.length - 1])) ws.pop(); // "Тяга каната к" → "Тяга каната"
+  return ws.join(' ') || String(name);
 }
 
 /* ============ init ============ */

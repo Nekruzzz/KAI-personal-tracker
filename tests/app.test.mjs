@@ -2480,3 +2480,18 @@ test('the average of exam grades shows only for numbers on one scale', () => {
   assert.equal(run(`gradeAverage(['5', '92'])`), null, 'two scales: no average');
   assert.equal(run(`gradeAverage(['4'])`), null, 'one grade is not an average');
 });
+
+test('money owed for two weeks is asked about; "not yet" waits a week, "yes" closes it', () => {
+  const d = run(`todayISO()`), old = run(`addDays(todayISO(), -15)`);
+  run(`globalThis.mods34 = meta().modules; globalThis.debts34 = S.docs['app/debts'] ? clone(S.docs['app/debts']) : undefined; globalThis.day34 = S.docs['days/${d}'] ? clone(S.docs['days/${d}']) : undefined;
+    setMeta({modules: {...(mods34 || {}), money: true}}); save('app/debts', {list: [{id: 'dq', who: 'Sam', amount: 20, dir: 'in', date: '${old}'}, {id: 'dr', who: 'Kim', amount: 5, dir: 'in', date: '${d}'}, {id: 'ds', who: 'Jo', amount: 9, dir: 'out', date: '${old}'}]})`);
+  try {
+    let qs = JSON.parse(run(`JSON.stringify(checkins().filter(q => q.type === 'debt'))`));
+    assert.deepEqual(qs.map(q => q.id), ['dq'], 'only what is owed to you, from two weeks ago');
+    run(`A.ciAns({dataset: {k: 'd_dq', a: 'no', id: 'dq'}})`);
+    assert.equal(run(`debtQs(addDays(todayISO(), 6)).length`), 0, 'not asked again within the week');
+    assert.equal(run(`debtQs(addDays(todayISO(), 7)).length`), 1);
+    run(`A.ciAns({dataset: {k: 'd_dq', a: 'yes', id: 'dq'}})`);
+    assert.ok(!run(`debts().some(x => x.id === 'dq')`), 'closed');
+  } finally { run(`setMeta({modules: mods34}); debts34 ? save('app/debts', debts34) : remove('app/debts'); day34 ? save('days/${d}', day34) : remove('days/${d}')`); }
+});

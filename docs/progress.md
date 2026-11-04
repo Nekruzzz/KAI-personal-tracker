@@ -221,7 +221,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 - `node --test tests/app.test.mjs`: 202 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
-- GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch.
+- GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
 - `node tools/check-i18n.js kai`: `missing: 0`.
 - In Chromium at 390×844 (phone size), served with `python -m http.server 8123 --directory kai`: each change was tried, in English and Russian where relevant, and in both themes.

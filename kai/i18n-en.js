@@ -2160,4 +2160,6 @@ window.I18N_EN = {
 "Да, вернули":"Yes, paid back",
 "Ещё нет":"Not yet",
 "{w} вернул {s}?":"Has {w} paid back {s}?",
+"Долги и неделя вперёд":"Debts and the week ahead",
+"Кто кому должен, с напоминанием через две недели. И все дела, пары и платежи на 7 дней в одном окне.":"Who owes whom, with a reminder after two weeks. And every to-do, class and payment for the next 7 days in one place.",
 };

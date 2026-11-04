@@ -2232,4 +2232,7 @@ window.I18N_EN = {
 "засчитан":"counted",
 "заморозка":"freeze",
 "болезнь":"sick day",
+"Заменить вызов":"Swap challenge",
+"Новый вызов: {t}":"New challenge: {t}",
+"Заменить":"Swap",
 };

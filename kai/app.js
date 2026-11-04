@@ -6300,7 +6300,7 @@ function challengeTick(){
   if (!w.fresh && !newly.length) return;
   const keep = Object.fromEntries(Object.entries(all).filter(([k]) => k >= addDays(w.mon, -366))); // a year of weeks, for the XP
   const done = [...w.done, ...newly];
-  setMeta({challenges: {...keep, [w.mon]: {list: w.list, done}}});
+  setMeta({challenges: {...keep, [w.mon]: {list: w.list, done, ...(w.swapped ? {swapped: true} : {})}}});
   if (!newly.length) return;
   const allDone = done.length === w.list.length;
   setTimeout(() => {
@@ -6317,7 +6317,8 @@ function challengeCard(){
   const today = todayISO(), left = 7 - dow(today);
   const row = c => {
     const v = challengeProgress(c, w.mon), ok = v >= c.goal, min = CHALLENGES[c.id][3] === 'min';
-    return `<div class="chl ${ok ? 'ok' : ''}"><div class="chl-h"><span>${ok ? ic('checkc') : ''}${CHALLENGES[c.id][0]()}</span><b>${min ? fmtMin(v) : v} / ${min ? fmtMin(c.goal) : c.goal}</b></div><div class="bar" role="progressbar" aria-label="${esc(CHALLENGES[c.id][0]())}" aria-valuemin="0" aria-valuemax="${c.goal}" aria-valuenow="${v}"><i style="width:${Math.round(v / c.goal * 100)}%;background:var(--${ok ? 'good' : 'accent'})"></i></div></div>`;
+    const swap = !ok && c.id !== 'counted' && !w.swapped && !w.fresh && challengeAlt(w).length ? ` <button class="link chl-sw" data-act="chSwap" data-id="${c.id}" aria-label="${esc(tr('Заменить вызов') + ': ' + CHALLENGES[c.id][0]())}">${tr('Заменить')}</button>` : '';
+    return `<div class="chl ${ok ? 'ok' : ''}"><div class="chl-h"><span>${ok ? ic('checkc') : ''}${CHALLENGES[c.id][0]()}${swap}</span><b>${min ? fmtMin(v) : v} / ${min ? fmtMin(c.goal) : c.goal}</b></div><div class="bar" role="progressbar" aria-label="${esc(CHALLENGES[c.id][0]())}" aria-valuemin="0" aria-valuemax="${c.goal}" aria-valuenow="${v}"><i style="width:${Math.round(v / c.goal * 100)}%;background:var(--${ok ? 'good' : 'accent'})"></i></div></div>`;
   };
   const n = w.list.filter(c => challengeProgress(c, w.mon) >= c.goal).length;
   return `<div class="sec-h"><h2>${tr('Вызовы недели')}</h2><span class="hint">${n === w.list.length ? tr('все выполнены') : left ? trf('ещё {n} {d}', {n: left, d: plural(left, tr('день'), tr('дня'), tr('дней'))}) : tr('последний день')}</span></div>
@@ -6393,6 +6394,22 @@ function chainGrid(){
     <div class="cg-grid" role="img" aria-label="${esc(trf('Последние 13 недель: {a} из {b} дней засчитано', {a: counted, b: tracked}))}"><div class="cg-col cg-dl">${[1, 3, 5].map(i => `<span style="grid-row:${i}">${DOW[i]}</span>`).join('')}</div>${cols}</div>
     <div class="legend"><span><i class="cg-g"></i>${tr('засчитан')}</span><span><i class="cg-w"></i>${tr('частично')}</span><span><i class="cg-z"></i>${tr('заморозка')}</span><span><i class="cg-s"></i>${tr('болезнь')}</span></div></section>`;
 }
+
+/* ============ swapping one weekly challenge, once a week ============ */
+function challengeAlt(w){
+  const ids = new Set(w.list.map(c => c.id)), d = getDay(todayISO()), cats = new Set((d.tasks || []).map(t => t.cat));
+  const ok = {gym: weekDays(w.mon).some(k => workoutFor(k)) && (d.tasks || []).some(t => t.id === 'gym'), study: true, walk: cats.has('walk') || cats.has('steps'), sleep: cats.has('sleep'), todos: modOn('tasks')};
+  return Object.keys(ok).filter(id => ok[id] && !ids.has(id));
+}
+A.chSwap = el => {
+  const w = weekChallenges(); if (!w || w.swapped) return;
+  const alt = challengeAlt(w); if (!alt.length) return;
+  const id = alt[Math.round(dayDiff('2024-01-01', todayISO())) % alt.length], prev = weekDays(addDays(w.mon, -7));
+  const goal = CHALLENGES[id][2](sumOver(id, prev), w.mon);
+  const list = w.list.map(c => c.id === el.dataset.id ? {id, goal: Math.max(1, goal)} : c);
+  setMeta({challenges: {...(meta().challenges || {}), [w.mon]: {list, done: w.done, swapped: true}}});
+  haptic('selection'); toast(trf('Новый вызов: {t}', {t: CHALLENGES[id][0]()}));
+};
 
 /* ============ init ============ */
 async function init(){

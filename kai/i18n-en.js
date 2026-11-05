@@ -2356,4 +2356,6 @@ window.I18N_EN = {
 "Бигмак":"Big Mac",
 "Омлет":"Omelette",
 "банка":"can",
+"С этим не нужно справляться в одиночку. Поговори с человеком, которому доверяешь, или позвони на линию помощи; если есть риск навредить себе, звони в экстренную службу.":"You don't have to deal with this alone. Talk to someone you trust or call a helpline; if there's a risk you might hurt yourself, call emergency services.",
+"Это важнее любых цифр. Поговори с врачом или человеком, которому доверяешь: такое лечится, и помощь работает.":"This matters more than any numbers. Talk to a doctor or someone you trust: this is treatable, and help works.",
 };

@@ -1952,8 +1952,8 @@ function careNote(t){
 }
 function careSignal(text){
   const s = String(text || '');
-  if (/суицид|покончить с собой|не хочу жить|хочу умереть|убить себя|порезать себя|навредить себе|kill myself|suicid|end my life|want to die|don.?t want to live|hurt myself|self[- ]harm/i.test(s)) return 'crisis';
-  if (/вызвать рвоту|вызываю рвоту|вызвал[аи]? рвоту|слабительн|голодаю|морю себя голодом|не ел[аи]? (\d+|несколько|два|две|три|четыре|пять) (дн|дня|дней|сут)|make myself (sick|throw up|vomit)|laxative|purg(e|ing)|starv(e|ing) myself|haven.?t eaten (in|for) (\d+|two|three|four|five|several|a few) days/i.test(s)) return 'eating';
+  if (/суицид|покончить с собой|не хочу жить|хочу умереть|убить себя|порезать себя|навредить себе|kill myself|suicid|end my life|want to die|don.?t want to live|hurt myself|self[- ]harm/i.test(s) || CRISIS_MORE.test(s)) return 'crisis';
+  if (/вызвать рвоту|вызываю рвоту|вызвал[аи]? рвоту|слабительн|голодаю|морю себя голодом|не ел[аи]? (\d+|несколько|два|две|три|четыре|пять) (дн|дня|дней|сут)|make myself (sick|throw up|vomit)|laxative|purg(e|ing)|starv(e|ing) myself|haven.?t eaten (in|for) (\d+|two|three|four|five|several|a few) days/i.test(s) || tinyIntake(s)) return 'eating';
   return null;
 }
 function careCard(kind){
@@ -3965,6 +3965,7 @@ function tellPlan(r){
   return {pl, tasks, moves};
 }
 function previewWarnings(r){
+  if (r?.care) return [{id: 'care', text: careNote2(r.care)}];
   const before = new Set(upcomingWarnings(60, true).map(w => w.id)), {pl, tasks, moves} = tellPlan(r);
   const keys = ['app/plan', 'app/tasks', ...moves.flatMap(m => ['days/' + m.from, ...(m.to ? ['days/' + m.to] : [])])], saved = {};
   const days = moves.map(m => [m, getDay(m.from), m.to ? getDay(m.to) : null, workoutFor(m.from)]);
@@ -4791,6 +4792,7 @@ function localMoney(c){
   return null;
 }
 function localTellParse(text, date, opts = {}){
+  { const care = careSignal(text); if (care) return {r: {reply: '', time_log: [], money: [], new_tasks: [], events: [], care}, left: [String(text)]}; } // nothing is planned from a message like this; the support card speaks first
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
   const spelled = clockWords(String(text)).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
@@ -6797,6 +6799,17 @@ function localAnswer(text){
   return null;
 }
 const answerCard = a => `<section class="card" role="status" style="display:flex;flex-direction:column;gap:8px"><div class="ai-out">${esc(a)}</div><div class="hint">${tr('Посчитано на телефоне по твоим записям.')}</div></section>`;
+
+/* ============ care: more of the ways people say they're in crisis, and plans to eat dangerously little ============ */
+// said in many ways; these are common ones from crisis-line guidance, in both languages
+const CRISIS_MORE = /don.?t want to (?:be here|be alive|exist|wake up)(?: anymore)?|no (?:point|reason) (?:in |to )?(?:living|live|being alive|go(?:ing)? on(?=\s*$|\s*[.,!?]|\s+(?:anymore|any more|like this|with (?:my )?life)))|nothing (?:left )?to live for|better off (?:dead|without me)|end it all(?!\s+for\s+(?:today|now|tonight|the day))|can.?t go on (?:anymore|any more|like this)|wish (?:i|I) (?:was|were) dead|не вижу смысла (?:жить|дальше жить|в жизни)|нет смысла жить|не (?:хочу|хочется) (?:больше |дальше )?жить|жить не хочется|лучше бы меня не было|покончить со всем|уйти из жизни|не хочу просыпаться|не хочу больше существовать/i;
+// "only 500 calories a day", "есть 600 ккал в день": a plan far below any safe floor
+function tinyIntake(s){
+  const m = String(s).match(/(?:eat|eating|have|having|есть|ем|съедать|потреблять|питаться)\s+(?:only\s+|just\s+|только\s+|не больше\s+|максимум\s+)?(\d{2,3})\s*(?:calories|kcal|cals?|калори[а-яё]*|ккал)\s*(?:a|per|в|за)\s*(?:day|день|сутки)/i);
+  return !!m && +m[1] < 800;
+}
+
+const careNote2 = kind => kind === 'crisis' ? tr('С этим не нужно справляться в одиночку. Поговори с человеком, которому доверяешь, или позвони на линию помощи; если есть риск навредить себе, звони в экстренную службу.') : tr('Это важнее любых цифр. Поговори с врачом или человеком, которому доверяешь: такое лечится, и помощь работает.');
 
 /* ============ init ============ */
 async function init(){

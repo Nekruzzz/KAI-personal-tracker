@@ -3132,3 +3132,12 @@ test('food without AI: pepperoni pizza is pizza, a can of cola, a Big Mac with m
   assert.ok(m('съел омлет из трёх яиц').length, 'eggs are counted');
   assert.equal(m('had oatmeal').length, 0, 'a dish without an amount still needs one');
 });
+
+test('care: more ways of saying "I am in crisis", and plans to eat dangerously little, get the support card first', () => {
+  for (const t of ["everything feels pointless, I don't want to be here anymore", 'не вижу смысла жить дальше', 'не хочу больше жить', "there's no reason to go on", 'I just want to end it all', 'I see no point in living anymore']) assert.equal(run(`careSignal(${JSON.stringify(t)})`), 'crisis', t);
+  for (const t of ['I only want to eat 500 calories a day until the exam', 'буду есть 600 ккал в день']) assert.equal(run(`careSignal(${JSON.stringify(t)})`), 'eating', t);
+  for (const t of ['ate 500 kcal for lunch', 'no point in going to the gym today', 'there is no reason to go on monday', 'не вижу смысла идти на пару', 'end it all for today and sleep', 'eat 1800 calories a day']) assert.equal(run(`careSignal(${JSON.stringify(t)})`), null, t);
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('I only want to eat 500 calories a day, plan it for tomorrow', todayISO()).r)`));
+  assert.equal(r.care, 'eating'); assert.equal(r.new_tasks.length + r.events.length + (r.meals || []).length, 0, 'nothing is planned');
+  assert.ok(/doctor|врач/i.test(run(`previewWarnings({care: 'eating'})[0].text`)));
+});

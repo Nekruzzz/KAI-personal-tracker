@@ -21,7 +21,9 @@ The web app is just the `kai/` folder, so any static host works. With GitHub Pag
 1. Settings → Pages → Source: **GitHub Actions** (once).
 2. Actions → **Publish web app** → Run workflow, and pick the branch. It runs the app tests first, then publishes `kai/`. GitHub shows this workflow only once `.github/workflows/pages.yml` is on `main`, so merge it first.
 
-It never publishes by itself. On an iPhone, open the address in Safari and choose Share → Add to Home Screen. Accounts, sync and the built-in AI need the server (`server/README.md`); the iPhone app needs a Mac (`native/README.md`).
+With **Vercel**: import the repository, then either keep the `vercel.json` at the top of the repository (it tells Vercel to serve `kai/` with no build step), or, in the project's **Settings → Build and Deployment → Root Directory**, choose `kai` with the framework preset **Other** and no build command. Vercel deploys the branch set as its Production Branch (`main` by default), so the newest version appears there once it is merged into `main`; other branches get preview addresses.
+
+The GitHub Pages workflow never publishes by itself. On an iPhone, open the address in Safari and choose Share → Add to Home Screen. Accounts, sync and the built-in AI need the server (`server/README.md`); the iPhone app needs a Mac (`native/README.md`).
 
 ## Project layout
 

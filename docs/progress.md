@@ -172,6 +172,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Around the app**
 
+- **Vercel:** importing the repository into Vercel gave a 404, because Vercel publishes the top folder and the app is in `kai/`. A `vercel.json` at the top now tells it to serve `kai/` with no install or build step (and not to cache `sw.js`, so updates arrive). Checked with Vercel's own `vercel build` run locally: without the file the output has no `index.html` at the top; with it, the app is at the top and loads without errors. The README also gives the settings-only fix (Root Directory `kai`). Vercel deploys `main`, which is still the first public version until this branch is merged.
 - **Publishing the web app:** a manual "Publish web app" workflow (`.github/workflows/pages.yml`) puts `kai/` on GitHub Pages after the tests pass; it never runs by itself, and appears in Actions once it is on `main`. Steps are in the README.
 - **Quick actions: New To-Do and Focus.** (The iPhone build passed with them.) Long-pressing the app icon also offers "New To-Do" (the Day tab with the to-do field ready) and "Focus", in English and Russian; the installed web app gets the same shortcuts. If to-dos are switched off, a note says where to turn them on. `tools/check-release.js` now also wants a Russian title for every quick action.
 - **What's new:** people updating from an earlier version see the main additions once (about two seconds after opening, never over another sheet); new installs skip it.

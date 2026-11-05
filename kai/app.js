@@ -6769,11 +6769,25 @@ const daysIn = (from, to) => { const out = []; for (let k = from; k <= to && out
 function localAnswer(text){
   const t = String(text).trim(); if (!ASK_RE.test(t) || t.length > 140) return null;
   const p = askPeriod(t), ks = daysIn(p.from, p.to);
+  if (/калори|ккал|calori|kcal|белк|protein|(?:^|\s)(?:съел[аи]?|ел[аи]?|eat|ate|eaten)(?![a-zа-яё])/i.test(t) && !/потратил|spent|spend/i.test(t)){
+    const tg = targets(), e = ks.reduce((a, k) => { const x = eaten(S.docs['days/' + k] || {}); return {kcal: a.kcal + x.kcal, p: a.p + x.p, n: a.n + (S.docs['days/' + k]?.meals?.length ? 1 : 0)}; }, {kcal: 0, p: 0, n: 0});
+    if (!e.n) return trf('Еда {p} не записана.', {p: p.label});
+    if (ks.length === 1) return tg.ok ? trf('Еда {p}: {k} из {K} ккал, белок {b} из {B} г.', {p: p.label, k: num(e.kcal), K: num(tg.kcal), b: num(e.p), B: num(tg.p)}) : trf('Еда {p}: {k} ккал, белок {b} г.', {p: p.label, k: num(e.kcal), b: num(e.p)});
+    return trf('Еда {p}: в среднем {k} ккал и {b} г белка в день (записано дней: {n}).', {p: p.label, k: num(Math.round(e.kcal / e.n)), b: num(Math.round(e.p / e.n)), n: e.n});
+  }
+  if (/(?:^|\s)(?:вес|вешу|weight|weigh)(?![a-zа-яё])/i.test(t)){
+    const ws = dayKeys().filter(k => toNum(S.docs['days/' + k]?.weight) > 0); if (!ws.length) return tr('Вес пока не записан.');
+    const last = ws[ws.length - 1], w = toNum(S.docs['days/' + last].weight), back = ws.filter(k => k <= addDays(last, -14)).pop();
+    const d = back ? Math.round((w - toNum(S.docs['days/' + back].weight)) * 10) / 10 : null;
+    return trf('Вес: {w} {u} ({d}).', {w: num(W(w), 1), u: kgU(), d: fmtShort(last)}) + (d != null ? ' ' + trf('За 2 недели: {c} {u}.', {c: (d > 0 ? '+' : d < 0 ? '−' : '') + num(Math.abs(W(d)), 1), u: kgU()}) : '');
+  }
   if (/потратил|потратила|трат|расход|spend|spent/i.test(t) && modOn('money')){
-    const cat = MONEY_CAT.find(([re]) => re.test(t.replace(/потратил[аи]?|spend|spent|сколько|how much|did i|я/gi, '')));
-    const tx = [...new Set(ks.map(k => k.slice(0, 7)))].flatMap(m => monthTx(m)).filter(x => x.type === 'out' && x.status !== 'fail' && x.date >= p.from && x.date <= p.to && (!cat || x.cat === cat[1]));
+    const food = /(?:^|\s)(?:food|eating|еду|еда|питание)(?![a-zа-яё])/i.test(t); // groceries and cafes together
+    const cat = !food && MONEY_CAT.find(([re]) => re.test(t.replace(/потратил[аи]?|spend|spent|сколько|how much|did i|я/gi, '')));
+    const cats = food ? ['Супермаркеты', 'Кафе и рестораны'] : cat ? [cat[1]] : null;
+    const tx = [...new Set(ks.map(k => k.slice(0, 7)))].flatMap(m => monthTx(m)).filter(x => x.type === 'out' && x.status !== 'fail' && x.date >= p.from && x.date <= p.to && (!cats || cats.includes(x.cat)));
     const sum = tx.reduce((a, x) => a + +x.amount, 0);
-    return trf(cat ? 'Расходы на «{c}» {p}: {s} ({n} {w}).' : 'Расходы {p}: {s} ({n} {w}).', {c: tr(cat?.[1] || ''), p: p.label, s: money(sum), n: tx.length, w: plural(tx.length, tr('операция'), tr('операции'), tr('операций'))});
+    return trf(cats ? 'Расходы на «{c}» {p}: {s} ({n} {w}).' : 'Расходы {p}: {s} ({n} {w}).', {c: food ? tr('еду') : tr(cat?.[1] || ''), p: p.label, s: money(sum), n: tx.length, w: plural(tx.length, tr('операция'), tr('операции'), tr('операций'))});
   }
   if (/осталось|остаток|left/i.test(t) && /бюджет|денег|budget|money/i.test(t) && modOn('money')){
     const b = S.docs['app/budget']?.monthly; if (!b) return tr('Бюджет на месяц не задан: его можно задать во вкладке «Деньги».');

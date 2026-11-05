@@ -2358,4 +2358,12 @@ window.I18N_EN = {
 "банка":"can",
 "С этим не нужно справляться в одиночку. Поговори с человеком, которому доверяешь, или позвони на линию помощи; если есть риск навредить себе, звони в экстренную службу.":"You don't have to deal with this alone. Talk to someone you trust or call a helpline; if there's a risk you might hurt yourself, call emergency services.",
 "Это важнее любых цифр. Поговори с врачом или человеком, которому доверяешь: такое лечится, и помощь работает.":"This matters more than any numbers. Talk to a doctor or someone you trust: this is treatable, and help works.",
+"Еда {p} не записана.":"No food logged {p}.",
+"Еда {p}: {k} из {K} ккал, белок {b} из {B} г.":"Food {p}: {k} of {K} kcal, protein {b} of {B} g.",
+"Еда {p}: {k} ккал, белок {b} г.":"Food {p}: {k} kcal, protein {b} g.",
+"Еда {p}: в среднем {k} ккал и {b} г белка в день (записано дней: {n}).":"Food {p}: {k} kcal and {b} g of protein a day on average (days logged: {n}).",
+"Вес пока не записан.":"No weight logged yet.",
+"Вес: {w} {u} ({d}).":"Weight: {w} {u} ({d}).",
+"За 2 недели: {c} {u}.":"Over 2 weeks: {c} {u}.",
+"еду":"food",
 };

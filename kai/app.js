@@ -1290,15 +1290,16 @@ function viewDay(){
   h += warnCard();
   h += examCard();
   h += checkinCard();
+  // the daily list decides whether the day counts, so it comes before the rest of the day
+  h += `<div class="sec-h"><h2>${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
+  <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
   h += nowCard();
   h += taskCard();
   h += timelineCard();
+  h += challengeCard();
   h += screenCard();
   h += onboardCard();
   h += backupBanner();
-  h += `<div class="sec-h"><h2>${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
-  <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
-  h += challengeCard();
   // week: kept with the other numbers in the folded stats, so the Day screen stays about today
   const beforeWeek = h; h = '';
   const mon = addDays(date, 1-dow(date));

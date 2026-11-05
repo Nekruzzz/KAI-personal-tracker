@@ -2326,4 +2326,5 @@ window.I18N_EN = {
 "Посмотри, как прошла неделя, и запиши планы на следующую":"See how the week went, and note your plans for the next one",
 "После 7+ часов сна ты оцениваешь день в среднем на {a}, после более короткого сна — на {b}.":"After 7+ hours of sleep you rate your day {a} on average; after shorter sleep, {b}.",
 "В дни с тренировкой ты оцениваешь день в среднем на {a}, без неё — на {b}.":"On days with a workout you rate your day {a} on average; without one, {b}.",
+"Уже в планах: {t}":"Already in your plans: {t}",
 };

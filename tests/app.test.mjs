@@ -3075,3 +3075,28 @@ test('insights also compare the day rating after long and short sleep', () => {
     assert.equal(r.a, run(`num(4, 1)`)); assert.equal(r.b, run(`num(3, 1)`));
   } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days58).forEach(([k, v]) => save('days/' + k, v))`); }
 });
+
+test('telling KAI the same to-do or event twice adds it once', () => {
+  run(`globalThis.tasks59 = clone(smartTasks()); globalThis.plan59 = clone(plan())`);
+  try {
+    const apply = t => run(`(() => { const {r} = localTellParse(${JSON.stringify(t)}, todayISO()); const id = uid(); save('inbox/' + id, {id, kind: 'tell', result: r, meta: {date: todayISO(), text: ${JSON.stringify(t)}, local: true}, done: false}); A.tellApply({dataset: {id}}); })()`);
+    const n0 = run(`smartTasks().filter(t => !t.done).length`);
+    apply('gym every monday and friday'); apply('gym every monday and friday');
+    assert.equal(run(`smartTasks().filter(t => !t.done).length`), n0 + 2, 'two weekly to-dos, not four');
+    apply('call the bank tomorrow at 10'); apply('call the bank tomorrow at 10');
+    assert.equal(run(`smartTasks().filter(t => !t.done && /bank/i.test(t.title)).length`), 1);
+    const e0 = run(`allEvents().length`);
+    run(`tellPlanApply({events: [{title: 'Physics exam', date: addDays(todayISO(), 9), kind: 'exam', from: '10:00'}]}); tellPlanApply({events: [{title: 'physics exam', date: addDays(todayISO(), 9), kind: 'exam', from: '10:00'}]})`);
+    assert.equal(run(`allEvents().length`), e0 + 1);
+  } finally { run(`saveTasks(tasks59); save('app/plan', plan59)`); }
+});
+
+test('the preview says when a told to-do is already in the plans', () => {
+  run(`globalThis.tasks60 = clone(smartTasks())`);
+  try {
+    run(`saveTasks([...smartTasks(), {id: 'dup1', title: 'Call the bank', due: addDays(todayISO(), 1), time: '10:00', done: false, pri: 2}])`);
+    const lines = run(`tellLines(localTellParse('call the bank tomorrow at 10', todayISO()).r, todayISO()).join('|')`);
+    assert.ok(/Already in your plans: Call the bank|Уже в планах: Call the bank/.test(lines), lines);
+    assert.ok(!/\+ (?:задача|to-do)/i.test(lines));
+  } finally { run(`saveTasks(tasks60)`); }
+});

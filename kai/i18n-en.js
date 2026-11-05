@@ -2370,4 +2370,11 @@ window.I18N_EN = {
 "Мягкий шум":"Soft noise",
 "Дождь":"Rain",
 "Фон":"Background",
+"План недели":"Plan the week",
+"В воскресенье вечером KAI спросит, что важного на следующей неделе, и разложит ответ по дням.":"On Sunday evening KAI asks what's important next week and puts the answer on the right days.",
+"Цели накоплений":"Savings goals",
+"«Ноутбук: 320 из 1000»: откладывай понемногу, а KAI отметит каждую четверть пути.":"“Laptop: 320 of 1,000”: save a little at a time, and KAI celebrates every quarter of the way.",
+"Вопросы к KAI":"Ask KAI",
+"«Сколько я потратил на этой неделе?», «когда следующий экзамен?»: ответ считается прямо на телефоне.":"“How much did I spend this week?”, “when is my next exam?”: worked out right on your phone.",
+"KAI сравнивает твои дни: например, сколько задач ты успеваешь после 7 часов сна и после короткого.":"KAI compares your days: for example, how many tasks you finish after 7 hours of sleep and after less.",
 };

@@ -3173,3 +3173,16 @@ test('a reminder at 17:00 for an open main task of the day', () => {
     assert.ok(!run(`buildReminders(0).some(x => x.key === 'mit' + todayISO())`), 'gone once it is done');
   } finally { run(`saveTasks(tasks64)`); }
 });
+
+test('a weekly challenge taken back below its goal by Undo loses its XP', () => {
+  run(`globalThis.meta65 = clone(meta()); globalThis.tasks65 = clone(smartTasks()); globalThis.toast65 = toast; toast = () => {}`);
+  try {
+    const mon = run(`addDays(todayISO(), 1 - dow(todayISO()))`);
+    const before = run(`smartTasks().filter(t => t.done && t.doneAt >= '${mon}' && t.doneAt <= todayISO()).length`);
+    run(`save('app/meta', {...meta(), challenges: {'${mon}': {list: [{id: 'todos', goal: ${before + 1}}], done: []}}}); saveTasks([...smartTasks(), {id: 'c65', title: 'x', due: todayISO(), done: false, pri: 2}])`);
+    run(`A.tkDone({dataset: {id: 'c65'}}); challengeTick()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), ['todos']);
+    run(`A.undoApply(); challengeTick()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), [], 'undone');
+  } finally { run(`toast = toast65; saveTasks(tasks65); save('app/meta', meta65)`); }
+});

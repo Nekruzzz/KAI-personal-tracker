@@ -4505,7 +4505,7 @@ function recapCanvas(st){
     else glass(cx - 50, cy - 50, 100, 100, 50);
     c.fillStyle = lit ? '#04140a' : soft; c.font = font(700, 30); c.textAlign = 'center'; c.fillText(DOW[dow(k)], cx, cy + 11); c.textAlign = 'left';
   });
-  c.fillStyle = '#fff'; c.font = font(700, 40); c.textAlign = 'right'; c.fillText(`${tr('Уровень')} ${st.level}`, W - 80, 120); c.textAlign = 'left';
+  c.fillStyle = '#fff'; c.font = font(700, 40); c.textAlign = 'right'; c.fillText(`${tr('Уровень')} ${st.level} · ${levelTitle(st.level)}`, W - 80, 120); c.textAlign = 'left';
   return cv;
 }
 /* what the summary shows: the time put in as the headline, or the tasks done when no time was logged (never a
@@ -4514,7 +4514,7 @@ function recapPlan(st){
   const hours = m => m >= 60 ? num(m / 60, 1) + ' ' + tr('ч') : Math.round(m) + ' ' + tr('мин'), timed = st.total >= 1;
   return {
     head: timed ? hours(st.total) : String(st.tasks), headLabel: timed ? tr('вложено за неделю') : tr('задач сделано за неделю'),
-    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [st.chDone || 0, `${st.chDone} / ${st.chN}`, tr('вызовов недели'), '#ffd84d'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
+    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b'], [st.chDone || 0, `${st.chDone} / ${st.chN}`, tr('вызовов недели'), '#ffd84d'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
   };
 }
 A.recap = () => {

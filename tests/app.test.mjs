@@ -3053,3 +3053,15 @@ test('insights compare the person’s own days, only with enough days and a clea
     assert.equal(run(`insights().length`), 0, 'not with a handful of days');
   } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days57).forEach(([k, v]) => save('days/' + k, v))`); }
 });
+
+test('a screen that throws shows a message with Reload, and the error goes to a local log', () => {
+  run(`localStorage.removeItem('kai_errlog')`);
+  const h = run(`safeView(() => { throw new Error('boom'); })`);
+  assert.ok(/data-act="appReload"/.test(h) && /role="alert"/.test(h));
+  const log = JSON.parse(run(`JSON.stringify(errLog())`));
+  assert.equal(log.length, 1); assert.equal(log[0].m, 'boom'); assert.equal(log[0].k, 'render');
+  run(`safeView(() => { throw new Error('boom'); })`);
+  assert.equal(run(`errLog().length`), 1, 'the same error twice is one entry');
+  assert.equal(run(`safeView(() => 'ok')`), 'ok');
+  run(`localStorage.removeItem('kai_errlog')`);
+});

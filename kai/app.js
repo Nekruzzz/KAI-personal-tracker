@@ -1225,7 +1225,7 @@ function render(){
   renderTop(); renderNav();
   const v = $('#view');
   const y = window.scrollY;
-  v.innerHTML = ({day:viewDay, health:viewHealth, content:viewContent, money:viewMoney, more:viewMore}[S.tab] || viewDay)();
+  v.innerHTML = safeView(({day:viewDay, health:viewHealth, content:viewContent, money:viewMoney, more:viewMore}[S.tab] || viewDay));
   if (S.animIn && !reduceMotion()){ v.classList.remove('tab-in'); void v.offsetWidth; v.classList.add('tab-in'); clearTimeout(S.animT); S.animT = setTimeout(()=>v.classList.remove('tab-in'), 600); }
   S.animIn = false;
   window.scrollTo(0, y);
@@ -3282,6 +3282,7 @@ function viewMore(){
     <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с ИИ")}</button>
     <button class="btn ghost" data-act="moneyCsv">${tr("Деньги таблицей (CSV)")}</button>
     <button class="btn ghost" data-act="daysCsv">${tr("Дни таблицей (CSV)")}</button>
+    ${errLog().length ? `<button class="btn ghost" data-act="errCopy">${trf('Скопировать журнал ошибок ({n})', {n: errLog().length})}</button>` : ''}
     <div id="copyList" style="display:flex;flex-direction:column;gap:6px"></div>
     <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>
     <button class="btn danger" data-act="wipeLocal">${ic('trash')}${tr("Удалить все данные на этом телефоне")}</button>`);
@@ -6702,6 +6703,32 @@ function insightsCard(){
   const list = insights(); if (!list.length) return '';
   return `<div class="sec-h"><h2>${tr('Что помогает твоим дням')}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:10px">${list.map(x => `<div class="ins"><span class="ins-ic" aria-hidden="true">${ic(x.a > x.b ? 'zap' : 'alert')}</span><div>${esc(trf(x.text, {a: x.a, b: x.b}))}</div></div>`).join('')}<div class="hint">${tr('Это то, что показывают твои дни за последние 3 месяца, а не правило.')}</div></section>`;
 }
+
+/* ============ when something breaks: the screen says so instead of going blank, and a small log stays on the phone (never sent) for a bug report ============ */
+const ERR_KEY = 'kai_errlog';
+function errLog(){ try { return JSON.parse(localStorage.getItem(ERR_KEY) || '[]'); } catch { return []; } }
+function errNote(kind, e){
+  try {
+    const msg = String(e?.message || e || '').slice(0, 300), at = String(e?.stack || '').split('\n').slice(0, 3).join(' | ').slice(0, 400);
+    const log = errLog(); if (log.length && log[log.length - 1].m === msg) return; // the same error again and again is one entry
+    log.push({t: new Date().toISOString(), k: kind, m: msg, s: at, v: typeof VERSION_TAG === 'string' ? VERSION_TAG : '', tab: S?.tab || ''});
+    localStorage.setItem(ERR_KEY, JSON.stringify(log.slice(-20)));
+  } catch {}
+}
+function safeView(fn){
+  try { return fn(); }
+  catch (e){
+    errNote('render', e);
+    return `<section class="card" role="alert" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Этот экран не открылся')}</b><div class="hint">${tr('Данные на месте. Попробуй перезапустить приложение; если повторится, скопируй журнал ошибок в «Ещё → Данные и копия» и отправь разработчику.')}</div><button class="btn" data-act="appReload">${tr('Перезапустить')}</button></section>`;
+  }
+}
+const ownError = e => /app\.js|i18n-en\.js|config\.js/.test(String(e?.filename || e?.reason?.stack || e?.error?.stack || '')); // not browser extensions
+addEventListener('error', e => { if (ownError(e)) errNote('error', e.error || e.message); });
+addEventListener('unhandledrejection', e => { if (ownError(e)) errNote('promise', e.reason); });
+A.errCopy = async () => {
+  const text = errLog().map(x => `${x.t} [${x.k}${x.tab ? ' · ' + x.tab : ''}] ${x.m}${x.s ? '\n  ' + x.s : ''}`).join('\n');
+  try { await navigator.clipboard.writeText(text); toast(tr('Журнал скопирован')); } catch { toast(tr('Не удалось скопировать')); }
+};
 
 /* ============ init ============ */
 async function init(){

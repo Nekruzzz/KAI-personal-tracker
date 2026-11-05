@@ -2314,4 +2314,10 @@ window.I18N_EN = {
 "В дни с фокус-сессией — {a}% задач, без неё — {b}%.":"On days with a Focus session you finish {a}% of your tasks; without one, {b}%.",
 "Что помогает твоим дням":"What helps your days",
 "Это то, что показывают твои дни за последние 3 месяца, а не правило.":"This is what your last 3 months show, not a rule.",
+"Скопировать журнал ошибок ({n})":"Copy the error log ({n})",
+"Этот экран не открылся":"This screen didn't open",
+"Данные на месте. Попробуй перезапустить приложение; если повторится, скопируй журнал ошибок в «Ещё → Данные и копия» и отправь разработчику.":"Your data is safe. Try reloading the app; if it happens again, copy the error log in More → Data and backup and send it to the developer.",
+"Журнал скопирован":"Log copied",
+"Не удалось скопировать":"Couldn't copy",
+"Перезапустить":"Reload",
 };

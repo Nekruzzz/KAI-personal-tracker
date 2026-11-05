@@ -3008,3 +3008,20 @@ test('savings goals: saved apart from spending, with Undo and a celebration at t
     assert.equal(run(`saveMilestone('x', 40, 55); 1`), 1);
   } finally { run(`toast = toast55; sv55 ? save('app/savings', sv55) : remove('app/savings')`); }
 });
+
+test('Tell KAI puts "saved 50 for the laptop" into the savings goal, not spending', () => {
+  run(`globalThis.meta56 = clone(meta()); setMeta({modules: {...(meta().modules || {}), money: true}})`);
+  run(`globalThis.sv56 = S.docs['app/savings'] ? clone(S.docs['app/savings']) : null; save('app/savings', {list: [{id: 'g1', title: 'Laptop', target: 1000, saved: 100, created: todayISO(), log: []}]})`);
+  try {
+    for (const t of ['saved 50 for the laptop', 'put 50 into savings', 'отложил 50 в копилку']){
+      const r = JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+      assert.deepEqual(r.savings, [{id: 'g1', amount: 50}], t);
+      assert.equal(r.money.length, 0, t + ': not spending');
+    }
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('saved 50 for a trip', todayISO()).r.savings || [])`)).length, 0, 'no goal by that name');
+    run(`savingsAddMany([{id: 'g1', amount: 50}])`);
+    assert.equal(run(`savings()[0].saved`), 150);
+    const lines = run(`tellLines({savings: [{id: 'g1', amount: 50}], time_log: [], money: [], new_tasks: [], events: []}, todayISO()).join('|')`);
+    assert.ok(/Laptop/.test(lines));
+  } finally { run(`sv56 ? save('app/savings', sv56) : remove('app/savings'); save('app/meta', meta56)`); }
+});

@@ -2371,6 +2371,7 @@ function tellLines0(r, date){
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
+  (r.savings || []).forEach(x => { const g = savings().find(y => y.id === x.id); if (g) lines.push(trf('В копилку «{t}»: +{s}', {t: g.title, s: money(x.amount)})); });
   (r.exam_results || []).forEach(x => { const e = allEvents().find(y => y.id === x.id); if (e) lines.push(trf(x.passed ? 'Результат «{e}»: сдан{g}' : 'Результат «{e}»: не сдан{g}', {e: e.title, g: x.grade ? ' · ' + x.grade : ''})); });
   return lines;
 }
@@ -2382,7 +2383,7 @@ A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
   // everything this answer can change, kept so one tap can undo it
-  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts']);
+  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts', 'app/savings']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
@@ -2398,6 +2399,7 @@ A.tellApply = el => {
   });
   tellPlanApply(r, date);
   if ((r.debts || []).length && modOn('money')) debtsAdd(r.debts, date);
+  if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -4806,6 +4808,7 @@ function localTellParse(text, date, opts = {}){
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
     if (modOn('money')){ const db = localDebt(c); if (db){ (r.debts = r.debts || []).push(db); hit = true; } }
+    if (!hit && modOn('money')){ const sv = localSaving(c); if (sv){ (r.savings = r.savings || []).push(sv); hit = true; } } // "отложил 500 на ноутбук": into a savings goal, not spending
     { const xr = localExamResult(c, date); if (xr){ (r.exam_results = r.exam_results || []).push(xr); hit = true; } }
     if (modOn('screentime') && (m = c.match(SCREEN_A) || c.match(SCREEN_B))){ const v = parseDur(m[1]); if (v > 0 && v <= 1440){ r.screen_min = v; hit = true; } }
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
@@ -4819,7 +4822,7 @@ function localTellParse(text, date, opts = {}){
       if (lb) w = Math.round(w / LB * 10) / 10;
       if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
     }
-    const mo = localMoney(c) || (r.money.length && !hit ? moneyMore(c) : null);
+    const mo = (r.savings || []).length && hit ? null : localMoney(c) || (r.money.length && !hit ? moneyMore(c) : null);
     if (mo){ r.money.push(mo); hit = true; }
     const future = !/(?:^|\s)(?:ate|had|съел[аи]?|выпил[аи]?|поел[аи]?|перекусил[аи]?)(?![a-zа-яё])/i.test(c) && (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal; "вечером съел…" already happened
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
@@ -5896,6 +5899,7 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
+  if ((lp.savings || []).length && !out.savings){ out.savings = lp.savings; const sum = lp.savings.reduce((a, x) => a + x.amount, 0); out.money = out.money.filter(m => !(m.type !== 'in' && Math.abs(+m.amount - sum) < 0.01)); } // the AI may read it as spending
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
   return out;
 }
@@ -6642,6 +6646,23 @@ function saveMilestone(title, before, after){
   if (m) setTimeout(() => { haptic('success'); sound('success'); confetti({n: 60, y: innerHeight * .5}); toast(trf('«{t}»: {p}% пути', {t: title, p: m}), {icon: 'target', tone: 'good', ms: 3500}); }, 600);
 }
 A.saveHide = el => { const doc = savingsDoc(); closeSheet(); withUndo(['app/savings'], () => save('app/savings', {...doc, list: (doc.list || []).map(x => x.id === el.dataset.id ? {...x, hidden: true} : x)}), tr('Цель убрана')); };
+
+/* ============ Tell KAI: money put into a savings goal ============ */
+function localSaving(c){
+  const list = savings().filter(g => g.saved < g.target); if (!list.length) return null;
+  const m = c.match(new RegExp('(?:отложил[аи]?|положил[аи]?|накопил[аи]?|закинул[аи]?|перев[её]л[аи]?|перевела|saved|put|added|set aside|moved)\\s+(?:aside\\s+)?' + AMT + '\\s+(?:на|в|для|for|to|towards|toward|into|in)\\s+(?:the\\s+|my\\s+)?(.{2,60})$', 'i'));
+  if (!m) return null;
+  const amount = amountOf(m[1], m[2]), what = m[3], ws = wordsOf(what);
+  let g = list.find(x => wordsOf(x.title + ' ' + otherLang(x.title)).some(a => ws.some(b => sameWord(a, b))));
+  if (!g && /копилк|накоплени|сбережени|savings|piggy/i.test(what) && list.length === 1) g = list[0];
+  return g && amount > 0 ? {id: g.id, amount} : null;
+}
+function savingsAddMany(items, date = todayISO()){
+  const doc = savingsDoc(); let list = doc.list || []; const moments = [];
+  items.forEach(x => { list = list.map(g => { if (g.id !== x.id) return g; const before = savePct(g), saved = Math.round((g.saved + Math.abs(+x.amount || 0)) * 100) / 100; moments.push([g.title, before, savePct({...g, saved})]); return {...g, saved, log: [...(g.log || []), {d: date, a: Math.abs(+x.amount || 0)}].slice(-200), ...(saved >= g.target && !g.doneAt ? {doneAt: date} : {})}; }); });
+  save('app/savings', {...doc, list});
+  moments.forEach(([t, a, b]) => saveMilestone(t, a, b));
+}
 
 /* ============ init ============ */
 async function init(){

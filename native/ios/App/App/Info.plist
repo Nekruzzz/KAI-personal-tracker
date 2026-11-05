@@ -68,8 +68,45 @@
 	<string>KAI uses the camera when you photograph a meal or a screenshot to log it.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>KAI opens the photos you choose, such as a meal or your progress.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>KAI saves an image to Photos only when you choose Save Image, for example your weekly summary.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>KAI reads your steps, sleep and workouts to show your progress and plan your day. It never writes to Health.</string>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).tell</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Tell KAI</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>mic</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).day</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Today</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>calendar</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).todo</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>New To-Do</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>plus.circle</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).focus</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Focus</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>scope</string>
+		</dict>
+	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>

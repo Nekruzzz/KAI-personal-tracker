@@ -5,7 +5,9 @@ const dir = process.argv[2];
 const ctx = {window: {}}; vm.runInNewContext(fs.readFileSync(dir + '/i18n-en.js', 'utf8'), ctx);
 const d = ctx.window.I18N_EN, src = fs.readFileSync(dir + '/app.js', 'utf8');
 const ast = acorn.parse(src, {ecmaVersion: 'latest'}), used = new Set();
-walk.simple(ast, {CallExpression(n){ if (n.callee.name === 'tr' && n.arguments[0]?.type === 'Literal') used.add(n.arguments[0].value); }});
+// a key can also be one side of a choice: tr(paid ? 'Оплачено' : 'Получено')
+const keys = a => a?.type === 'Literal' ? [a.value] : a?.type === 'ConditionalExpression' ? [...keys(a.consequent), ...keys(a.alternate)] : [];
+walk.simple(ast, {CallExpression(n){ if (n.callee.name === 'tr' || n.callee.name === 'trf') keys(n.arguments[0]).forEach(k => typeof k === 'string' && used.add(k)); }});
 const CY = /[А-Яа-яЁё]/;
 const missing = [...used].filter(k => CY.test(k) && d[k.trim()] === undefined);
 const dirty = Object.entries(d).filter(([, v]) => CY.test(v)).map(([k]) => k);

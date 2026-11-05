@@ -4749,7 +4749,7 @@ const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ?
 const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|uber|lyft|bolt|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/аптек|pharmacy|drugstore|лекарств|medicine|gym membership|абонемент|спортзал/i, 'Спорт и здоровье'], [/книг|books?\b|textbook|учебник|tuition|course|курс[ыа]?\b|printing|печать|распечат/i, 'Учёба'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
-const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул[аи]?сь|встал[аи]?(?![а-яё])/i;
+const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул(?:ся|ась|ись)|встал[аи]?(?![а-яё])/i;
 const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован|\bmeet\b|flight|рейс|вылет|самол[её]т|wedding|свадьб|exhibition|выставк|матч/i;
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
 const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d{1,3}(?:,\\d{3})+(?![\\d])|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
@@ -4771,7 +4771,7 @@ function localMoney(c){
   m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for|at|в|во)\\s+(.+))?$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
-  m = c.match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
+  m = c.replace(/^(?:had|drank|got|ate|выпил[аи]?|съел[аи]?|взял[аи]?)\s+(?:a\s+|an\s+)?/i, '').match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); } // "gift for mom 30", "lunch for 12", "билет на поезд 1200"
   // "$5 coffee", "300р такси": the amount first, but only with a currency, so "2 pizzas" stays food
   m = c.match(new RegExp('^(' + AMT + ')\\s+((?:' + SPEND_WORDS + ')(?![a-zа-яё]).{0,30})$', 'i'));
@@ -4781,13 +4781,13 @@ function localMoney(c){
 function localTellParse(text, date, opts = {}){
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
-  const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
+  const spelled = clockWords(String(text)).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
   // gym sets first, before the text is split at commas: "squats 60 kg for 8, 8 and 7", "отжимания 3х10"
   const sets = [];
   let rest = localSets(spelled, date, sets);
   // "went to bed at 23:30, woke up at 7" / "лёг в 23, встал в 7": the hours in between
   rest = rest.replace(/((?:по)?спал[аи]?|slept)\s+(с|from)\s+часу/i, '$1 $2 1').replace(/((?:по)?спал[аи]?|slept)\s+(с|from)\s+(?:полуночи|midnight)/i, '$1 $2 0');
-  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|slept|(?:по)?спал[аи]? с|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?\D{1,40}?(?:woke(?: up)?|got up|until|till|to|встал[аи]?|проснул[аи]?сь|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?/i);
+  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|slept|(?:по)?спал[аи]? с|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?\D{1,40}?(?:woke(?: up)?|got up|until|till|to|встал[аи]?|проснул(?:ся|ась|ись)|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?/i);
   if (bed){
     const h24 = (h, ap) => ap ? h % 12 + (/pm/i.test(ap) ? 12 : 0) : h, span = from => ((h24(+bed[4], bed[6]) * 60 + +(bed[5] || 0)) - (from * 60 + +(bed[2] || 0)) + 1440) % 1440 / 60;
     let h = span(h24(+bed[1], bed[3]));
@@ -4795,9 +4795,10 @@ function localTellParse(text, date, opts = {}){
     if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(bed[0], ' '); }
   }
   if (sets.length) r.sets = sets;
-  const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
+  const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
-  for (const c of parts){
+  for (const c0 of parts){
+    const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
     if (modOn('money')){ const db = localDebt(c); if (db){ (r.debts = r.debts || []).push(db); hit = true; } }
@@ -4806,9 +4807,9 @@ function localTellParse(text, date, opts = {}){
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
     if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
     if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
-    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|в зале|зал|workout|worked out|trained|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
+    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|дош[её]л|дошла|пешком|прош[её]лся|прошлась|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,22}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework|revised|revising|reviewed|reviewing|practi[cs]ed|повторял[аи]?|готовил(?:ся|ась|ись)|решал[аи]?|домашк[а-яё]*|домашнее|дз(?![а-яё]))\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|качал(?:ся|ась|ись)|силов[а-яё]+|в зале|зал|workout|worked out|trained|lifted|lifting|weights|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
     if ((m = c.match(new RegExp('(?:вес(?![а-яё])|вешу|взвесил[аи]?сь|weigh(?:t|ed|ing)?)\\D{0,8}?' + NUM + '\\s*(кг|kg|lbs?|pounds?|фунт[а-яё]*)?', 'i')))){
       let w = toN(m[1]); const ref = refWeight(), lb = m[2] ? /lb|pound|фунт/i.test(m[2]) : ref ? Math.abs(w / LB - ref) < Math.abs(w - ref) : isUS();
       if (lb) w = Math.round(w / LB * 10) / 10;
@@ -4820,7 +4821,7 @@ function localTellParse(text, date, opts = {}){
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
-    if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
+    if (!hit && (LOCAL_SKIP.test(c) || pastStart(c))){ left.push(c); continue; } // "went to bed at 1am" happened; it isn't a to-do
     if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; }
     if (!hit){ const ts = weekdayCopies(c).map(x => parseQuick(x)).filter(t => t?.every && t.due); if (ts.length > 1){ ts.forEach(t => r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, every: t.every})); hit = true; } } // "ran 5k yesterday morning" is not a to-do for tomorrow
     if (!hit){
@@ -4917,8 +4918,13 @@ function localDone(c, date){
 /* sets for exercises in the plan, today's workout first; returns the text with them taken out */
 function localSets(text, date, out){
   const today = (plan().workouts[workoutFor(date)]?.ex || []), all = [...today, ...Object.values(plan().workouts).flatMap(w => w.ex)];
-  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too
+  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.filter(e => e.id !== 'dips' || /брус|dip/i.test(name)).find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too; plain "отжимания" are push-ups, not dips
   const kg = (n, u) => { const v = toN(n); return (u ? /lb|фунт/i.test(u) : isUS()) ? Math.round(v / LB * 10) / 10 : v; };
+  text = text.replace(/(\d)\s*(?:sets?|подход(?:а|ов)?)\s*(?:of|по)\s*(\d{1,3})\s*(?:reps?\s*(?:of\s*)?|раз\s*)?([a-zа-яё][a-zа-яё'-]{2,30}(?:\s+[a-zа-яё][a-zа-яё'-]{2,30})?)(?:\s+(?:at|with|с|по)?\s*(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*))?/gi, (m, n, rp, name, w, u) => {
+    const ex = findEx(name); if (!ex) return m;
+    for (let i = 0; i < Math.min(+n, 10); i++) out.push({ex: ex.id, w: w ? kg(w, u) : 0, r: +rp});
+    return ' ';
+  });
   return text.replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*)?\s*(?:for|на|по)\s*(\d{1,2}(?:(?:\s*(?:,|and|и|\/)\s*|\s+)\d{1,2}(?![\d.,]|\s*(?:подход|sets?\b|раз)))*)/gi, (m, name, w, u, reps) => {
     const ex = findEx(name); if (!ex) return m;
     reps.split(/\s*(?:,|and|и|\/)\s*|\s+/).filter(Boolean).forEach(rp => out.push({ex: ex.id, w: kg(w, u), r: +rp}));
@@ -5704,7 +5710,7 @@ function remindGroups(){
 }
 
 /* ============ Tell KAI on the phone: running, cycling, swimming and yoga; a weight's unit ============ */
-const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]|football|soccer|basketball|tennis|volleyball|badminton|hockey|boxing|climbing|hiked|hiking|danced|dancing|stretch(?:ed|ing)?|pilates|skated|skating|rowing|футбол[а-яё]*|баскетбол[а-яё]*|теннис[а-яё]*|волейбол[а-яё]*|бадминтон[а-яё]*|хокке[йяю]|бокс[а-яё]*|скалодром[а-яё]*|танц[а-яё]*|растяжк[а-яё]*|пилатес[а-яё]*|кататься на коньках|на коньках|гребл[а-яё]*';
+const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]|football|soccer|basketball|tennis|volleyball|badminton|hockey|boxing|climbing|hiked|hiking|danced|dancing|stretch(?:ed|ing)?|pilates|skated|skating|rowing|футбол[а-яё]*|баскетбол[а-яё]*|теннис[а-яё]*|волейбол[а-яё]*|бадминтон[а-яё]*|хокке[йяю]|бокс[а-яё]*|скалодром[а-яё]*|танц[а-яё]*|растяжк[а-яё]*|пилатес[а-яё]*|кататься на коньках|на коньках|гребл[а-яё]*|плавани[еяю]';
 const DIST = '(?:\\s*\\d+(?:[.,]\\d+)?\\s*(?:km|км|mi|miles?|k)(?![a-zа-яё]))?'; // "ran 5 km in 30 minutes"
 /* the last weight logged, or the profile's: tells "вес 70" in kilograms from "weight 154" in pounds */
 function refWeight(){ const k = dayKeys().reverse().find(x => toNum(S.docs['days/' + x]?.weight) > 0); return k ? toNum(S.docs['days/' + k].weight) : toNum(profile().weight) || 0; }
@@ -6523,6 +6529,34 @@ function loggedFarBelow(t){
   if (!ks.length) return 0;
   const avg = Math.round(ks.reduce((a, k) => a + eaten(S.docs['days/' + k]).kcal, 0) / ks.length);
   return avg < t.kcal * 0.7 ? avg : 0;
+}
+
+/* ============ Tell KAI: clock words, "1h30", pomodoros, activity time ranges, and past actions that aren't to-dos ============ */
+function clockWords(t){
+  return t
+    .replace(/(^|\s)в\s+час(?=\s+(?:ночи|дня)(?![а-яё])|\s*$|\s*[,.;])/gi, '$1в 1') // "лёг в час ночи" is one o'clock, not an hour
+    .replace(/(^|[^\d:])(\d{1,2})\s*(?:h|ч)\s*(\d{1,2})\s*(?:m|min|мин[а-яё]*)?(?![\da-zа-яё])/gi, (m0, a, h, mm) => a + (+h * 60 + +mm) + ' мин') // "1h30", "1ч 30мин"
+    .replace(/(\d{1,2})\s*(?:pomodoros?|помодоро|помидор(?:а|ов|ки|ок)?)(?![a-zа-яё])/gi, (m0, n) => (+n * 25) + ' мин'); // a pomodoro is 25 minutes
+}
+const ACTIVITY_RE = /учил|позанимал|занимал|studied|study|homework|revis|review|practi|повторял|готовил|решал|домашк|домашнее|(?:^|\s)дз(?![а-яё])|гулял|walked|walk|тренировал|workout|trained|gym|(?:^|\s)зал(?![а-яё])|качал/i;
+function activityRange(c){
+  if (!ACTIVITY_RE.test(c) || /\d+\s*(?:мин|min|h\b|hrs?|hours?|ч\b|час)/i.test(c)) return c;
+  const r = c.match(/(?:from\s+|с\s+)(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2})(?::(\d\d))?\s*(am|pm)?/i);
+  if (!r) return c;
+  const at = (h, mm, ap) => ((ap ? +h % 12 + (/pm/i.test(ap) ? 12 : 0) : +h) * 60 + +(mm || 0));
+  const d = (at(r[4], r[5], r[6] || r[3]) - at(r[1], r[2], r[3]) + 1440) % 1440;
+  return d >= 10 && d <= 600 ? c.replace(r[0], ' ' + d + ' мин ') : c;
+}
+// a clause that starts with a verb in the past tense tells what happened; if nothing in it could be logged, it's left for the AI rather than made into a plan
+const PAST_EN = new Set(['went', 'had', 'did', 'ate', 'drank', 'slept', 'woke', 'got', 'ran', 'swam', 'made', 'took', 'saw', 'met', 'came', 'left', 'gave', 'sent', 'wrote', 'spoke', 'told', 'felt', 'fell', 'forgot', 'brought', 'caught', 'taught', 'thought', 'found', 'lost', 'won', 'began']);
+const NOT_PAST_EN = new Set(['need', 'feed', 'seed', 'breed', 'speed', 'proceed', 'exceed', 'succeed', 'embed', 'shed', 'bed', 'red', 'weed']);
+const NOT_PAST_RU = new Set(['зал', 'финал', 'канал', 'сериал', 'материал', 'стол', 'футбол', 'волейбол', 'баскетбол', 'пол', 'бал', 'вокзал', 'журнал', 'сигнал', 'капитал', 'персонал', 'ритуал', 'гол', 'пенал', 'идеал', 'интеграл', 'минерал', 'генерал', 'кинозал', 'спортзал', 'мангал', 'скандал', 'штурвал', 'подвал', 'карнавал', 'металл', 'бокал', 'коктейль', 'актив', 'профиль', 'автомобиль', 'апрель', 'бассейн']);
+function pastStart(c){
+  const w = (String(c).trim().toLowerCase().replace(/^(?:i|я|мы|we)\s+/, '').match(/^[a-zа-яё]+/) || [''])[0];
+  if (!w) return false;
+  if (/[a-z]/.test(w)) return PAST_EN.has(w) || (w.length >= 5 && /ed$/.test(w) && !NOT_PAST_EN.has(w));
+  if (NOT_PAST_RU.has(w)) return false;
+  return /^(?:лёг|лег|легла|легли|пош[её]л|пошла|ш[её]л|шла|съел|съела|ел|ела)$/.test(w) || (w.length >= 4 && /(?:ал|ял|ил|ел|ёл|ыл|ул|ол)(?:а|о|и|ся|ась|ось|ись)?$/.test(w));
 }
 
 /* ============ init ============ */

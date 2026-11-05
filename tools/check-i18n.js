@@ -18,3 +18,4 @@ if (missing.length) console.log('MISSING:\n' + missing.join('\n'));
 if (dirty.length) console.log('DIRTY:\n' + dirty.join('\n'));
 if (unsafe.length) console.log('QUOTE:\n' + unsafe.join('\n'));
 console.log('DATA-ONLY:', unused.join(' | '));
+if (missing.length || dirty.length) process.exitCode = 1; // CI fails on text without English, or Russian left in the English

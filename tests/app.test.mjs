@@ -3025,3 +3025,17 @@ test('Tell KAI puts "saved 50 for the laptop" into the savings goal, not spendin
     assert.ok(/Laptop/.test(lines));
   } finally { run(`sv56 ? save('app/savings', sv56) : remove('app/savings'); save('app/meta', meta56)`); }
 });
+
+test('days export as a spreadsheet, one row a day', () => {
+  const k = '2031-02-02';
+  run(`save('days/${k}', {...buildDay('${k}'), sleep: 7.5, steps: 9000, weight: 70, meals: [{name: 'x', kcal: 500, p: 30, f: 10, c: 50}], note: 'Good, "busy" day'})`);
+  try {
+    const csv = run(`daysCSV()`).split('\r\n');
+    assert.ok(csv.length >= 2);
+    const row = csv.find(r => r.startsWith(k));
+    assert.ok(row, 'the day is there');
+    assert.ok(row.includes('9000') && row.includes('500') && row.includes('"Good, ""busy"" day"'));
+    const cols = line => { let n = 1, inQ = false; for (const ch of line){ if (ch === '"') inQ = !inQ; else if (ch === ',' && !inQ) n++; } return n; };
+    assert.equal(cols(row), cols(csv[0]), 'as many columns as the header');
+  } finally { run(`remove('days/${k}')`); }
+});

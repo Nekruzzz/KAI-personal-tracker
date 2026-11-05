@@ -2897,3 +2897,21 @@ test('the level sheet explains how XP is earned and the next title', () => {
   assert.ok(run(`levelRow()`).includes('data-act="levelInfo"'));
   run(`closeSheet()`);
 });
+
+test('sound is on by default, and a choice in settings is kept', () => {
+  run(`globalThis.meta52 = clone(meta())`);
+  try {
+    run(`const m = clone(meta()); delete m.fx; save('app/meta', m)`);
+    assert.equal(run(`FX().sound`), true);
+    run(`setMeta({fx: {sound: false}})`);
+    assert.equal(run(`FX().sound`), false);
+  } finally { run(`save('app/meta', meta52)`); }
+});
+
+test('haptics: native types for outcomes, the error pattern for "that did not work"', () => {
+  const calls = JSON.parse(run(`(() => { const c = []; const nh = {notification: o => (c.push('n:' + o.type), Promise.resolve()), impact: o => (c.push('i:' + o.style), Promise.resolve()), selectionStart: () => Promise.resolve(), selectionChanged: () => (c.push('s'), Promise.resolve()), selectionEnd: () => Promise.resolve()}; ['success', 'error', 'warning', 'selection', 'medium', 'light'].forEach(k => nativeHaptic(nh, k)); return JSON.stringify(c); })()`));
+  assert.deepEqual(calls, ['n:SUCCESS', 'n:ERROR', 'n:WARNING', 's', 'i:MEDIUM', 'i:LIGHT']);
+  assert.equal(run(`isErrToast(tr('Впиши, что сделать'))`), true);
+  assert.equal(run(`isErrToast(tr('День оценён'))`), false);
+  assert.equal(run(`hapDefault('undoApply')`), 'medium');
+});

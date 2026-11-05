@@ -212,6 +212,13 @@ The first glass pass sat on flat, single-colour backgrounds, so it read as plain
 
 **To see it**, run this branch, not `main`: `python3 -m http.server 8123 --directory kai` and open http://localhost:8123, or build the iPhone app from this branch. An installed web app may need one extra reload to drop its cached copy.
 
+## Fifth round: feel, speed and a full review
+
+After the merge into `main`, asked for sound on by default, more haptics where they matter, optimisation and another pass over everything.
+
+- **Sound on by default.** Short sounds for check-offs and rewards now play unless the person switched them off (that choice is kept). The audio session is set to "ambient", so on an iPhone they follow the silent switch and mix with music instead of stopping it. The frequent check-off sound is quieter than the reward sounds.
+- **Haptics where they matter.** The iPhone app now uses the system's own patterns: success, warning and error notifications, a selection tick, and light/medium/heavy impacts (before, everything but success was a plain impact). "That didn't work" messages ("Enter what to do", "Couldn't sign in", "No connection to the server") give the error pattern, Undo a firmer tap, and the rest timer ticks at 3, 2, 1 and finishes with the success pattern. Every tap still gets a tick, so nothing feels dead.
+
 ## Gamification: why these pieces
 
 Asked to think about rewards that keep people using KAI every day. The app already had a streak flame, streak milestones, 25 awards, XP levels, confetti for perfect days and habit milestones. What was missing was mostly about what happens *after a slip* and about goals at the scale of a week, so the additions are:
@@ -226,7 +233,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 208 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 210 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

@@ -893,7 +893,7 @@ A.phoneDel = async () => {
 };
 
 /* ============ v3: feel — haptics, sound, particles, confetti, flame, rewards ============ */
-const FX = () => ({haptics:true, sound:false, ...(meta().fx||{})});
+const FX = () => ({haptics:true, sound:true, ...(meta().fx||{})}); // sound is on by default; a choice made in settings is kept
 const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 /* Haptics. Android: Vibration API. iPhone (iOS 18+): Safari has no Vibration API, but toggling a native
@@ -912,13 +912,14 @@ const HAP = {
   success: {v: [14, 70, 14, 70, 45], ios: [0, 110, 230]},
   heavy: {v: [30, 40, 60], ios: [0, 70, 140, 210]},
   error: {v: [45, 60, 45], ios: [0, 90, 180]},
+  warning: {v: [30, 80, 30], ios: [0, 120]},
 };
 let HAP_AT = 0;
 function haptic(kind = 'light'){
   HAP_AT = performance.now();
   if (!FX().haptics) return;
   const nh = isNative() && plug('Haptics');
-  if (nh){ (kind === 'success' ? nh.notification({type: 'SUCCESS'}) : nh.impact({style: kind === 'medium' ? 'MEDIUM' : kind === 'heavy' ? 'HEAVY' : 'LIGHT'})).catch?.(() => {}); return; }
+  if (nh){ nativeHaptic(nh, kind); return; }
   const p = HAP[kind] || HAP.light;
   try { if (typeof navigator.vibrate === 'function') { navigator.vibrate(p.v); return; } } catch {}
   /* iOS only plays the tick while the tap is still being handled, so the first one is fired right now, not from a timer */
@@ -927,12 +928,12 @@ function haptic(kind = 'light'){
 /* every tap gets a tick even when its handler forgot to ask for one: removing is firmer, saving is light, the rest is a selection tick */
 function hapDefault(act){
   if (act === 'scrim') return null;
-  if (/Del|Remove|Reset|Cancel|Clear|Drop|Trash/.test(act)) return 'medium';
+  if (/Del|Remove|Reset|Cancel|Clear|Drop|Trash|^undo/.test(act)) return 'medium';
   if (/Add|Save|Done|Go$|Apply|Take|Send|Submit|Connect|Paste|Start|Finish|Mark|Check/.test(act)) return 'light';
   return 'selection';
 }
 
-/* Short synthesized sounds (off by default, switch in profile). */
+/* Short synthesized sounds (on by default, switch in profile). They follow the silent switch and mix with music: see the audio session below. */
 function sound(kind){
   if (!FX().sound || typeof AUDIO === 'undefined' || !AUDIO) return;
   try {
@@ -943,7 +944,7 @@ function sound(kind){
       pr: [[587, 0, .1], [784, .08, .1], [988, .16, .1], [1175, .24, .28]],
       badge: [[659, 0, .12], [880, .1, .12], [1047, .2, .12], [1319, .3, .35]],
     }[kind] || [];
-    notes.forEach(([f, t, d]) => { const o = AUDIO.createOscillator(), g = AUDIO.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(.0001, now + t); g.gain.exponentialRampToValueAtTime(.22, now + t + .015); g.gain.exponentialRampToValueAtTime(.0001, now + t + d); o.connect(g).connect(AUDIO.destination); o.start(now + t); o.stop(now + t + d + .03); });
+    notes.forEach(([f, t, d]) => { const o = AUDIO.createOscillator(), g = AUDIO.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(.0001, now + t); g.gain.exponentialRampToValueAtTime(kind === 'pop' ? .12 : .2, now + t + .015); g.gain.exponentialRampToValueAtTime(.0001, now + t + d); o.connect(g).connect(AUDIO.destination); o.start(now + t); o.stop(now + t + d + .03); });
   } catch {}
 }
 
@@ -2042,7 +2043,8 @@ async function startRest(sec, label){
 function tickRest(){
   const bar = $('#restBar'); if (!bar) return;
   const left = Math.ceil((TIMER.end - Date.now())/1000);
-  if (left <= 0){ stopRest(); beep(); toast(tr('Отдых окончен: следующий подход')); return; }
+  if (left <= 0){ stopRest(); beep(); haptic('success'); toast(tr('Отдых окончен: следующий подход')); return; }
+  if (left <= 3 && TIMER.tick !== left){ TIMER.tick = left; haptic('light'); } // 3, 2, 1: felt in the hand
   bar.hidden = false;
   bar.innerHTML = `<div class="rb-in"><div style="flex:1;min-width:0"><div class="rb-t">${Math.floor(left/60)}:${pad(left%60)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tr("Отдых ·")} ${esc(TIMER.label)}</div></div><button class="btn ghost" data-act="restAdd">${tr("+30 с")}</button><button class="btn ghost" data-act="restStop">${tr("Стоп")}</button></div><div class="bar" style="height:4px;margin-top:8px"><i style="width:${(1-left/TIMER.total)*100}%;background:var(--accent)"></i></div>`;
 }
@@ -6469,6 +6471,27 @@ A.levelInfo = () => {
     <section class="card" style="padding:4px 16px"><div class="list">${src.map(([v, t]) => `<div class="row"><b class="xp-v">${v}</b><div class="mid"><div class="t" style="font-weight:500">${t}</div></div></div>`).join('')}</div></section>
     <div class="hint">${tr('XP не сгорают: пропущенный день не отнимает уровень.')}</div>`);
 };
+
+/* ============ feel: native haptic types, error feedback, an audio session that respects the silent switch ============ */
+// the iPhone's own patterns: selection ticks, impacts, and success / warning / error notifications
+function nativeHaptic(nh, kind){
+  try {
+    const done = p => p?.catch?.(() => {});
+    if (kind === 'success' || kind === 'error' || kind === 'warning') return done(nh.notification({type: kind.toUpperCase()}));
+    if (kind === 'selection' && nh.selectionChanged){ done(nh.selectionStart?.()); done(nh.selectionChanged()); return done(nh.selectionEnd?.()); }
+    done(nh.impact({style: kind === 'medium' ? 'MEDIUM' : kind === 'heavy' ? 'HEAVY' : 'LIGHT'}));
+  } catch {}
+}
+// short sounds mix with music instead of stopping it, and stay quiet on silent (Safari 16.4+, the iPhone app's web view)
+try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch {}
+// messages that mean "that didn't work" or "something is missing" get the error haptic, in either language
+const ERR_TOAST_RE = /^(?:Впиши|Выбери|Укажи|Не удал|Не получ|Нет связи|Сначала|Ошибк)/;
+let ERR_TOASTS = null;
+function isErrToast(msg){
+  if (!ERR_TOASTS){ ERR_TOASTS = new Set(); Object.keys(window.I18N_EN || {}).forEach(k => { if (ERR_TOAST_RE.test(k)) ERR_TOASTS.add(tr(k)); }); }
+  return ERR_TOASTS.has(String(msg));
+}
+{ const toast0 = toast; toast = (msg, o = {}) => { if (isErrToast(msg)) haptic('error'); return toast0(msg, o); }; }
 
 /* ============ init ============ */
 async function init(){

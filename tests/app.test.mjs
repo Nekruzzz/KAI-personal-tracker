@@ -1046,7 +1046,7 @@ test('"What can I write?" examples all work without AI, in both languages; the A
   const ruSrc = readFileSync(new URL('../kai/app.js', import.meta.url), 'utf8').match(/const TELL_HELP = \[([\s\S]*?)\n\];/)[1];
   const ru = [...ruSrc.matchAll(/tr\('([^']+)'\)/g)].map(m => m[1]).filter(x => /\d|Заболел/.test(x));
   assert.ok(ru.length >= 14);
-  for (const t of [...en, ...ru]) assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0`), t);
+  for (const t of [...en, ...ru]) assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0 || localAnswer(${JSON.stringify(t)}) !== null`), t); // questions are answered instead
   run(`SH = {}`);
   assert.match(run(`tellHelpHTML()`), /needs AI/);
   run(`SH = null`);

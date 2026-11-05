@@ -2349,4 +2349,8 @@ window.I18N_EN = {
 "Впереди нет экзаменов и дедлайнов.":"No exams or deadlines ahead.",
 "Ближайшее: «{t}», {d}{h} — {w}.":"Next up: “{t}”, {d}{h}, {w}.",
 "Посчитано на телефоне по твоим записям.":"Worked out on your phone from your records.",
+"Вопросы":"Questions",
+"Сколько я потратил на этой неделе?":"How much did I spend this week?",
+"Сколько осталось денег?":"How much money is left?",
+"Когда следующий экзамен?":"When is my next exam?",
 };

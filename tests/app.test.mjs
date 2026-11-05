@@ -3162,3 +3162,14 @@ test('Focus offers an optional background noise, off by default', () => {
     run(`noiseStart(); noiseStop()`); // no audio in tests: must not throw
   } finally { run(`save('app/meta', meta63)`); }
 });
+
+test('a reminder at 17:00 for an open main task of the day', () => {
+  run(`globalThis.tasks64 = clone(smartTasks())`);
+  try {
+    run(`saveTasks([...smartTasks(), {id: 'm64', title: 'Essay', due: todayISO(), done: false, pri: 2, mit: todayISO()}])`);
+    const r = JSON.parse(run(`JSON.stringify(buildReminders(0).find(x => x.key === 'mit' + todayISO()) || null)`));
+    assert.ok(r && /Essay/.test(r.title));
+    run(`A.tkDone({dataset: {id: 'm64'}})`);
+    assert.ok(!run(`buildReminders(0).some(x => x.key === 'mit' + todayISO())`), 'gone once it is done');
+  } finally { run(`saveTasks(tasks64)`); }
+});

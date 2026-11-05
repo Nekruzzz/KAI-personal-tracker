@@ -6712,12 +6712,16 @@ function insights(){
     const rated = days.filter(d => +d.rating >= 1);
     rateSplit(rated.filter(d => toNum(d.sleep) >= 7), rated.filter(d => toNum(d.sleep) > 0 && toNum(d.sleep) < 7), 'После 7+ часов сна ты оцениваешь день в среднем на {a}, после более короткого сна — на {b}.');
     rateSplit(rated.filter(d => d.tasks.some(t => t.id === 'gym' && t.done) || timeOn(d.date).gym > 0), rated.filter(d => !(d.tasks.some(t => t.id === 'gym' && t.done) || timeOn(d.date).gym > 0)), 'В дни с тренировкой ты оцениваешь день в среднем на {a}, без неё — на {b}.');
+    // the best and the hardest day of the week, from at least three of each
+    const byDow = {}; days.forEach(d => { const w = dow(d.date); (byDow[w] = byDow[w] || []).push(d); });
+    const ranked = Object.entries(byDow).filter(([, a]) => a.length >= 3).map(([w, a]) => [+w, pct(a)]).sort((x, y) => y[1] - x[1]);
+    if (ranked.length >= 4 && ranked[0][1] - ranked[ranked.length - 1][1] >= 20){ const [hi, lo] = [ranked[0], ranked[ranked.length - 1]]; out.push({a: hi[1], b: lo[1], text: 'Лучший день недели — {d1}: {a}% задач; самый трудный — {d2}: {b}%.', d1: DOW_FULL[hi[0]], d2: DOW_FULL[lo[0]], gap: (hi[1] - lo[1]) * 0.8}); }
     return out.sort((x, y) => y.gap - x.gap).slice(0, 3);
   }).slice();
 }
 function insightsCard(){
   const list = insights(); if (!list.length) return '';
-  return `<div class="sec-h"><h2>${tr('Что помогает твоим дням')}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:10px">${list.map(x => `<div class="ins"><span class="ins-ic" aria-hidden="true">${ic(x.a > x.b ? 'zap' : 'alert')}</span><div>${esc(trf(x.text, {a: x.a, b: x.b}))}</div></div>`).join('')}<div class="hint">${tr('Это то, что показывают твои дни за последние 3 месяца, а не правило.')}</div></section>`;
+  return `<div class="sec-h"><h2>${tr('Что помогает твоим дням')}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:10px">${list.map(x => `<div class="ins"><span class="ins-ic" aria-hidden="true">${ic(x.a > x.b ? 'zap' : 'alert')}</span><div>${esc(trf(x.text, {a: x.a, b: x.b, d1: x.d1 || '', d2: x.d2 || ''}))}</div></div>`).join('')}<div class="hint">${tr('Это то, что показывают твои дни за последние 3 месяца, а не правило.')}</div></section>`;
 }
 
 /* ============ when something breaks: the screen says so instead of going blank, and a small log stays on the phone (never sent) for a bug report ============ */

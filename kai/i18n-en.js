@@ -2323,4 +2323,5 @@ window.I18N_EN = {
 "Делал домашку с 18 до 20":"Did homework from 6 to 8 pm",
 "Стипендия 300":"Stipend 300",
 "Эссе до пятницы":"Essay due Friday",
+"Посмотри, как прошла неделя, и запиши планы на следующую":"See how the week went, and note your plans for the next one",
 };

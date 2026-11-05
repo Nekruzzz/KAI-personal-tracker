@@ -4566,7 +4566,7 @@ function buildReminders(now = Date.now()){
   }
   if (remindOn('challenges')){ const c = challengeNudge(today); if (c) add(c.key, c.at, c.title, c.body); }
   if (remindOn('warnings')) upcomingWarnings(7).forEach(w => add(`w${w.id}`, atMin(addDays(w.date, -1), 20 * 60), tr('Завтра в планах конфликт'), w.text));
-  if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), tr('Посмотри, как прошла твоя неделя'), false, 'recap'); }
+  if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), modOn('tasks') ? tr('Посмотри, как прошла неделя, и запиши планы на следующую') : tr('Посмотри, как прошла твоя неделя'), false, 'recap'); }
   const byTime = (a, b) => a.at - b.at, must = out.filter(r => r.must).sort(byTime).slice(0, REMIND_MUST);
   return [...must, ...out.filter(r => !r.must).sort(byTime).slice(0, REMIND_MAX - must.length)].sort(byTime);
 }

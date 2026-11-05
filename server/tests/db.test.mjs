@@ -1,7 +1,7 @@
 // Runs the real migration on a real Postgres engine (PGlite), with Supabase's auth pieces stubbed.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
 const A = '11111111-1111-1111-1111-111111111111', B = '22222222-2222-2222-2222-222222222222';
@@ -30,7 +30,8 @@ before(async () => {
     alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
     alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
   `);
-  await db.exec(readFileSync(new URL('../supabase/migrations/20261030000000_kai.sql', import.meta.url), 'utf8'));
+  const dir = new URL('../supabase/migrations/', import.meta.url);
+  for (const f of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) await db.exec(readFileSync(new URL(f, dir), 'utf8')); // in order, like supabase db push
   await db.exec(`insert into auth.users values ('${A}'), ('${B}');`);
 });
 
@@ -142,4 +143,46 @@ test('deleting an account removes everything', async () => {
   for (const t of ['profiles', 'ai_usage', 'docs', 'doc_versions'])
     assert.equal((await rows(`select count(*)::int c from public.${t} where user_id='${A}'`))[0].c, 0, t);
   assert.equal((await rows(`select count(*)::int c from public.docs where user_id='${B}'`))[0].c, 1);
+});
+
+const C = '33333333-3333-3333-3333-333333333333';
+const sub = (id, action, at, expires = null, user = C) => asServer(async () => (await rows('select public.apply_subscription_event($1,$2,$3,$4,$5,$6) r', [id, user, action, expires, at, 'T']))[0].r);
+const tierOf = async u => (await rows('select tier, tier_expires_at from public.profiles where user_id=$1', [u]))[0];
+
+test('subscription events set the plan once each, in order, and an end date in the past means free', async () => {
+  await db.exec(`insert into auth.users values ('${C}')`);
+  const later = new Date(Date.now() + 30 * 864e5).toISOString();
+  assert.equal(await sub('e1', 'grant', '2026-11-01T10:00:00Z', later), 'applied');
+  assert.equal((await tierOf(C)).tier, 'plus');
+  assert.equal((await reserve(C, true, '2026-11-03')).smart_model, true, 'photos and the better model unlocked');
+  assert.equal(await sub('e1', 'grant', '2026-11-01T10:00:00Z', later), 'duplicate', 'a resent event changes nothing');
+  assert.equal(await sub('e0', 'revoke', '2026-10-31T10:00:00Z'), 'stale', 'an older event arriving late is ignored');
+  assert.equal((await tierOf(C)).tier, 'plus');
+  assert.equal(await sub('e2', 'keep', '2026-11-02T10:00:00Z'), 'applied', 'a cancellation keeps the plan until it ends');
+  assert.equal((await tierOf(C)).tier, 'plus');
+  assert.ok((await tierOf(C)).tier_expires_at);
+  assert.equal(await sub('e3', 'grant', '2026-11-03T10:00:00Z', '2020-01-01T00:00:00Z'), 'applied');
+  const r = await reserve(C, true, '2026-11-04');
+  assert.deepEqual([r.ok, r.code], [false, 'plus_required'], 'past its end date: treated as free even without a webhook');
+  assert.equal(await sub('e4', 'revoke', '2026-11-04T10:00:00Z'), 'applied');
+  assert.deepEqual(await tierOf(C), {tier: 'free', tier_expires_at: null});
+  assert.equal(await sub('e5', 'grant', '2026-11-05T10:00:00Z', null, '99999999-9999-9999-9999-999999999999'), 'unknown_user');
+});
+
+test('nobody but the server can apply subscription events or read them', async () => {
+  await as(C, async () => {
+    await assert.rejects(db.query(`select public.apply_subscription_event('x','${C}','grant',null,now(),'T')`));
+    await assert.rejects(db.query('select * from public.subscription_events'));
+    await assert.rejects(db.query(`update public.profiles set tier='plus', tier_expires_at=null where user_id='${C}'`));
+  });
+});
+
+test('Apple sign-in tokens are for the server only, and go with the account', async () => {
+  const D = '44444444-4444-4444-4444-444444444444';
+  await db.exec(`insert into auth.users values ('${D}')`);
+  await asServer(() => db.query(`insert into public.apple_tokens (user_id, client_id, refresh_token) values ($1, 'com.example.kai', 'r')`, [D]));
+  await assert.rejects(as(D, () => db.query('select * from public.apple_tokens')), /permission denied/, 'not even your own');
+  await assert.rejects(as(D, () => db.query(`delete from public.apple_tokens`)), /permission denied/);
+  await db.exec(`delete from auth.users where id='${D}'`);
+  assert.equal((await rows(`select count(*)::int c from public.apple_tokens where user_id='${D}'`))[0].c, 0);
 });

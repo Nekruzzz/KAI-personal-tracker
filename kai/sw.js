@@ -1,7 +1,7 @@
 /* Offline shell for KAI. Bump VERSION when files change. */
-const VERSION = 'kai-v15';
-const SHELL = ['./', './index.html', './app.js', './config.js', './i18n-en.js', './privacy.html', './terms.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo.png'];
-const CDN = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const VERSION = 'kai-v202';
+const SHELL = ['./', './index.html', './app.js', './config.js', './i18n-en.js', './privacy.html', './terms.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo.png', './fonts/manrope-latin.woff2', './fonts/manrope-latin-ext.woff2', './fonts/manrope-cyrillic.woff2'];
+const CDN = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

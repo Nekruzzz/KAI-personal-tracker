@@ -3281,6 +3281,7 @@ function viewMore(){
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
     <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с ИИ")}</button>
     <button class="btn ghost" data-act="moneyCsv">${tr("Деньги таблицей (CSV)")}</button>
+    <button class="btn ghost" data-act="daysCsv">${tr("Дни таблицей (CSV)")}</button>
     <div id="copyList" style="display:flex;flex-direction:column;gap:6px"></div>
     <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>
     <button class="btn danger" data-act="wipeLocal">${ic('trash')}${tr("Удалить все данные на этом телефоне")}</button>`);
@@ -6663,6 +6664,22 @@ function savingsAddMany(items, date = todayISO()){
   save('app/savings', {...doc, list});
   moments.forEach(([t, a, b]) => saveMilestone(t, a, b));
 }
+
+/* ============ the days as a spreadsheet: one row a day, in the person's units ============ */
+function daysCSV(){
+  const q = v => { const x = String(v ?? ''); return /[",;\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  const head = [tr('Дата'), tr('Задач сделано'), tr('Задач всего'), tr('День засчитан'), tr('Болезнь'), trf('Сон, {u}', {u: tr('ч')}), tr('Шаги'), trf('Вес, {u}', {u: kgU()}), tr('Ккал'), trf('Белки, {u}', {u: tr('г')}), trf('Прогулки, {u}', {u: tr('мин')}), trf('Учёба, {u}', {u: tr('мин')}), trf('Тренировка, {u}', {u: tr('мин')}), trf('Экран, {u}', {u: tr('мин')}), tr('Оценка дня'), tr('Заметка')];
+  const rows = dayKeys().map(k => {
+    const d = S.docs['days/' + k], t = timeOn(k), e = eaten(d), tasks = d.tasks || [], w = toNum(d.weight);
+    return [k, tasks.filter(x => x.done).length, tasks.length, daySecured(d) && d.status !== 'sick' ? 1 : 0, d.status === 'sick' ? 1 : 0, toNum(d.sleep) ?? '', d.steps ?? '', w ? W(w) : '', d.meals?.length ? Math.round(e.kcal) : '', d.meals?.length ? Math.round(e.p) : '', Math.round(t.walk) || '', Math.round(t.study) || '', Math.round(t.gym) || '', d.screen?.total ?? '', d.rating ?? '', d.note || ''];
+  });
+  return [head, ...rows].map(r => r.map(q).join(',')).join('\r\n');
+}
+A.daysCsv = async () => {
+  if (!dayKeys().length) return toast(tr('Дней пока нет'));
+  const ok = await shareOrDownload(`kai-days-${todayISO()}.csv`, new Blob(['﻿' + daysCSV()], {type: 'text/csv'}));
+  if (ok) toast(tr('Таблица готова'));
+};
 
 /* ============ init ============ */
 async function init(){

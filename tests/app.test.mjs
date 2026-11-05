@@ -1042,6 +1042,7 @@ test('switches inside a card change the card, not the tab', () => {
 });
 
 test('"What can I write?" examples all work without AI, in both languages; the AI ones are marked', () => {
+  run(`globalThis.meta85 = clone(meta()); setMeta({modules: {...(meta().modules || {}), money: true}})`);
   const en = JSON.parse(run(`JSON.stringify(TELL_HELP.flatMap(([, xs]) => xs))`));
   const ruSrc = readFileSync(new URL('../kai/app.js', import.meta.url), 'utf8').match(/const TELL_HELP = \[([\s\S]*?)\n\];/)[1];
   const ru = [...ruSrc.matchAll(/tr\('([^']+)'\)/g)].map(m => m[1]).filter(x => /\d|Заболел/.test(x));
@@ -1049,7 +1050,7 @@ test('"What can I write?" examples all work without AI, in both languages; the A
   for (const t of [...en, ...ru]) assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0 || localAnswer(${JSON.stringify(t)}) !== null`), t); // questions are answered instead
   run(`SH = {}`);
   assert.match(run(`tellHelpHTML()`), /needs AI/);
-  run(`SH = null`);
+  run(`SH = null; save('app/meta', meta85)`);
 });
 
 test('in the iPhone app with KAI\'s own AI, "paste your own key" is hidden unless the owner allows it; the web keeps it', () => {

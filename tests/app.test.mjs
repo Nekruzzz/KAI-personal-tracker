@@ -2958,3 +2958,22 @@ test('Tell KAI: what already happened is not a to-do; pomodoros, "1h30", study r
   assert.deepEqual(p('drank coffee 3.50').money.map(m => m.amount), [3.5]);
   assert.ok(!/60 мин/.test(run(`JSON.stringify(localTellParse('лёг в час ночи', todayISO()).left)`)), 'в час ночи is one o clock');
 });
+
+test('the week ahead is asked on Sunday evening or Monday morning, once', () => {
+  run(`globalThis.meta53 = clone(meta())`);
+  try {
+    run(`setMeta({startedOn: '2030-01-01', weekPlan: null})`);
+    const sun = '2030-03-10', mon = '2030-03-11';
+    assert.equal(run(`dow('${sun}')`), 7);
+    assert.equal(run(`weekPlanQ('${sun}', 18)?.k`), 'wp_' + mon);
+    assert.equal(run(`weekPlanQ('${sun}', 11)`), null, 'not on Sunday morning');
+    assert.equal(run(`weekPlanQ('${mon}', 9)?.k`), 'wp_' + mon, 'Monday morning, if Sunday was missed');
+    assert.equal(run(`weekPlanQ('2030-03-12', 9)`), null);
+    run(`setMeta({weekPlan: 'wp_${mon}'})`);
+    assert.equal(run(`weekPlanQ('${mon}', 9)`), null, 'answered once for the week');
+    assert.ok(/data-act="ciWeek"/.test(run(`weekPlanBody({k: 'wp_x'})`)));
+  } finally { run(`save('app/meta', meta53)`); }
+  const ev = JSON.parse(run(`JSON.stringify(localTellParse('essay by friday', todayISO()).r.events)`));
+  assert.equal(ev[0]?.kind, 'deadline');
+  assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('buy milk by friday', todayISO()).r.new_tasks)`)).length, 1);
+});

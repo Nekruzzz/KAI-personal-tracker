@@ -2265,4 +2265,9 @@ window.I18N_EN = {
 "Записано в среднем {k} ккал в день, намного ниже нормы {t}, поэтому KAI не советует есть меньше. Если записано не всё, записывай полные дни. Если ешь действительно так мало, обсуди это с врачом.":"On average {k} kcal a day is logged, far below the {t} target, so KAI won't suggest eating less. If not everything is logged, log full days. If you really eat this little, talk it over with a doctor.",
 "Звуки и вибрация":"Sound and haptics",
 "Короткие звуки теперь включены: они тихие, не прерывают музыку и молчат в беззвучном режиме. Выключить: Ещё → Отклик.":"Short sounds are now on: they're quiet, don't stop your music and stay silent in silent mode. To turn them off: More → Response.",
+"Что важного на следующей неделе?":"Anything important next week?",
+"Что важного на этой неделе?":"Anything important this week?",
+"Экзамены, дедлайны, дела: через запятую. Например: «контрольная в четверг в 10, эссе до пятницы, зал по понедельникам и пятницам».":"Exams, deadlines, to-dos, separated by commas. For example: “quiz on Thursday at 10, essay due Friday, gym every Monday and Friday”.",
+"Планы на неделю":"Plans for the week",
+"Ничего особенного":"Nothing special",
 };

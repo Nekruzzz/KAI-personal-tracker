@@ -3475,6 +3475,7 @@ function checkins(){
   if (modOn('tasks')){
     if (hr >= 6 && hr < 12 && !smartTasks().some(t => !t.done && t.due === date) && !d.planDone) q('plan', {type: 'plan', text: tr('Что нужно сделать сегодня?')});
     { const mq = mitQ(date, hr); if (mq) q(mq.k, mq); }
+    { const wq = weekPlanQ(date, hr); if (wq) out.push(wq); }
     smartTasks().filter(t => isOverdue(t) && !studyOver(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
     smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
@@ -3505,6 +3506,7 @@ function checkinCard(){
   else if (c.type === 'exam') body = examResultBody(c, b);
   else if (c.type === 'sleep') body = sleepQBody(c);
   else if (c.type === 'mit') body = mitQBody(c);
+  else if (c.type === 'week') body = weekPlanBody(c);
   else if (c.type === 'debt') body = `<div class="btnrow">${b('yes', tr('Да, вернули'))}${b('no', tr('Ещё нет'), 'ghost')}</div>`;
   else if (c.type === 'bill') body = `<div class="btnrow">${b('paid', c.inc ? tr('Получено') : tr('Оплачено'))}${b('skip', tr('Пропустить месяц'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
@@ -3534,6 +3536,7 @@ A.ciAns = el => {
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
   if (k.startsWith('x_')) return examResultAns(a, id, mark);
   if (k === 'sl') return sleepQAns(a, mark);
+  if (k.startsWith('wp_')) return setMeta({weekPlan: k});
   if (k === 'mit') return a === 'no' ? mark('no') : (setMit(a), mark('yes'));
   if (k.startsWith('p_')) return billDueAns(a, id, mark);
   if (k.startsWith('d_')) return debtAns(a, id, mark);
@@ -4829,7 +4832,7 @@ function localTellParse(text, date, opts = {}){
       const range = cq.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? cq.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : cq);
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
-        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c);
+        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
@@ -6558,6 +6561,29 @@ function pastStart(c){
   if (NOT_PAST_RU.has(w)) return false;
   return /^(?:лёг|лег|легла|легли|пош[её]л|пошла|ш[её]л|шла|съел|съела|ел|ела)$/.test(w) || (w.length >= 4 && /(?:ал|ял|ил|ел|ёл|ыл|ул|ол)(?:а|о|и|ся|ась|ось|ись)?$/.test(w));
 }
+
+/* ============ the week ahead, planned on Sunday evening (or Monday morning): one line, read like Tell KAI and shown before it's saved ============ */
+function weekPlanKey(date, hr){
+  const d = dow(date);
+  if (d === 7 && hr >= 16) return 'wp_' + addDays(date, 1);
+  if (d === 1 && hr >= 6 && hr < 12) return 'wp_' + date;
+  return null;
+}
+function weekPlanQ(date, hr){
+  if (!modOn('tasks')) return null;
+  const k = weekPlanKey(date, hr); if (!k || meta().weekPlan === k || (meta().startedOn || date) === date) return null; // not on the very first day
+  return {k, type: 'week', text: dow(date) === 7 ? tr('Что важного на следующей неделе?') : tr('Что важного на этой неделе?')};
+}
+const weekPlanBody = c => `<div class="hint">${tr('Экзамены, дедлайны, дела: через запятую. Например: «контрольная в четверг в 10, эссе до пятницы, зал по понедельникам и пятницам».')}</div>
+  <div class="qadd"><input class="in" id="ciWeek" placeholder="${tr('Планы на неделю')}" aria-label="${tr('Планы на неделю')}" autocomplete="off"><button class="btn" data-act="ciWeek" data-k="${esc(c.k)}" aria-label="${tr('Разобрать')}">${ic('plus')}</button></div>
+  <div class="btnrow"><button class="btn ghost" data-act="ciAns" data-k="${esc(c.k)}" data-a="no">${tr('Ничего особенного')}</button></div>`;
+A.ciWeek = el => {
+  const raw = ($('#ciWeek')?.value || '').trim(); if (!raw) return toast(tr('Впиши хотя бы одно дело'));
+  setMeta({weekPlan: el.dataset.k});
+  A.tell(); SH.tellText = raw; drawSheet();
+  if (!aiStatus().ok) tellLocal(raw, todayISO()); // with an AI, the person sends it as usual
+};
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target?.id === 'ciWeek'){ e.preventDefault(); const b = $('[data-act="ciWeek"]'); if (b) A.ciWeek(b); } });
 
 /* ============ init ============ */
 async function init(){

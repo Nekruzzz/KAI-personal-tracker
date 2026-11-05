@@ -5955,8 +5955,9 @@ const nextTopic = examId => planTasks(examId).filter(t => !t.done).sort((a, b) =
 
 /* ============ what's new: once, for people who used an earlier version ============ */
 // never over another sheet, never during onboarding; new installs mark it seen when they finish onboarding
-const WHATS_NEW_ID = '2026-11';
+const WHATS_NEW_ID = '2026-11b';
 const WHATS_NEW = () => [
+  ['zap', tr('Звуки и вибрация'), tr('Короткие звуки теперь включены: они тихие, не прерывают музыку и молчат в беззвучном режиме. Выключить: Ещё → Отклик.')],
   ['snow', tr('Заморозки серии'), tr('Один пропущенный день больше не сжигает серию: заморозка спасёт её сама. Каждые 7 дней подряд дают новую.')],
   ['target', tr('Вызовы недели'), tr('Три цели на неделю, чуть выше прошлой. За каждую +50 XP, а у уровней теперь есть названия.')],
   ['repeat', tr('Регулярные платежи'), tr('Аренда, телефон и подписки: бюджет откладывает их заранее, а в день платежа KAI напомнит.')],

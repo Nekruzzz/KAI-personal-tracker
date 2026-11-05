@@ -221,6 +221,8 @@ After the merge into `main`, asked for sound on by default, more haptics where t
 - **Faster with a lot of data.** Profiled opening the app with two years of days at a mid-range phone's speed (Chromium, CPU slowed 4×). The list of days, the posts of each day, XP, award progress and the upcoming-conflict warnings were each worked out from scratch several times per redraw; they're now kept until the data changes (the cache the app already had, cleared on every save). Time parsing is memoized, and the scroll check after a redraw no longer forces an extra layout. Redraw time while opening went from 788 ms to 249 ms, the Day screen's own drawing from 415 ms to 138 ms.
 - **The daily list comes first.** The Day tab's hero says "4 more tasks and the day counts", but those tasks sat about 3.5 screens down, under the schedule, screen time and the backup banner. Habit-app guidance is consistent that the daily check-in must take seconds, so the Daily list now follows the morning question directly; the weekly challenges moved up next to the schedule. Nothing was removed.
 - **Safety: no "eat less" while logged food is far below the target.** With about 420 kcal a day logged, the Food tab showed the "less than 800 kcal three days in a row" note and, right under it, "Cut about 150 kcal a day". Now, while the average logged intake over the last two weeks is under 70% of the target, the weight card doesn't offer a lower target: it says what was logged, asks for full days if something is missing, and suggests a doctor if intake really is that low. The floor, the under-18 and underweight rules are unchanged.
+- **People are told about the sound.** "What's new" shows once more to people updating, starting with "Sound and haptics: short sounds are now on, quiet, don't stop your music, silent in silent mode; to turn them off: More → Response".
+- **Checked again:** axe-core in both themes and languages (no violations), text contrast over the glass (all passes), every button tapped (177, no errors), odd input in every field (no errors), both test suites.
 - **Timer bars that hold still.** The rest and Focus bars were rebuilt twice a second, so "+30 s" or "End" could be replaced right under a finger and VoiceOver lost its place. Now only the numbers and the progress line change.
 
 ## Gamification: why these pieces
@@ -237,7 +239,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 213 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 212 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

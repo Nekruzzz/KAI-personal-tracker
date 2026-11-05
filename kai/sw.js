@@ -1,5 +1,5 @@
 /* Offline shell for KAI. Bump VERSION when files change. */
-const VERSION = 'kai-v206';
+const VERSION = 'kai-v207';
 const SHELL = ['./', './index.html', './app.js', './config.js', './i18n-en.js', './privacy.html', './terms.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo.png', './fonts/manrope-latin.woff2', './fonts/manrope-latin-ext.woff2', './fonts/manrope-cyrillic.woff2'];
 const CDN = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com'];
 

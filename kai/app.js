@@ -3955,9 +3955,9 @@ function tellPlan(r){
   const cancel = new Set(r.cancel_events || []);
   let evs = (pl.routine.events || []).filter(e => !cancel.has(e.id));
   (r.update_events || []).forEach(u => { const e = evs.find(x => x.id === u?.id); if (!e) return; if (DATE_RE.test(u.date || '')) e.date = u.date; if (HM_RE.test(u.from || '')){ e.from = u.from; delete e.until; } if (HM_RE.test(u.until || '')) e.until = u.until; if (u.title) e.title = String(u.title).slice(0, 120); });
-  evs = evs.concat((r.events || []).map(cleanEv).filter(Boolean));
+  evs = evs.concat((r.events || []).map(cleanEv).filter(Boolean).filter(e => !evs.some(x => sameTitle(x.title, e.title) && x.date === e.date))); // the same event told twice is added once
   pl.routine.events = evs;
-  const tasks = (r.new_tasks || []).map(cleanTask).filter(Boolean);
+  const tasks = (r.new_tasks || []).map(cleanTask).filter(Boolean).filter((t, i, a) => !dupTask(t) && a.findIndex(x => sameTitle(x.title, t.title) && x.due === t.due) === i); // "gym every Monday" told twice is one to-do
   const moves = (r.move_workouts || []).filter(m => DATE_RE.test(m?.from || '') && workoutFor(m.from) && (!m.to || DATE_RE.test(m.to)));
   return {pl, tasks, moves};
 }
@@ -3975,10 +3975,11 @@ function previewWarnings(r){
 }
 function tellPlanLines(r){
   const lines = [], {tasks, moves} = tellPlan(r), name = id => allEvents().find(e => e.id === id)?.title || id;
-  (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(`+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
+  (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(allEvents().some(x => sameTitle(x.title, e.title) && x.date === e.date) ? trf('Уже в планах: {t}', {t: e.title}) : `+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
   (r.update_events || []).filter(u => allEvents().some(e => e.id === u?.id)).forEach(u => lines.push(`${tr("Изменить «")}${name(u.id)}${tr('»')}: ${[u.date && DATE_RE.test(u.date) ? fmtShort(u.date) : '', u.from || ''].filter(Boolean).join(tr(' в '))}`));
   (r.cancel_events || []).filter(id => allEvents().some(e => e.id === id)).forEach(id => lines.push(`${tr("Отменить «")}${name(id)}${tr('»')}`));
   tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}${t.every ? ' · ' + everyText(t) : ''}`));
+  [...new Set((r.new_tasks || []).map(cleanTask).filter(t => t && dupTask(t)).map(t => t.title))].forEach(t => lines.push(trf('Уже в планах: {t}', {t})));
   moves.forEach(m => lines.push(m.to ? `${tr("Перенести тренировку:")} ${fmtShort(m.from)} → ${fmtShort(m.to)}` : `${tr("Убрать тренировку")} ${fmtShort(m.from)}`));
   const tn = {walk:tr('Ходьба'), gym:tr('Тренировка'), study:tr('Учёба')};
   (r.time_log || []).filter(x => tn[x?.kind] && +x.min > 0).forEach(x => lines.push(`${tn[x.kind]}: ${fmtMin(+x.min)}`));
@@ -6739,6 +6740,12 @@ A.errCopy = async () => {
 
 /* ============ the hero's "4 more tasks" goes straight to the daily list ============ */
 A.toDaily = () => { const h = $('#dailyH'); if (!h) return; h.scrollIntoView({behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start'}); setTimeout(() => h.querySelector('h2')?.focus({preventScroll: true}), 350); };
+
+/* ============ the same to-do or event told twice is added once ============ */
+const sameTitle = (a, b) => String(a || '').trim().toLowerCase().replace(/ё/g, 'е') === String(b || '').trim().toLowerCase().replace(/ё/g, 'е');
+function dupTask(t){
+  return smartTasks().some(x => !x.done && sameTitle(x.title, t.title) && (x.due === t.due || (t.every && x.every === t.every && x.due && t.due && dow(x.due) === dow(t.due) && (x.n || 1) === (t.n || 1))));
+}
 
 /* ============ init ============ */
 async function init(){

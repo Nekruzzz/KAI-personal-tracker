@@ -231,6 +231,7 @@ After the merge into `main`, asked for sound on by default, more haptics where t
 - **When something breaks.** If a screen hits a bug while drawing, it now says "This screen didn't open. Your data is safe" with a Reload button, instead of staying blank or frozen. Errors from the app's own files (not browser extensions) go to a small log on the phone, at most 20 entries, never sent anywhere; More → Data and backup offers "Copy the error log" when there is one, for a bug report. Normal use logs nothing (checked by tapping every button and the odd-input run).
 - **CI checks translations.** The `Checks` workflow now also runs `tools/check-i18n.js`, which exits with an error when interface text has no English or an English value still contains Russian, so a missing translation can't slip through unnoticed.
 - **Small things:** "What can I write?" adds "Did homework from 6 to 8 pm", "Stipend 300" and "Essay due Friday" (an am/pm said once now applies to both ends of a range). The Sunday recap reminder also invites planning the next week. The web page has a description and link-preview tags for when the Vercel address is shared, and the manifest an app id and categories. Checked at 320 points wide (iPhone SE): nothing wider than the screen.
+- **Told twice, added once.** Telling KAI "gym every Monday and Friday" a second time added two more weekly to-dos each time, and an AI answer could add the same exam twice. A to-do with the same title and date (or the same repeat on the same weekday) as an open one, and an event with the same title and date, are now skipped, and the preview says "Already in your plans: Gym". Found with a new four-month simulation of daily use (messages, check-offs, sick and skipped days, every screen drawn each day, in both languages): no errors, XP never fell, streaks, freezes and challenge goals stayed in range.
 - **Checked again:** axe-core in both themes and languages (no violations), text contrast over the glass (all passes), every button tapped (177, no errors), odd input in every field (no errors), both test suites.
 - **Timer bars that hold still.** The rest and Focus bars were rebuilt twice a second, so "+30 s" or "End" could be replaced right under a finger and VoiceOver lost its place. Now only the numbers and the progress line change.
 
@@ -248,7 +249,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 221 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 223 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.
@@ -282,4 +283,5 @@ All of it is counted from data the app already keeps, plus three optional fields
 17. **Payment reminders are on by default** (at 10:00 on the day) for anyone who adds a regular payment, like the exam reminders; the evening check-in and morning plan stay off until turned on. Say if payments should start off too.
 18. **Streak freezes: one to start, two at most, one per 7 days.** These are the defaults chosen (similar to well-known habit apps). A larger cap makes streaks feel cheap; zero to start makes the first slip in week one hurt most. Easy to change in `FREEZE_MAX` and `freezeDoc()`.
 19. **Should the evening check-in (and the new Saturday challenges reminder) be on by default now?** It is the one reminder that protects a streak ("2 more tasks to keep your 12-day streak"), but it stays off until turned on, as before. Turning it on by default would help daily use; it was left off because reminders that weren't asked for can feel pushy.
+20. **Completed to-dos are kept forever.** They count for XP and the weekly challenges, so nothing removes them. After a couple of years of daily repeating to-dos the list could hold around a thousand finished entries, saved (and synced) as one record. KAI could archive finished to-dos older than six months and keep just their count for XP; nothing was removed, since that would delete history. Say if you want it.
 

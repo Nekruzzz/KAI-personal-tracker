@@ -2270,4 +2270,6 @@ window.I18N_EN = {
 "Экзамены, дедлайны, дела: через запятую. Например: «контрольная в четверг в 10, эссе до пятницы, зал по понедельникам и пятницам».":"Exams, deadlines, to-dos, separated by commas. For example: “quiz on Thursday at 10, essay due Friday, gym every Monday and Friday”.",
 "Планы на неделю":"Plans for the week",
 "Ничего особенного":"Nothing special",
+"Перерыв 15 мин":"15-min break",
+"Длинный перерыв":"Long break",
 };

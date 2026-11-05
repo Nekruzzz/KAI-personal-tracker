@@ -5368,7 +5368,7 @@ function focusFinish(complete){
   if (complete){ haptic('success'); sound('badge'); }
   const said = leaves ? trf('Фокус: {m} из {t} мин · {n} {w}, {a} мин вне приложения', {m: mins, t: f.min, n: leaves, w: plural(leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')), a: awayMin})
     : complete ? trf('Фокус: {m} мин без единого отвлечения', {m: mins}) : trf('Фокус: {m} мин', {m: mins});
-  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : complete && mins >= 20 ? {action: {label: tr('Перерыв 5 мин'), act: 'focusBreak'}} : {})});
+  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : complete && mins >= 20 ? {action: focusBreakAction()} : {})});
   scheduleRender();
 }
 let FOCUS_TASK = null;
@@ -6584,6 +6584,13 @@ A.ciWeek = el => {
   if (!aiStatus().ok) tellLocal(raw, todayISO()); // with an AI, the person sends it as usual
 };
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target?.id === 'ciWeek'){ e.preventDefault(); const b = $('[data-act="ciWeek"]'); if (b) A.ciWeek(b); } });
+
+/* ============ Focus: every fourth full session today earns a longer break, as in the Pomodoro method ============ */
+function focusBreakAction(){
+  const full = (getDay(todayISO()).focus || []).filter(f => f.min >= 20 && f.min >= (f.of || 0) - 1).length;
+  return full && full % 4 === 0 ? {label: tr('Перерыв 15 мин'), act: 'focusBreakLong'} : {label: tr('Перерыв 5 мин'), act: 'focusBreak'};
+}
+A.focusBreakLong = () => { hideToast(); haptic('light'); startRest(900, tr('Длинный перерыв')); };
 
 /* ============ init ============ */
 async function init(){

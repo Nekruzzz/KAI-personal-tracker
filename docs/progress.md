@@ -127,7 +127,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 - **A study plan ends with its exam:** topics still open after the exam no longer sit in the to-do list as overdue, and the check-in stops asking about them; they stay in the data. Repeating to-dos are also among the "What can I write?" examples and the empty list's hint.
 - **Focus from an exam card:** each exam card has Focus next to its study plan, and focused minutes count as preparation for that exam. "+30 min of prep" and "To Calendar" became links, so the card has one row of buttons instead of three.
 - **An exam's Focus works on its next study topic** when there is a study plan, so a session counts for that topic and can mark it done.
-- **A break after Focus:** a full session of 20 minutes or more offers a 5-minute break on the countdown bar.
+- **A break after Focus:** a full session of 20 minutes or more offers a 5-minute break on the countdown bar. Every fourth full session of the day offers a 15-minute break instead, as in the Pomodoro method.
 - **Focus by subject:** each session now keeps its name, and the Focus sheet's week summary adds where the time went ("Statistics 1 h 10 min · Chemistry 25 min"); earlier sessions count as study.
 - **Focus awards:** "In the zone" (a first session), "No distractions" (45 minutes or more without leaving KAI) and "Deep work" (10 hours in all), counted from the focus history already kept per day, so earlier sessions count. Awards of a switched-off module (the video awards while Content is off) are hidden from the shelf and the count; one already earned stays.
 - **New students are pointed to their timetable:** in the first two weeks, after the first message, a card offers to add classes from a calendar file (.ics) in one go or one at a time; it goes away once classes exist or with "Not now".
@@ -242,7 +242,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 214 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 215 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

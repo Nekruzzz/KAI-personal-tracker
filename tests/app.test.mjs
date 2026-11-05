@@ -2977,3 +2977,15 @@ test('the week ahead is asked on Sunday evening or Monday morning, once', () => 
   assert.equal(ev[0]?.kind, 'deadline');
   assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('buy milk by friday', todayISO()).r.new_tasks)`)).length, 1);
 });
+
+test('Focus: the fourth full session of the day offers a 15-minute break', () => {
+  run(`globalThis.day54 = clone(getDay(todayISO()))`);
+  try {
+    run(`mutDay(todayISO(), d => { d.focus = [1, 2, 3].map(() => ({at: '09:00', min: 25, of: 25, leaves: 0})); })`);
+    assert.equal(run(`focusBreakAction().act`), 'focusBreak');
+    run(`mutDay(todayISO(), d => { d.focus.push({at: '11:00', min: 25, of: 25, leaves: 0}); })`);
+    assert.equal(run(`focusBreakAction().act`), 'focusBreakLong');
+    run(`mutDay(todayISO(), d => { d.focus.push({at: '12:00', min: 5, of: 25, leaves: 0}); })`);
+    assert.equal(run(`focusBreakAction().act`), 'focusBreakLong', 'a cut-short session does not count');
+  } finally { run(`save('days/' + todayISO(), day54)`); }
+});

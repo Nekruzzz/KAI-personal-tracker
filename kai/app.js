@@ -1274,7 +1274,7 @@ function viewDay(){
     <div class="hero-top"><span class="greet">${greeting()}${profile().name?', '+esc(profile().name):''}</span>${streakChip()}</div>
     <div class="hero-row"><div class="grow">
       <div class="hero-num">${done}<span class="of"> ${tr("из")} ${total}</span></div>
-      <div class="hero-sub">${status}</div>
+      <div class="hero-sub">${sc < 1 && d.status !== 'sick' && total ? `<button class="hero-go" data-act="toDaily">${status}</button>` : status}</div>
     </div>${ring(sc, 88, 10, '', tr('Выполнено за день'), 'day')}</div>
     <div class="actions">
       <button data-act="tell">${ic('mic')}${tr("Сказать KAI")}</button>
@@ -1291,7 +1291,7 @@ function viewDay(){
   h += examCard();
   h += checkinCard();
   // the daily list decides whether the day counts, so it comes before the rest of the day
-  h += `<div class="sec-h"><h2>${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
+  h += `<div class="sec-h" id="dailyH"><h2 tabindex="-1">${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
   <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
   h += nowCard();
   h += taskCard();
@@ -6729,6 +6729,9 @@ A.errCopy = async () => {
   const text = errLog().map(x => `${x.t} [${x.k}${x.tab ? ' · ' + x.tab : ''}] ${x.m}${x.s ? '\n  ' + x.s : ''}`).join('\n');
   try { await navigator.clipboard.writeText(text); toast(tr('Журнал скопирован')); } catch { toast(tr('Не удалось скопировать')); }
 };
+
+/* ============ the hero's "4 more tasks" goes straight to the daily list ============ */
+A.toDaily = () => { const h = $('#dailyH'); if (!h) return; h.scrollIntoView({behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start'}); setTimeout(() => h.querySelector('h2')?.focus({preventScroll: true}), 350); };
 
 /* ============ init ============ */
 async function init(){

@@ -2941,3 +2941,20 @@ test('no advice to eat less while logged food is far below the target', () => {
     assert.match(a.text, /far below|намного ниже/);
   } finally { run(`weightTrend = wt2`); }
 });
+
+test('Tell KAI: what already happened is not a to-do; pomodoros, "1h30", study ranges and sets of reps are read', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  for (const t of ['went to bed at 1am', 'проснулся в 6:30', 'поспал днём 30 минут', 'called mom at 5']) assert.equal(p(t).new_tasks.length, 0, t);
+  assert.equal(p('call mom at 5').new_tasks.length, 1, 'a plan is still a plan');
+  assert.equal(p('feed the cat at 6').new_tasks.length, 1, '"feed" is not a past tense');
+  assert.deepEqual(p('studied for 3 pomodoros').time_log, [{kind: 'study', min: 75}]);
+  assert.deepEqual(p('revised biology 1h30').time_log, [{kind: 'study', min: 90}]);
+  assert.deepEqual(p('делал домашку с 18 до 20').time_log, [{kind: 'study', min: 120}]);
+  assert.deepEqual(p('качался час').time_log, [{kind: 'gym', min: 60}]);
+  assert.deepEqual(p('плавание 45 минут').time_log, [{kind: 'gym', min: 45}]);
+  assert.deepEqual(p('дошёл до универа за 25 минут').time_log, [{kind: 'walk', min: 25}]);
+  assert.equal(p('did 3 sets of 10 pushups').sets.length, 3);
+  assert.ok(!p('отжимания 3х15').sets.some(s => s.ex === 'dips'), 'push-ups are not dips');
+  assert.deepEqual(p('drank coffee 3.50').money.map(m => m.amount), [3.5]);
+  assert.ok(!/60 мин/.test(run(`JSON.stringify(localTellParse('лёг в час ночи', todayISO()).left)`)), 'в час ночи is one o clock');
+});

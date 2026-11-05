@@ -2366,4 +2366,8 @@ window.I18N_EN = {
 "Вес: {w} {u} ({d}).":"Weight: {w} {u} ({d}).",
 "За 2 недели: {c} {u}.":"Over 2 weeks: {c} {u}.",
 "еду":"food",
+"Тишина":"Silence",
+"Мягкий шум":"Soft noise",
+"Дождь":"Rain",
+"Фон":"Background",
 };

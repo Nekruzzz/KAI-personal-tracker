@@ -3141,3 +3141,13 @@ test('care: more ways of saying "I am in crisis", and plans to eat dangerously l
   assert.equal(r.care, 'eating'); assert.equal(r.new_tasks.length + r.events.length + (r.meals || []).length, 0, 'nothing is planned');
   assert.ok(/doctor|врач/i.test(run(`previewWarnings({care: 'eating'})[0].text`)));
 });
+
+test('Tell KAI answers food and weight questions too', () => {
+  run(`globalThis.day62 = clone(getDay(todayISO()))`);
+  try {
+    run(`mutDay(todayISO(), d => { d.meals = [{name: 'x', kcal: 640, p: 41, f: 20, c: 70}]; d.weight = 70.4; })`);
+    const a = run(`localAnswer('how many calories did I eat today?')`);
+    assert.ok(/640/.test(a) && /41/.test(a), a);
+    assert.ok(/70[.,]4|155[.,]2/.test(run(`localAnswer("what's my weight?")`)));
+  } finally { run(`save('days/' + todayISO(), day62)`); }
+});

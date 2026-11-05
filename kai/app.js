@@ -2286,7 +2286,7 @@ A.finishW = el => {
 };
 A.sleepQ = el => mutDay(todayISO(), d => { d.sleepQ = +el.dataset.v; });
 A.suppTake = el => { if (!getDay(todayISO()).supps?.[el.dataset.n]){ haptic('light'); burstAt(el, {n:10}); } else haptic('selection'); mutDay(todayISO(), d => { d.supps = d.supps||{}; d.supps[el.dataset.n] = !d.supps[el.dataset.n]; const all = (plan().supps||[]).every(s=>d.supps[s.name]); const t = d.tasks.find(x=>x.id==='supps'); if (t) t.done = all; }); };
-A.delSupp = el => { const p = clone(plan()); p.supps.splice(+el.dataset.i,1); save('app/plan', p); };
+A.delSupp = el => withUndo(['app/plan'], () => { const p = clone(plan()); p.supps.splice(+el.dataset.i,1); save('app/plan', p); });
 A.delMeal = el => withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { d.meals.splice(+el.dataset.i,1); }));
 A.mPrev = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m-2, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
 A.mNext = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };

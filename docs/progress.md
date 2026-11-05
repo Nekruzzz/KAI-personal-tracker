@@ -97,7 +97,7 @@ Added after the owner asked for more improvements chosen independently. Each is 
 
 **Money**
 
-- **Savings goals (new):** "Laptop: $320 of $1,000" under Money, with a progress bar, "Save" and "Take out" (quick amounts of about 5, 10 and 25% of the goal), and Undo. A quarter, half and three quarters of the way get a small celebration, the goal itself confetti. Savings are kept apart from spending and the budget, like debts. Stored as `app/savings`; a removed goal is hidden, not erased.
+- **Savings goals (new):** "Laptop: $320 of $1,000" under Money, with a progress bar, "Save" and "Take out" (quick amounts of about 5, 10 and 25% of the goal), and Undo. A quarter, half and three quarters of the way get a small celebration, the goal itself confetti. Savings are kept apart from spending and the budget, like debts. Stored as `app/savings`; a removed goal is hidden, not erased. Tell KAI understands "saved 50 for the laptop", "put 50 into savings" and "отложил 500 на ноутбук" (matched to a goal by name, or to the only goal for "копилка"/"savings"): shown as "Into “Laptop”: +$50" and never counted as spending, also when an AI read the message.
 - **Last month in short:** from the 1st to the 5th, the Money tab sums up the month before: spent and the change, the top category, and whether the budget held.
 - **Debts (new):** a Debts list under Money ("Owes you: Sam, $20", "You owe Alex"), with Paid back and Undo, kept apart from spending. Tell KAI reads "Sam owes me 20", "lent Sam 30", "Петя должен мне 500", "занял 1000 у Маши". After two weeks the Day tab asks whether the money came back, then weekly.
 - **Due payments are asked about on the Day tab:** "“Rent” ($400) is due today. Paid?" with Paid, Skip month and Later, one payment at a time, while Money is on.
@@ -243,7 +243,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 216 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 217 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

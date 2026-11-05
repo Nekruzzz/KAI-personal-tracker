@@ -3039,3 +3039,17 @@ test('days export as a spreadsheet, one row a day', () => {
     assert.equal(cols(row), cols(csv[0]), 'as many columns as the header');
   } finally { run(`remove('days/${k}')`); }
 });
+
+test('insights compare the person’s own days, only with enough days and a clear gap', () => {
+  run(`globalThis.days57 = Object.fromEntries(dayKeys().filter(k => k >= addDays(todayISO(), -95)).map(k => [k, clone(S.docs['days/' + k])])); Object.keys(days57).forEach(k => remove('days/' + k))`);
+  try {
+    for (let i = 0; i < 12; i++) run(`(() => { const k = addDays(todayISO(), -${i + 1}); save('days/' + k, {...buildDay(k), status: 'ok', sleep: ${i % 2 ? 8 : 5}, tasks: buildDay(k).tasks.map((t, j) => ({...t, done: ${i % 2 ? 'true' : 'j % 2 === 0'}}))}); })()`);
+    const list = JSON.parse(run(`JSON.stringify(insights())`));
+    const sl = list.find(x => /7/.test(x.text));
+    assert.ok(sl && sl.a > sl.b, 'better days after longer sleep');
+    assert.ok(run(`insightsCard()`).includes(String(sl.a)));
+    for (let i = 0; i < 12; i++) run(`remove('days/' + addDays(todayISO(), -${i + 1}))`);
+    for (let i = 0; i < 4; i++) run(`(() => { const k = addDays(todayISO(), -${i + 1}); save('days/' + k, {...buildDay(k), sleep: ${i % 2 ? 8 : 5}}); })()`);
+    assert.equal(run(`insights().length`), 0, 'not with a handful of days');
+  } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days57).forEach(([k, v]) => save('days/' + k, v))`); }
+});

@@ -2308,4 +2308,10 @@ window.I18N_EN = {
 "Тренировка, {u}":"Workout, {u}",
 "Экран, {u}":"Screen, {u}",
 "Дней пока нет":"No days yet",
+"После ночей от 7 часов ты выполняешь {a}% задач, после более короткого сна — {b}%.":"After nights of 7+ hours you finish {a}% of your tasks; after shorter sleep, {b}%.",
+"В дни, когда шагов больше нормы, — {a}% задач, в остальные — {b}%.":"On days above your step goal you finish {a}% of your tasks; on other days, {b}%.",
+"В дни, когда в телефоне меньше 3 часов, — {a}% задач, при большем — {b}%.":"On days with under 3 hours of screen time you finish {a}% of your tasks; with more, {b}%.",
+"В дни с фокус-сессией — {a}% задач, без неё — {b}%.":"On days with a Focus session you finish {a}% of your tasks; without one, {b}%.",
+"Что помогает твоим дням":"What helps your days",
+"Это то, что показывают твои дни за последние 3 месяца, а не правило.":"This is what your last 3 months show, not a rule.",
 };

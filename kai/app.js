@@ -1328,7 +1328,7 @@ function viewDay(){
   </section>`;
   h += weekCard();
   h += badgesShelf();
-  const statsHTML = progressCard() + h; h = hKeep;
+  const statsHTML = progressCard() + insightsCard() + h; h = hKeep;
   h += acc('stats', 'activity', tr('Прогресс и награды'), statsSummary(st, avg7), statsHTML, true);
   return h;
 }
@@ -6680,6 +6680,28 @@ A.daysCsv = async () => {
   const ok = await shareOrDownload(`kai-days-${todayISO()}.csv`, new Blob(['﻿' + daysCSV()], {type: 'text/csv'}));
   if (ok) toast(tr('Таблица готова'));
 };
+
+/* ============ insights from the person's own days: what tends to go with a good day. Shown only with enough days on both sides and a clear difference ============ */
+function insights(){
+  return memo('insights', () => {
+    const today = todayISO(), t = targets();
+    const days = dayKeys().filter(k => k < today && k >= addDays(today, -90)).map(k => S.docs['days/' + k]).filter(d => d && d.status !== 'sick' && (d.tasks || []).length);
+    const pct = arr => Math.round(arr.reduce((a, d) => a + (dayScore(d) || 0), 0) / arr.length * 100);
+    const out = [], split = (yes, no, text) => { if (yes.length >= 5 && no.length >= 5){ const a = pct(yes), b = pct(no); if (Math.abs(a - b) >= 10) out.push({a, b, text, gap: Math.abs(a - b)}); } };
+    const slept = days.filter(d => toNum(d.sleep) > 0);
+    split(slept.filter(d => toNum(d.sleep) >= 7), slept.filter(d => toNum(d.sleep) < 7), 'После ночей от 7 часов ты выполняешь {a}% задач, после более короткого сна — {b}%.');
+    const stepped = days.filter(d => +d.steps > 0), goal = t.steps || 8000;
+    split(stepped.filter(d => +d.steps >= goal), stepped.filter(d => +d.steps < goal), 'В дни, когда шагов больше нормы, — {a}% задач, в остальные — {b}%.');
+    const screened = days.filter(d => d.screen?.total > 0);
+    split(screened.filter(d => d.screen.total < 180), screened.filter(d => d.screen.total >= 180), 'В дни, когда в телефоне меньше 3 часов, — {a}% задач, при большем — {b}%.');
+    if (days.some(d => (d.focus || []).length)) split(days.filter(d => (d.focus || []).some(f => f.min > 0)), days.filter(d => !(d.focus || []).some(f => f.min > 0)), 'В дни с фокус-сессией — {a}% задач, без неё — {b}%.');
+    return out.sort((x, y) => y.gap - x.gap).slice(0, 3);
+  }).slice();
+}
+function insightsCard(){
+  const list = insights(); if (!list.length) return '';
+  return `<div class="sec-h"><h2>${tr('Что помогает твоим дням')}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:10px">${list.map(x => `<div class="ins"><span class="ins-ic" aria-hidden="true">${ic(x.a > x.b ? 'zap' : 'alert')}</span><div>${esc(trf(x.text, {a: x.a, b: x.b}))}</div></div>`).join('')}<div class="hint">${tr('Это то, что показывают твои дни за последние 3 месяца, а не правило.')}</div></section>`;
+}
 
 /* ============ init ============ */
 async function init(){

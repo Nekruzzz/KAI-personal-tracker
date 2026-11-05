@@ -218,6 +218,8 @@ After the merge into `main`, asked for sound on by default, more haptics where t
 
 - **Sound on by default.** Short sounds for check-offs and rewards now play unless the person switched them off (that choice is kept). The audio session is set to "ambient", so on an iPhone they follow the silent switch and mix with music instead of stopping it. The frequent check-off sound is quieter than the reward sounds.
 - **Haptics where they matter.** The iPhone app now uses the system's own patterns: success, warning and error notifications, a selection tick, and light/medium/heavy impacts (before, everything but success was a plain impact). "That didn't work" messages ("Enter what to do", "Couldn't sign in", "No connection to the server") give the error pattern, Undo a firmer tap, and the rest timer ticks at 3, 2, 1 and finishes with the success pattern. Every tap still gets a tick, so nothing feels dead.
+- **Faster with a lot of data.** Profiled opening the app with two years of days at a mid-range phone's speed (Chromium, CPU slowed 4×). The list of days, the posts of each day, XP, award progress and the upcoming-conflict warnings were each worked out from scratch several times per redraw; they're now kept until the data changes (the cache the app already had, cleared on every save). Time parsing is memoized, and the scroll check after a redraw no longer forces an extra layout. Redraw time while opening went from 788 ms to 249 ms, the Day screen's own drawing from 415 ms to 138 ms.
+- **Timer bars that hold still.** The rest and Focus bars were rebuilt twice a second, so "+30 s" or "End" could be replaced right under a finger and VoiceOver lost its place. Now only the numbers and the progress line change.
 
 ## Gamification: why these pieces
 
@@ -233,7 +235,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 
 ## How it was tested
 
-- `node --test tests/app.test.mjs`: 210 tests, all pass (36 at the start).
+- `node --test tests/app.test.mjs`: 211 tests, all pass (36 at the start).
 - In `server/`: `npm ci` and `npm test`: 44 tests, all pass (28 at the start), including new database, webhook, Apple token and on-phone reader tests.
 - GitHub's `Checks` workflow, including the iPhone build, passed on every push to this branch except runs 266 to 275: the server's on-phone reader test caught a money misreading (see Money), fixed in the next commit. Both test suites are now run locally before each push.
 - Accessibility: axe-core on nine screens in both themes, with no violations.

@@ -2915,3 +2915,16 @@ test('haptics: native types for outcomes, the error pattern for "that did not wo
   assert.equal(run(`isErrToast(tr('День оценён'))`), false);
   assert.equal(run(`hapDefault('undoApply')`), 'medium');
 });
+
+test('cached answers follow the data: day lists, posts and XP update after a save', () => {
+  const n0 = run(`dayKeys().length`), xp0 = run(`totalXP()`);
+  const k = '2031-01-01';
+  run(`save('days/${k}', {...buildDay('${k}'), tasks: buildDay('${k}').tasks.map(t => ({...t, done: true}))})`);
+  try {
+    assert.equal(run(`dayKeys().length`), n0 + 1);
+    assert.ok(run(`totalXP()`) > xp0, 'XP counts the new day');
+    run(`dayKeys().reverse()`); assert.equal(run(`dayKeys()[0] <= dayKeys()[dayKeys().length - 1]`), true, 'a caller reversing the list does not change the cache');
+  } finally { run(`remove('days/${k}')`); }
+  assert.equal(run(`dayKeys().length`), n0);
+  assert.equal(run(`hm('07:30')`), 450); assert.equal(run(`hm('07:30')`), 450);
+});

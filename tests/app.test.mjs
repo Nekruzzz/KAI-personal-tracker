@@ -3151,3 +3151,14 @@ test('Tell KAI answers food and weight questions too', () => {
     assert.ok(/70[.,]4|155[.,]2/.test(run(`localAnswer("what's my weight?")`)));
   } finally { run(`save('days/' + todayISO(), day62)`); }
 });
+
+test('Focus offers an optional background noise, off by default', () => {
+  run(`globalThis.meta63 = clone(meta())`);
+  try {
+    assert.equal(run(`noiseKind()`), 'off');
+    assert.equal((run(`noiseField()`).match(/data-act="focusNoise"/g) || []).length, 3);
+    run(`SH = {}; A.focusNoise({dataset: {v: 'rain'}}); SH = null`);
+    assert.equal(run(`noiseKind()`), 'rain');
+    run(`noiseStart(); noiseStop()`); // no audio in tests: must not throw
+  } finally { run(`save('app/meta', meta63)`); }
+});

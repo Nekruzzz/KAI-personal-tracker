@@ -5343,6 +5343,7 @@ function focusStart(min, label, task, exam){
   const now = Date.now();
   FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба'), task: task || null, exam: exam || null};
   focusSave(); focusRun(); syncReminders(); haptic('medium');
+  noiseStart();
 }
 function focusRun(){
   clearInterval(FOCUS_IV); if (!FOCUS) return;
@@ -5362,7 +5363,7 @@ function focusFinish(complete){
   const f = FOCUS; if (!f) return;
   const now = Date.now(), mins = focusMinutes(now), awayMin = Math.round(focusAway(f, now) / 60000);
   const leaves = f.leaves + (f.hiddenAt && now - f.hiddenAt >= 3000 ? 1 : 0);
-  FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing');
+  FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing'); noiseStop();
   const bar = $('#focusBar'); if (bar) bar.hidden = true;
   try { FOCUS_WAKE?.release(); } catch {} FOCUS_WAKE = null;
   const hhmm = (t => pad(t.getHours()) + ':' + pad(t.getMinutes()))(new Date(f.start));
@@ -5421,6 +5422,7 @@ A.focusSheet = el => {
     : `${(w => w.n ? `<div class="note">${trf('За 7 дней: {n} {s}, {t} фокуса, {d} {w}', {n: w.n, s: plural(w.n, tr('сессия'), tr('сессии'), tr('сессий')), t: w.min >= 60 ? num(w.min / 60, 1) + ' ' + tr('ч') : w.min + ' ' + tr('мин'), d: w.leaves, w: plural(w.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений'))})}${w.by.length > 1 ? `<br>${w.by.slice(0, 4).map(([l, m]) => `${esc(l)} ${fmtMin(m)}`).join(' · ')}` : ''}</div>` : '')(focusWeek())}<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
     <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
     <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
+    ${noiseField()}
     <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);
   SH.ftask = task; SH.fexam = exam; // read when Start is tapped
 };
@@ -6824,6 +6826,36 @@ function tinyIntake(s){
 }
 
 const careNote2 = kind => kind === 'crisis' ? tr('С этим не нужно справляться в одиночку. Поговори с человеком, которому доверяешь, или позвони на линию помощи; если есть риск навредить себе, звони в экстренную службу.') : tr('Это важнее любых цифр. Поговори с врачом или человеком, которому доверяешь: такое лечится, и помощь работает.');
+
+/* ============ Focus: an optional soft background noise, made on the phone (nothing downloaded), stopped when the session ends ============ */
+const NOISES = [['off', 'Тишина'], ['brown', 'Мягкий шум'], ['rain', 'Дождь']];
+const noiseKind = () => meta().focusNoise || 'off';
+const noiseField = () => `<div class="field"><label id="fnL">${tr('Фон')}</label><div class="seg" role="group" aria-labelledby="fnL">${NOISES.map(([k, l]) => `<button class="${noiseKind() === k ? 'on' : ''}" aria-pressed="${noiseKind() === k}" data-act="focusNoise" data-v="${k}">${tr(l)}</button>`).join('')}</div></div>`;
+A.focusNoise = el => { SH.fl = val('fcL'); setMeta({focusNoise: el.dataset.v}); haptic('selection'); if (FOCUS) { noiseStop(); noiseStart(); } drawSheet(); };
+let NOISE = null;
+function noiseStart(){
+  const kind = noiseKind(); if (kind === 'off' || NOISE) return;
+  try {
+    if (!AUDIO) AUDIO = new (window.AudioContext || window.webkitAudioContext)();
+    if (AUDIO.state === 'suspended') AUDIO.resume();
+    const len = AUDIO.sampleRate * 4, buf = AUDIO.createBuffer(1, len, AUDIO.sampleRate), d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++){ const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } // brown noise: soft, low
+    const src = AUDIO.createBufferSource(); src.buffer = buf; src.loop = true;
+    const g = AUDIO.createGain(); g.gain.setValueAtTime(0.0001, AUDIO.currentTime); g.gain.exponentialRampToValueAtTime(kind === 'rain' ? 0.12 : 0.18, AUDIO.currentTime + 1.5);
+    let out = src;
+    if (kind === 'rain'){ const f = AUDIO.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 900; const f2 = AUDIO.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = 6000; src.connect(f).connect(f2); out = f2; } // rain: the brighter part of the same noise
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {} // chosen background sound plays like music, also on silent
+    out.connect(g).connect(AUDIO.destination); src.start();
+    NOISE = {src, g};
+  } catch { NOISE = null; }
+}
+function noiseStop(){
+  if (!NOISE) return;
+  const {src, g} = NOISE; NOISE = null;
+  try { g.gain.cancelScheduledValues(AUDIO.currentTime); g.gain.setValueAtTime(g.gain.value || 0.1, AUDIO.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, AUDIO.currentTime + 0.8); src.stop(AUDIO.currentTime + 0.9); } catch {}
+  setTimeout(() => { try { if (!NOISE && navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch {} }, 1000); // back to short sounds that respect silent mode
+}
 
 /* ============ init ============ */
 async function init(){

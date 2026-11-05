@@ -2320,4 +2320,7 @@ window.I18N_EN = {
 "Журнал скопирован":"Log copied",
 "Не удалось скопировать":"Couldn't copy",
 "Перезапустить":"Reload",
+"Делал домашку с 18 до 20":"Did homework from 6 to 8 pm",
+"Стипендия 300":"Stipend 300",
+"Эссе до пятницы":"Essay due Friday",
 };

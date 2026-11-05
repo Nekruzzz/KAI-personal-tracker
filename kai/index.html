@@ -818,6 +818,13 @@ body.resting.focusing .toast{bottom:calc(232px + env(safe-area-inset-bottom,0px)
 
 /* debts on the Money tab */
 .debt-add{display:flex;align-items:center;min-height:44px;padding:0 4px}
+.svs{display:flex;flex-direction:column;gap:14px}
+.sv-h{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:15px;margin-bottom:6px}
+.sv-h span{display:flex;align-items:center;gap:6px;font-weight:600;min-width:0}
+.sv-h b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.sv-h svg{width:16px;height:16px}
+.sv.done .sv-h span{color:var(--good)}
+.sv-f{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
 
 /* a note on a to-do */
 .tk-note{min-height:64px;margin-bottom:8px;font-size:14.5px}

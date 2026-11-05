@@ -1622,6 +1622,7 @@ function viewMoney(){
   ${monthRecapCard(m)}
   ${billsCard(m)}
   ${debtsCard(m)}
+  ${savingsCard(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
@@ -6591,6 +6592,56 @@ function focusBreakAction(){
   return full && full % 4 === 0 ? {label: tr('Перерыв 15 мин'), act: 'focusBreakLong'} : {label: tr('Перерыв 5 мин'), act: 'focusBreak'};
 }
 A.focusBreakLong = () => { hideToast(); haptic('light'); startRest(900, tr('Длинный перерыв')); };
+
+/* ============ savings goals: "Laptop: $320 of $1,000". Kept apart from spending, like debts; a quarter, half, three quarters and the goal get a small celebration ============ */
+const savingsDoc = () => S.docs['app/savings'] || {list: []};
+const savings = () => (savingsDoc().list || []).filter(g => !g.hidden);
+const savePct = g => g.target > 0 ? Math.min(100, Math.round(g.saved / g.target * 100)) : 0;
+function savingsCard(m){
+  if (m !== curMonth()) return '';
+  const list = savings();
+  if (!list.length) return `<button class="link debt-add" data-act="saveNew">${ic('target', 'link-ic')}${tr('Цель накопления')}</button>`;
+  const row = g => {
+    const p = savePct(g), done = g.saved >= g.target;
+    return `<div class="sv ${done ? 'done' : ''}"><div class="sv-h"><span>${done ? ic('checkc') : ''}${esc(g.title)}</span><b>${money(g.saved)} / ${money(g.target)}</b></div>
+      <div class="bar" role="progressbar" aria-label="${esc(g.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><i style="width:${p}%;background:var(--${done ? 'good' : 'c3'})"></i></div>
+      <div class="sv-f"><span class="hint">${done ? tr('Цель достигнута') : trf('{p}% · осталось {s}', {p, s: money(g.target - g.saved)})}</span>${done ? `<button class="link" data-act="saveHide" data-id="${esc(g.id)}">${tr('Убрать')}</button>` : `<button class="btn ghost sm" data-act="saveAdd" data-id="${esc(g.id)}" aria-label="${esc(trf('Отложить на «{t}»', {t: g.title}))}">${ic('plus')}${tr('Отложить')}</button>`}</div></div>`;
+  };
+  return `<div class="sec-h"><h2>${tr('Накопления')}</h2><button class="link" data-act="saveNew">${tr('+ Цель')}</button></div><section class="card svs">${list.map(row).join('')}<div class="hint">${tr('Накопления не считаются расходами: это отдельная копилка.')}</div></section>`;
+}
+A.saveNew = () => { SH = null; openSheet(tr('Цель накопления'), () => `<div class="field"><label for="svT">${tr('На что копишь')}</label><input class="in" id="svT" maxlength="60" placeholder="${tr('Например, ноутбук или поездка')}"></div>
+  <div class="fgrid"><div class="field"><label for="svG">${tr('Сколько нужно')}</label><input class="in" id="svG" inputmode="decimal"></div><div class="field"><label for="svS">${tr('Уже есть')}</label><input class="in" id="svS" inputmode="decimal" placeholder="0"></div></div>
+  <button class="btn block" data-act="saveCreate">${tr('Сохранить')}</button>`); };
+A.saveCreate = () => {
+  const title = val('svT').trim(), target = Math.abs(toNum(val('svG'))), saved = Math.max(0, Math.abs(toNum(val('svS')) || 0));
+  if (!title) return toast(tr('Впиши, на что копишь')); if (!target) return toast(tr('Введи сумму'));
+  const doc = savingsDoc();
+  save('app/savings', {...doc, list: [...(doc.list || []), {id: uid(), title: title.slice(0, 60), target, saved: Math.min(saved, target * 10), created: todayISO(), log: saved ? [{d: todayISO(), a: saved}] : []}]});
+  closeSheet(); haptic('success'); toast(tr('Цель сохранена'));
+};
+A.saveAdd = el => { const g = savings().find(x => x.id === el.dataset.id); if (!g) return; SH = null;
+  const step = n => Math.max(1, Math.round(g.target * n / (g.target >= 1000 ? 100 : 10)) * (g.target >= 1000 ? 100 : 10) / 1);
+  const chips = [...new Set([step(.05), step(.1), step(.25)])].filter(x => x > 0);
+  openSheet(g.title, () => `<div class="hint">${trf('Накоплено {a} из {b}', {a: money(g.saved), b: money(g.target)})}</div>
+    <div class="field"><label for="svA">${tr('Сумма')}</label><input class="in" id="svA" inputmode="decimal"></div>
+    <div class="btnrow">${chips.map(c => `<button class="btn ghost" data-act="saveChip" data-v="${c}">${money(c)}</button>`).join('')}</div>
+    <div class="btnrow"><button class="btn" data-act="saveMove" data-id="${esc(g.id)}" data-dir="1">${ic('plus')}${tr('Отложить')}</button><button class="btn ghost" data-act="saveMove" data-id="${esc(g.id)}" data-dir="-1">${tr('Взять из копилки')}</button></div>
+    <button class="link" data-act="saveHide" data-id="${esc(g.id)}" style="align-self:center">${tr('Удалить цель')}</button>`); };
+A.saveChip = el => { const i = $('#svA'); if (i){ i.value = el.dataset.v; i.focus(); } };
+A.saveMove = el => {
+  const a = Math.abs(toNum(val('svA'))); if (!a) return toast(tr('Введи сумму'));
+  const doc = savingsDoc(), g = (doc.list || []).find(x => x.id === el.dataset.id); if (!g) return closeSheet();
+  const sign = +el.dataset.dir < 0 ? -1 : 1, before = savePct(g), saved = Math.max(0, Math.round((g.saved + sign * a) * 100) / 100);
+  withUndo(['app/savings'], () => save('app/savings', {...doc, list: doc.list.map(x => x.id !== g.id ? x : {...x, saved, log: [...(x.log || []), {d: todayISO(), a: sign * a}].slice(-200), ...(saved >= x.target && !x.doneAt ? {doneAt: todayISO()} : {})})}), sign > 0 ? trf('Отложено: {s}', {s: money(a)}) : trf('Взято: {s}', {s: money(a)}));
+  closeSheet();
+  if (sign > 0) saveMilestone(g.title, before, savePct({...g, saved}));
+};
+function saveMilestone(title, before, after){
+  if (after >= 100 && before < 100){ setTimeout(() => { haptic('success'); sound('badge'); confetti({n: 140, y: innerHeight * .45}); toast(trf('Цель достигнута: {t}!', {t: title}), {icon: 'trophy', tone: 'gold', ms: 4500}); }, 600); return; }
+  const m = [75, 50, 25].find(x => before < x && after >= x);
+  if (m) setTimeout(() => { haptic('success'); sound('success'); confetti({n: 60, y: innerHeight * .5}); toast(trf('«{t}»: {p}% пути', {t: title, p: m}), {icon: 'target', tone: 'good', ms: 3500}); }, 600);
+}
+A.saveHide = el => { const doc = savingsDoc(); closeSheet(); withUndo(['app/savings'], () => save('app/savings', {...doc, list: (doc.list || []).map(x => x.id === el.dataset.id ? {...x, hidden: true} : x)}), tr('Цель убрана')); };
 
 /* ============ init ============ */
 async function init(){

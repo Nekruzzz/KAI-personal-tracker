@@ -2989,3 +2989,22 @@ test('Focus: the fourth full session of the day offers a 15-minute break', () =>
     assert.equal(run(`focusBreakAction().act`), 'focusBreakLong', 'a cut-short session does not count');
   } finally { run(`save('days/' + todayISO(), day54)`); }
 });
+
+test('savings goals: saved apart from spending, with Undo and a celebration at the goal', () => {
+  run(`globalThis.sv55 = S.docs['app/savings'] ? clone(S.docs['app/savings']) : null; globalThis.toast55 = toast; globalThis.t55 = []; toast = (m, o) => t55.push(m)`);
+  try {
+    run(`save('app/savings', {list: []})`);
+    assert.ok(/data-act="saveNew"/.test(run(`savingsCard(curMonth())`)));
+    run(`globalThis.FORM = {'#svT': 'Laptop', '#svG': '1000', '#svS': '200'}; A.saveCreate(); delete globalThis.FORM`);
+    const g = JSON.parse(run(`JSON.stringify(savings()[0])`));
+    assert.deepEqual([g.title, g.target, g.saved], ['Laptop', 1000, 200]);
+    const tx0 = run(`monthTx(curMonth()).length`);
+    run(`globalThis.FORM = {'#svA': '800'}; A.saveMove({dataset: {id: '${g.id}', dir: '1'}}); delete globalThis.FORM`);
+    assert.equal(run(`savings()[0].saved`), 1000);
+    assert.equal(run(`monthTx(curMonth()).length`), tx0, 'not a spending entry');
+    assert.ok(run(`!!savings()[0].doneAt`));
+    run(`A.undoApply()`);
+    assert.equal(run(`savings()[0].saved`), 200, 'Undo takes it back');
+    assert.equal(run(`saveMilestone('x', 40, 55); 1`), 1);
+  } finally { run(`toast = toast55; sv55 ? save('app/savings', sv55) : remove('app/savings')`); }
+});

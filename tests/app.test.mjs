@@ -1471,7 +1471,7 @@ test('Tell KAI explains what works without AI the first time, then keeps it to o
 
 test('on a weight-loss goal, rising weight is called rising, not "too slow", and the advice stays a small, floored cut', () => {
   setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'lose', activity: 1.45, units: 'metric'});
-  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'r${i}', name: 'Soup', kcal: 600, p: 30, f: 20, c: 60}]; })`);
+  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'r${i}', name: 'Soup', kcal: 2000, p: 120, f: 60, c: 240}]; })`);
   run(`globalThis.wt1 = weightTrend`);
   try {
     run(`weightTrend = () => ({rate: 0.45, perWeek: 0.35})`);
@@ -2927,4 +2927,17 @@ test('cached answers follow the data: day lists, posts and XP update after a sav
   } finally { run(`remove('days/${k}')`); }
   assert.equal(run(`dayKeys().length`), n0);
   assert.equal(run(`hm('07:30')`), 450); assert.equal(run(`hm('07:30')`), 450);
+});
+
+test('no advice to eat less while logged food is far below the target', () => {
+  setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'lose', activity: 1.45, units: 'metric'});
+  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'lw${i}', name: 'Soup', kcal: 600, p: 30, f: 20, c: 60}]; })`);
+  run(`globalThis.wt2 = weightTrend`);
+  try {
+    run(`weightTrend = () => ({rate: 0.45, perWeek: 0.35})`);
+    const a = JSON.parse(run(`JSON.stringify(adaptiveAdvice())`));
+    assert.equal(a.kcal, undefined, 'no button to lower the target');
+    assert.equal(a.state, 'log');
+    assert.match(a.text, /far below|намного ниже/);
+  } finally { run(`weightTrend = wt2`); }
 });

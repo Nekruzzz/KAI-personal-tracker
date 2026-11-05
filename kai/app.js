@@ -1919,6 +1919,8 @@ function adaptiveAdvice(){
   if (trend.rate > -0.25){
     const up = trend.rate > 0.1; // going up, not just slowly down: say so
     if (logged < 8) return {state:'log', rate:trend.rate, text: rateTxt + ` ${up ? tr("Вес растёт, но еда записана только за") : tr("Вес почти не снижается, но еда записана только за")} ${logged} ${tr("из 14 дней. Сначала 1–2 недели записывай всё, что ешь: часто лишние калории прячутся в перекусах и масле.")}`};
+    const low = loggedFarBelow(t); // logged food far under the target: either not everything is written down, or too little is eaten. Neither calls for eating less
+    if (low) return {state:'log', rate:trend.rate, text: rateTxt + ' ' + trf('Записано в среднем {k} ккал в день, намного ниже нормы {t}, поэтому KAI не советует есть меньше. Если записано не всё, записывай полные дни. Если ешь действительно так мало, обсуди это с врачом.', {k: num(low), t: num(t.kcal)})};
     const k = Math.max(t.bmr, KCAL_FLOOR, t.kcal - 150);
     // already at the floor: eating less is not the answer
     if (k >= t.kcal) return {state:'slow', rate:trend.rate, text: rateTxt + ` ${tr("Норма уже на нижней границе, ниже KAI не советует. Больше движения и сна помогут сильнее, а если вес стоит долго, стоит обсудить это с врачом.")}`};
@@ -6512,6 +6514,14 @@ function barTick(bar, key, left, pct){
   if (t.textContent !== v) t.textContent = v;
   const i = pct != null && bar.querySelector('.bar > i'); if (i) i.style.width = pct + '%';
   return true;
+}
+
+/* ============ no "eat less" advice while logged food is far below the target ============ */
+function loggedFarBelow(t){
+  const ks = [...Array(14)].map((_, i) => addDays(todayISO(), -i - 1)).filter(k => S.docs['days/' + k]?.meals?.length);
+  if (!ks.length) return 0;
+  const avg = Math.round(ks.reduce((a, k) => a + eaten(S.docs['days/' + k]).kcal, 0) / ks.length);
+  return avg < t.kcal * 0.7 ? avg : 0;
 }
 
 /* ============ init ============ */

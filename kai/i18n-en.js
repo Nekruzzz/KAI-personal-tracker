@@ -2262,4 +2262,5 @@ window.I18N_EN = {
 "До уровня {n}":"To level {n}",
 "С уровня {n} — «{t}»":"From level {n}: “{t}”",
 "XP не сгорают: пропущенный день не отнимает уровень.":"XP never runs out: a missed day doesn't take a level away.",
+"Записано в среднем {k} ккал в день, намного ниже нормы {t}, поэтому KAI не советует есть меньше. Если записано не всё, записывай полные дни. Если ешь действительно так мало, обсуди это с врачом.":"On average {k} kcal a day is logged, far below the {t} target, so KAI won't suggest eating less. If not everything is logged, log full days. If you really eat this little, talk it over with a doctor.",
 };

@@ -3100,3 +3100,23 @@ test('the preview says when a told to-do is already in the plans', () => {
     assert.ok(!/\+ (?:задача|to-do)/i.test(lines));
   } finally { run(`saveTasks(tasks60)`); }
 });
+
+test('Tell KAI answers simple questions from the records, on the phone', () => {
+  run(`globalThis.meta61 = clone(meta()); setMeta({modules: {...(meta().modules || {}), money: true}})`);
+  const m = run(`todayISO().slice(0, 7)`), today = run(`todayISO()`);
+  run(`globalThis.money61 = S.docs['money/${m}'] ? clone(S.docs['money/${m}']) : null; globalThis.day61 = clone(getDay(todayISO()))`);
+  try {
+    run(`addTx([{id: 'a61', date: todayISO(), type: 'out', amount: 12, cat: 'Кафе и рестораны', note: 'lunch'}, {id: 'b61', date: todayISO(), type: 'out', amount: 8, cat: 'Транспорт', note: 'taxi'}])`);
+    const want = run(`money(monthTx(todayISO().slice(0, 7)).filter(x => x.type === 'out' && x.status !== 'fail' && x.date === todayISO()).reduce((s, x) => s + +x.amount, 0))`);
+    const a = run(`localAnswer('how much did I spend today?')`);
+    assert.ok(a && a.includes(want), a + ' / ' + want);
+    const wantTaxi = run(`money(monthTx(todayISO().slice(0, 7)).filter(x => x.type === 'out' && x.date === todayISO() && x.cat === 'Транспорт').reduce((s, x) => s + +x.amount, 0))`);
+    const b = run(`localAnswer('how much did I spend on taxi today?')`);
+    assert.ok(b && b.includes(wantTaxi) && /taxi|такси|Transport|Транспорт/i.test(b), b);
+    run(`mutDay(todayISO(), d => { d.sleep = 7.5; })`);
+    assert.ok(/7[.,]5/.test(run(`localAnswer('how much did I sleep today?')`)));
+    assert.ok(/\d/.test(run(`localAnswer('what is my streak?')`)));
+    assert.equal(run(`localAnswer('slept 7 hours')`), null, 'a statement is not a question');
+    assert.equal(run(`localAnswer('what is the capital of France?')`), null, 'not about the records');
+  } finally { run(`money61 ? save('money/${m}', money61) : remove('money/${m}'); save('days/' + todayISO(), day61); save('app/meta', meta61)`); }
+});

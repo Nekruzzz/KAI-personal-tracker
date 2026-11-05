@@ -2329,6 +2329,7 @@ A.tellGo = async () => {
   SH.tellText = text;
   if (carePause(text, 'tellOut', 'tellGo')) return;
   const date = todayISO();
+  { const ans = localAnswer(text); if (ans){ const out = $('#tellOut'); if (out) out.innerHTML = answerCard(ans); return; } } // "how much did I spend this week?" is answered from the records
   if (!aiStatus().ok && tellLocal(text, date)) return; // no AI yet: the common things are understood on the phone
   const id = await submitJob('tell', {prompt: tellPrompt(text, date), meta:{date, text}, provider: SH.prov||'auto', label:tr('Разбор · ')+fmtShort(date)});
   queueNow(id, 'tellOut');
@@ -6746,6 +6747,53 @@ const sameTitle = (a, b) => String(a || '').trim().toLowerCase().replace(/ё/g, 
 function dupTask(t){
   return smartTasks().some(x => !x.done && sameTitle(x.title, t.title) && (x.due === t.due || (t.every && x.every === t.every && x.due && t.due && dow(x.due) === dow(t.due) && (x.n || 1) === (t.n || 1))));
 }
+
+/* ============ Tell KAI answers simple questions about the person's own data, on the phone: spending, sleep, study, steps, streak, budget, next exam ============ */
+const ASK_RE = /\?\s*$|^(?:сколько|какой|какая|какое|когда|how much|how many|how long|what'?s|what is|when)\b/i;
+function askPeriod(t){
+  const today = todayISO(), mon = addDays(today, 1 - dow(today));
+  if (/вчера|yesterday/i.test(t)) return {from: addDays(today, -1), to: addDays(today, -1), label: tr('вчера')};
+  if (/сегодня|today/i.test(t)) return {from: today, to: today, label: tr('сегодня')};
+  if (/прошл(?:ой|ую) недел|last week/i.test(t)) return {from: addDays(mon, -7), to: addDays(mon, -1), label: tr('на прошлой неделе')};
+  if (/прошл(?:ом|ый) месяц|last month/i.test(t)){ const pm = prevMonth(today.slice(0, 7)); return {from: pm + '-01', to: addDays(today.slice(0, 7) + '-01', -1), label: tr('в прошлом месяце')}; }
+  if (/месяц|month/i.test(t)) return {from: today.slice(0, 7) + '-01', to: today, label: tr('в этом месяце')};
+  if (/7 дн|семь дн|7 days|seven days/i.test(t)) return {from: addDays(today, -6), to: today, label: tr('за 7 дней')};
+  return {from: mon, to: today, label: tr('на этой неделе')}; // "this week" unless said otherwise
+}
+const daysIn = (from, to) => { const out = []; for (let k = from; k <= to && out.length < 400; k = addDays(k, 1)) out.push(k); return out; };
+function localAnswer(text){
+  const t = String(text).trim(); if (!ASK_RE.test(t) || t.length > 140) return null;
+  const p = askPeriod(t), ks = daysIn(p.from, p.to);
+  if (/потратил|потратила|трат|расход|spend|spent/i.test(t) && modOn('money')){
+    const cat = MONEY_CAT.find(([re]) => re.test(t.replace(/потратил[аи]?|spend|spent|сколько|how much|did i|я/gi, '')));
+    const tx = [...new Set(ks.map(k => k.slice(0, 7)))].flatMap(m => monthTx(m)).filter(x => x.type === 'out' && x.status !== 'fail' && x.date >= p.from && x.date <= p.to && (!cat || x.cat === cat[1]));
+    const sum = tx.reduce((a, x) => a + +x.amount, 0);
+    return trf(cat ? 'Расходы на «{c}» {p}: {s} ({n} {w}).' : 'Расходы {p}: {s} ({n} {w}).', {c: tr(cat?.[1] || ''), p: p.label, s: money(sum), n: tx.length, w: plural(tx.length, tr('операция'), tr('операции'), tr('операций'))});
+  }
+  if (/осталось|остаток|left/i.test(t) && /бюджет|денег|budget|money/i.test(t) && modOn('money')){
+    const b = S.docs['app/budget']?.monthly; if (!b) return tr('Бюджет на месяц не задан: его можно задать во вкладке «Деньги».');
+    const m = todayISO().slice(0, 7), spent = monthTx(m).filter(x => x.type === 'out' && x.status !== 'fail').reduce((a, x) => a + +x.amount, 0), left = b - spent - billsPending();
+    const dl = new Date(+m.slice(0, 4), +m.slice(5), 0).getDate() - new Date().getDate() + 1;
+    return left >= 0 ? trf('До конца месяца осталось {s}: примерно {d} в день.', {s: money(left), d: money(Math.floor(left / Math.max(1, dl)))}) : trf('Бюджет месяца превышен на {s}.', {s: money(-left)});
+  }
+  if (/спал|сон|sleep|slept/i.test(t)){
+    const v = ks.map(k => toNum(S.docs['days/' + k]?.sleep)).filter(x => x > 0);
+    if (!v.length) return trf('Сон {p} не записан.', {p: p.label});
+    return v.length === 1 ? trf('Сон {p}: {h} ч.', {p: p.label, h: num(v[0], 1)}) : trf('Сон {p}: в среднем {h} ч за ночь (записано ночей: {n}).', {p: p.label, h: num(v.reduce((a, b) => a + b, 0) / v.length, 1), n: v.length});
+  }
+  if (/учил|учёб|учеб|занимал|stud/i.test(t)){ const m = ks.reduce((a, k) => a + timeOn(k).study, 0); return trf('Учёба {p}: {t}.', {p: p.label, t: fmtMin(m)}); }
+  if (/шаг|steps/i.test(t)){ const v = ks.map(k => +S.docs['days/' + k]?.steps || 0).filter(Boolean); return v.length ? trf('Шаги {p}: {s} всего, в среднем {a} в день.', {p: p.label, s: num(v.reduce((a, b) => a + b, 0)), a: num(Math.round(v.reduce((a, b) => a + b, 0) / v.length))}) : trf('Шаги {p} не записаны.', {p: p.label}); }
+  if (/гулял|прогул|walk/i.test(t)){ const m = ks.reduce((a, k) => a + timeOn(k).walk, 0); return trf('Прогулки {p}: {t}.', {p: p.label, t: fmtMin(m)}); }
+  if (/серия|streak/i.test(t)){ const st = streak(); return trf('Серия: {n} {d} подряд, рекорд {b}. Заморозок: {f}.', {n: st, d: plural(st, tr('день'), tr('дня'), tr('дней')), b: Math.max(st, bestStreak()), f: freezeDoc().n}); }
+  if (/экзамен|зач[её]т|контрольн|exam|test\b|deadline|дедлайн/i.test(t)){
+    const e = allEvents().filter(x => (x.kind === 'exam' || x.kind === 'deadline') && x.date >= todayISO()).sort((a, b) => (a.date + (a.from || '')).localeCompare(b.date + (b.from || '')))[0];
+    if (!e) return tr('Впереди нет экзаменов и дедлайнов.');
+    const n = dayDiff(todayISO(), e.date);
+    return trf('Ближайшее: «{t}», {d}{h} — {w}.', {t: e.title, d: fmtShort(e.date), h: e.from ? tr(' в ') + e.from : '', w: n === 0 ? tr('сегодня') : n === 1 ? tr('завтра') : trf('через {n} {u}', {n, u: plural(n, tr('день'), tr('дня'), tr('дней'))})});
+  }
+  return null;
+}
+const answerCard = a => `<section class="card" role="status" style="display:flex;flex-direction:column;gap:8px"><div class="ai-out">${esc(a)}</div><div class="hint">${tr('Посчитано на телефоне по твоим записям.')}</div></section>`;
 
 /* ============ init ============ */
 async function init(){

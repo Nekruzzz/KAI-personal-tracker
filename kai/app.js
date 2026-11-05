@@ -6355,9 +6355,10 @@ function challengeTick(){
   const w = weekChallenges(); if (!w || !w.list.length) return;
   const all = meta().challenges || {};
   const newly = w.list.filter(c => !w.done.includes(c.id) && challengeProgress(c, w.mon) >= c.goal).map(c => c.id);
-  if (!w.fresh && !newly.length) return;
+  const lost = w.done.filter(id => { const c = w.list.find(x => x.id === id); return c && challengeProgress(c, w.mon) < c.goal; }); // an Undo took it back below the goal: so does the XP
+  if (!w.fresh && !newly.length && !lost.length) return;
   const keep = Object.fromEntries(Object.entries(all).filter(([k]) => k >= addDays(w.mon, -366))); // a year of weeks, for the XP
-  const done = [...w.done, ...newly];
+  const done = [...w.done.filter(id => !lost.includes(id)), ...newly];
   setMeta({challenges: {...keep, [w.mon]: {list: w.list, done, ...(w.swapped ? {swapped: true} : {})}}});
   if (!newly.length) return;
   const allDone = done.length === w.list.length;

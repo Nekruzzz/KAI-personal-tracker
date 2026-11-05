@@ -2353,4 +2353,7 @@ window.I18N_EN = {
 "Сколько я потратил на этой неделе?":"How much did I spend this week?",
 "Сколько осталось денег?":"How much money is left?",
 "Когда следующий экзамен?":"When is my next exam?",
+"Бигмак":"Big Mac",
+"Омлет":"Omelette",
+"банка":"can",
 };

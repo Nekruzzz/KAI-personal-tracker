@@ -3121,3 +3121,14 @@ test('Tell KAI answers simple questions from the records, on the phone', () => {
     assert.equal(run(`localAnswer('what is the capital of France?')`), null, 'not about the records');
   } finally { run(`money61 ? save('money/${m}', money61) : remove('money/${m}'); save('days/' + todayISO(), day61); save('app/meta', meta61)`); }
 });
+
+test('food without AI: pepperoni pizza is pizza, a can of cola, a Big Mac with medium fries, an omelette of three eggs', () => {
+  const m = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.meals || [])`));
+  const pz = m('two slices of pepperoni pizza and a can of coke')[0];
+  assert.ok(/pizza|пицца/i.test(pz.name) && !/pepper(?!oni)|перец/i.test(pz.name), pz.name);
+  assert.ok(pz.kcal >= 600 && pz.kcal <= 1000, String(pz.kcal));
+  const bm = m('ate a big mac and medium fries')[0];
+  assert.ok(bm.kcal >= 750 && bm.kcal <= 1200, String(bm.kcal));
+  assert.ok(m('съел омлет из трёх яиц').length, 'eggs are counted');
+  assert.equal(m('had oatmeal').length, 0, 'a dish without an amount still needs one');
+});

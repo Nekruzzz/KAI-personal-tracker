@@ -6687,7 +6687,7 @@ A.daysCsv = async () => {
 function insights(){
   return memo('insights', () => {
     const today = todayISO(), t = targets();
-    const days = dayKeys().filter(k => k < today && k >= addDays(today, -90)).map(k => S.docs['days/' + k]).filter(d => d && d.status !== 'sick' && (d.tasks || []).length);
+    const days = dayKeys().filter(k => k < today && k >= addDays(today, -90)).map(k => S.docs['days/' + k] && {...S.docs['days/' + k], date: k}).filter(d => d && d.status !== 'sick' && (d.tasks || []).length);
     const pct = arr => Math.round(arr.reduce((a, d) => a + (dayScore(d) || 0), 0) / arr.length * 100);
     const out = [], split = (yes, no, text) => { if (yes.length >= 5 && no.length >= 5){ const a = pct(yes), b = pct(no); if (Math.abs(a - b) >= 10) out.push({a, b, text, gap: Math.abs(a - b)}); } };
     const slept = days.filter(d => toNum(d.sleep) > 0);
@@ -6697,6 +6697,12 @@ function insights(){
     const screened = days.filter(d => d.screen?.total > 0);
     split(screened.filter(d => d.screen.total < 180), screened.filter(d => d.screen.total >= 180), 'В дни, когда в телефоне меньше 3 часов, — {a}% задач, при большем — {b}%.');
     if (days.some(d => (d.focus || []).length)) split(days.filter(d => (d.focus || []).some(f => f.min > 0)), days.filter(d => !(d.focus || []).some(f => f.min > 0)), 'В дни с фокус-сессией — {a}% задач, без неё — {b}%.');
+    // the day's own rating, 1 to 5: a difference of half a point or more
+    const avgR = arr => arr.reduce((a, d) => a + +d.rating, 0) / arr.length, fmtR = v => num(Math.round(v * 10) / 10, 1);
+    const rateSplit = (yes, no, text) => { if (yes.length >= 5 && no.length >= 5){ const a = avgR(yes), b = avgR(no); if (Math.abs(a - b) >= 0.5) out.push({a: fmtR(a), b: fmtR(b), text, gap: Math.abs(a - b) * 20}); } };
+    const rated = days.filter(d => +d.rating >= 1);
+    rateSplit(rated.filter(d => toNum(d.sleep) >= 7), rated.filter(d => toNum(d.sleep) > 0 && toNum(d.sleep) < 7), 'После 7+ часов сна ты оцениваешь день в среднем на {a}, после более короткого сна — на {b}.');
+    rateSplit(rated.filter(d => d.tasks.some(t => t.id === 'gym' && t.done) || timeOn(d.date).gym > 0), rated.filter(d => !(d.tasks.some(t => t.id === 'gym' && t.done) || timeOn(d.date).gym > 0)), 'В дни с тренировкой ты оцениваешь день в среднем на {a}, без неё — на {b}.');
     return out.sort((x, y) => y.gap - x.gap).slice(0, 3);
   }).slice();
 }

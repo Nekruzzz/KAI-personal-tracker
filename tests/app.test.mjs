@@ -3065,3 +3065,13 @@ test('a screen that throws shows a message with Reload, and the error goes to a 
   assert.equal(run(`safeView(() => 'ok')`), 'ok');
   run(`localStorage.removeItem('kai_errlog')`);
 });
+
+test('insights also compare the day rating after long and short sleep', () => {
+  run(`globalThis.days58 = Object.fromEntries(dayKeys().filter(k => k >= addDays(todayISO(), -95)).map(k => [k, clone(S.docs['days/' + k])])); Object.keys(days58).forEach(k => remove('days/' + k))`);
+  try {
+    for (let i = 0; i < 12; i++) run(`(() => { const k = addDays(todayISO(), -${i + 1}); save('days/' + k, {...buildDay(k), status: 'ok', sleep: ${i % 2 ? 8 : 5.5}, rating: ${i % 2 ? 4 : 3}, tasks: buildDay(k).tasks.map(t => ({...t, done: true}))}); })()`);
+    const r = JSON.parse(run(`JSON.stringify(insights())`)).find(x => /оцениваешь/.test(x.text) && /7\+/.test(x.text));
+    assert.ok(r, 'a rating insight');
+    assert.equal(r.a, run(`num(4, 1)`)); assert.equal(r.b, run(`num(3, 1)`));
+  } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days58).forEach(([k, v]) => save('days/' + k, v))`); }
+});

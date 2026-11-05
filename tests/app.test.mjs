@@ -1399,9 +1399,9 @@ test('the weekly summary leads with something real, never "0 min", and leaves ou
   assert.deepEqual(a.tiles.map(t => t[1]), ['active days', 'days in a row'], 'no zero-minute tiles, and the tasks are not shown twice');
   const b = plan({...base, total: 130, walk: 90, gym: 40});
   assert.equal(b.head, '2.2 h'); assert.equal(b.headLabel, 'invested this week');
-  assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'days in a row']);
+  assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'days in a row', 'tasks done']);
   const c = plan({...base, total: 130, walk: 90, gym: 40, focus: 3});
-  assert.deepEqual(c.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'focus sessions', 'days in a row'], 'focus sessions when there were any');
+  assert.deepEqual(c.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'days in a row', 'tasks done', 'focus sessions'], 'focus sessions when there were any; the streak comes before them');
   assert.equal(plan({...base, total: 200, walk: 50, gym: 50, study: 100, focus: 2}).tiles.length, 6, 'never more than six tiles');
 });
 

@@ -32,7 +32,7 @@ The GitHub Pages workflow never publishes by itself. On an iPhone, open the addr
 - `native/`: the iPhone app, which wraps `kai/` with Capacitor. See [native/README.md](native/README.md).
 - `docs/`: the App Store listing draft.
 - `tests/`: tests of the app's rules, such as conflict warnings and study plans. Run them with `node --test tests/app.test.mjs`. GitHub also runs them on every push and compiles the iPhone app.
-- `tools/check-i18n.js`: reports any interface text missing an English translation.
+- `tools/check-i18n.js`: reports any interface text missing an English translation. GitHub runs it on every push and fails the check if anything is missing.
 - `tools/check-release.js`: lists what would block an App Store submission, such as draft legal pages or blanks still to fill in.
 
 ## Adding interface text

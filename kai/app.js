@@ -278,7 +278,11 @@ const localOnly = new Map();
 const inFlight = path => localOnly.set(path, (localOnly.get(path) || 0) + 1);
 const landed = path => { const n = (localOnly.get(path) || 1) - 1; if (n > 0) localOnly.set(path, n); else localOnly.delete(path); };
 const chains = {};
+const ADAPT = new Map();
 function dataChanged(){ ADAPT.clear(); } // cached answers that depend on data
+// answers worked out once until the data changes (ADAPT is cleared on every save), and the day, since some depend on it
+const memo = (k, f) => { const key = k + '|' + todayISO(); if (ADAPT.has(key)) return ADAPT.get(key); const v = f(); ADAPT.set(key, v); return v; };
+const keysWith = prefix => memo('keys:' + prefix, () => Object.keys(S.docs).filter(k => k.startsWith(prefix)));
 function save(path, data){
   S.docs[path] = data; inFlight(path); syncMark(path); remindSoon(); dataChanged();
   chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(() => { landed(path); delete retries[path]; }).catch(e => {
@@ -331,10 +335,10 @@ const plan = () => S.docs['app/plan'] || DEFAULT_PLAN;
 const profile = () => S.docs['app/profile'] || {name:''};
 const season = () => S.docs['app/season'] || {title:tr('Сезон 1'), start: todayISO(), length:90, goals:[]};
 const content = () => { const c = S.docs['app/content'] || DEFAULT_CONTENT; return c; };
-const posts = () => Object.entries(S.docs).filter(([k])=>k.startsWith('posts/')).map(([k,v])=>({...v, id:k.slice(6)}));
+const posts = () => keysWith('posts/').map(k => ({...S.docs[k], id:k.slice(6)}));
 const analyses = () => Object.entries(S.docs).filter(([k])=>k.startsWith('analyses/')).map(([k,v])=>({...v, id:k.slice(9)})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 const kbItems = () => Object.entries(S.docs).filter(([k])=>k.startsWith('kb/')).map(([k,v])=>({...v, id:k.slice(3)})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-const dayKeys = () => Object.keys(S.docs).filter(k=>k.startsWith('days/')).map(k=>k.slice(5)).sort();
+const dayKeys = () => memo('dayKeys', () => keysWith('days/').map(k=>k.slice(5)).sort()).slice(); // a copy: callers may reverse it
 
 /* ---- units: always stored in kg and cm, so the calculations and the AI never change; pounds and inches exist only on screen ---- */
 const isUS = () => profile().units === 'us';
@@ -385,7 +389,7 @@ function buildDay(date){
   if (w && pl.workouts[w]) tasks.push({id:'gym', title:gymWord()+pl.workouts[w].name.split(' · ')[0], cat:'gym', done:false});
   const cls = (pl.classes||[]).filter(c=>Number(c.day)===dow(date));
   if (cls.length) tasks.push({id:'study', title:tr('Учёба · ')+cls.length+' '+plural(cls.length,tr('пара'),tr('пары'),tr('пар')), cat:'study', done:false});
-  const ps = posts().filter(p=>p.date===date && p.status!=='Опубликовано');
+  const ps = (memo('postsByDate', () => { const m = {}; posts().forEach(p => { if (p.status !== 'Опубликовано') (m[p.date] = m[p.date] || []).push(p); }); return m; })[date] || []);
   if (ps.length && modOn('content')) tasks.push({id:'content', title:tr('Контент · ')+ps.length+' '+plural(ps.length,tr('ролик'),tr('ролика'),tr('роликов')), cat:'content', done:false});
   (pl.dailyTasks||[]).forEach(t => { if (t.cat==='supps' && (!SUPPS_ON || !(pl.supps||[]).length)) return; if (Array.isArray(t.days) && t.days.length && !t.days.includes(dow(date))) return; const {days, ...x} = t; tasks.push({...x, done:false}); });
   return {date, tasks, meals:[], sets:{}, supps:{}, status:'ok', rating:null, steps:null, sleep:null, weight:null, log:[]};
@@ -1123,7 +1127,8 @@ const BADGES = [
   {id:'freeze1', icon:'snow', c:'#4fa8ff', t:tr('Холодный расчёт'), d:tr('Заморозка сохранила серию'), k:'frozen', n:1},
   {id:'comeback', icon:'flame', c:'#ff8a2e', t:tr('Возвращение'), d:tr('Засчитать день сразу после прерванной серии от 3 дней'), k:'comeback', n:1},
 ];
-function badgeStats(){
+function badgeStats(){ return {...memo('badgeStats', badgeStatsFresh)}; }
+function badgeStatsFresh(){
   const ks = dayKeys(), t = targets();
   const st = {checks:0, best: Math.max(bestStreak(), streak()), perfect:0, gym:0, prs:0, proteinRun:0, stepsRun:0, sleepRun:0, lost:0, posts:0, backup: meta().lastBackup ? 1 : 0, focusN:0, focusH:0, focusClean:0};
   let run = {p:0, s:0, z:0}, prev = null;
@@ -1226,7 +1231,7 @@ function render(){
   window.scrollTo(0, y);
   animateUI(v);
   if ($('#storeInfo')) showStorage(); // the data section's storage line and copies are filled in after drawing
-  glassScroll();
+  requestAnimationFrame(glassScroll); // reading the scroll position right after replacing the page forced a layout
   queueBadgeCheck();
 }
 const emptyState = (icon, text) => `<div class="empty"><span class="e-ic">${ic(icon)}</span><span>${text}</span></div>`;
@@ -2046,6 +2051,7 @@ function tickRest(){
   if (left <= 0){ stopRest(); beep(); haptic('success'); toast(tr('Отдых окончен: следующий подход')); return; }
   if (left <= 3 && TIMER.tick !== left){ TIMER.tick = left; haptic('light'); } // 3, 2, 1: felt in the hand
   bar.hidden = false;
+  if (barTick(bar, TIMER.label, left, (1 - left / TIMER.total) * 100)) return;
   bar.innerHTML = `<div class="rb-in"><div style="flex:1;min-width:0"><div class="rb-t">${Math.floor(left/60)}:${pad(left%60)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tr("Отдых ·")} ${esc(TIMER.label)}</div></div><button class="btn ghost" data-act="restAdd">${tr("+30 с")}</button><button class="btn ghost" data-act="restStop">${tr("Стоп")}</button></div><div class="bar" style="height:4px;margin-top:8px"><i style="width:${(1-left/TIMER.total)*100}%;background:var(--accent)"></i></div>`;
 }
 function stopRest(){ document.body.classList.remove('resting'); clearInterval(TIMER.iv); TIMER.iv = null; TIMER.end = 0; const bar = $('#restBar'); if (bar) bar.hidden = true; try { TIMER.wake?.release(); } catch {} TIMER.wake = null; }
@@ -2967,7 +2973,8 @@ const DEFAULT_ROUTINE = {
   events: [],
 };
 const KIND = {wake:['sun','c4'], walk:['steps','c3'], meal:['food','c2'], class:['cap','c1'], study:['cap','c1'], gym:['gym','c1'], project:['laptop','c5'], free:['coffee','c0'], rest:['moon','c7'], sleep:['moon','c7'], event:['star','c6']};
-const hm = s => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };
+const HM = new Map();
+const hm = s => { let v = HM.get(s); if (v === undefined){ const [h, m] = String(s).split(':').map(Number); v = h * 60 + (m || 0); if (HM.size < 5000) HM.set(s, v); } return v; };
 const hmStr = n => { n = ((Math.round(n) % 1440) + 1440) % 1440; return pad(Math.floor(n / 60)) + ':' + pad(n % 60); };
 function eventsFor(date){
   const R = plan().routine; if (!R) return [];
@@ -3647,8 +3654,7 @@ function daysSinceGym(date){
   return ks.length ? dayDiff(ks[ks.length - 1], date) : null;
 }
 const sleepBand = d => { const r = d.ready?.sleep; if (r) return r; const h = toNum(d.sleep); return h == null ? null : h < 6 ? 'low' : h < 7 ? 'ok' : 'good'; };
-/* asked several times per exercise on every redraw; the answer only changes when data does */
-const ADAPT = new Map();
+/* asked several times per exercise on every redraw; the answer only changes when data does (ADAPT is declared next to dataChanged) */
 function adaptInfo(date){
   const key = date + '|' + todayISO();
   if (!ADAPT.has(key)) ADAPT.set(key, adaptInfoFresh(date));
@@ -3821,7 +3827,8 @@ function warningsFor(date){
   });
   return out;
 }
-function upcomingWarnings(days = 21, all = false){
+function upcomingWarnings(days = 21, all = false){ return memo('warn:' + days + ':' + all, () => upcomingWarningsFresh(days, all)).slice(); }
+function upcomingWarningsFresh(days, all){
   const off = meta().warnOff || {}, out = [], t = todayISO();
   for (let i = 0; i <= days; i++) out.push(...warningsFor(addDays(t, i)));
   return all ? out : out.filter(w => !off[w.id]);
@@ -3949,10 +3956,11 @@ function previewWarnings(r){
   const days = moves.map(m => [m, getDay(m.from), m.to ? getDay(m.to) : null, workoutFor(m.from)]);
   keys.forEach(k => { saved[k] = S.docs[k]; });
   try {
+    dataChanged();
     S.docs['app/plan'] = pl; S.docs['app/tasks'] = {items: [...smartTasks(), ...tasks]};
     days.forEach(([m, a, b, w]) => { S.docs['days/' + m.from] = {...a, workout: null}; if (b) S.docs['days/' + m.to] = {...b, workout: w}; });
     return upcomingWarnings(60, true).filter(w => !before.has(w.id));
-  } finally { keys.forEach(k => { if (saved[k] === undefined) delete S.docs[k]; else S.docs[k] = saved[k]; }); }
+  } finally { keys.forEach(k => { if (saved[k] === undefined) delete S.docs[k]; else S.docs[k] = saved[k]; }); dataChanged(); }
 }
 function tellPlanLines(r){
   const lines = [], {tasks, moves} = tellPlan(r), name = id => allEvents().find(e => e.id === id)?.title || id;
@@ -4410,7 +4418,8 @@ A.spApply = () => {
 
 /* ---- levels: earned from what is already logged, so nothing extra to track ---- */
 const xpFor = n => 50 * n * (n + 1); // total XP needed to reach level n + 1
-function totalXP(){
+function totalXP(){ return memo('xp', totalXPFresh); }
+function totalXPFresh(){
   let xp = 0;
   dayKeys().forEach(k => {
     const d = S.docs['days/' + k]; if (!d) return;
@@ -5321,6 +5330,7 @@ function focusTick(){
   const bar = $('#focusBar'); if (!bar) return;
   const left = Math.ceil((FOCUS.end - now) / 1000);
   bar.hidden = false;
+  if (barTick(bar, FOCUS.label + '|' + FOCUS.leaves, left)) return;
   bar.innerHTML = `<div class="rb-in"><span class="ic" aria-hidden="true">${ic('target')}</span><div style="flex:1;min-width:0"><div class="rb-t">${Math.floor(left / 60)}:${pad(left % 60)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tr('Фокус')} · ${esc(FOCUS.label)}${FOCUS.leaves ? ' · ' + FOCUS.leaves + ' ' + plural(FOCUS.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')) : ''}</div></div><button class="btn ghost" data-act="focusEnd">${tr('Завершить')}</button></div>`;
 }
 function focusFinish(complete){
@@ -6492,6 +6502,16 @@ function isErrToast(msg){
   return ERR_TOASTS.has(String(msg));
 }
 { const toast0 = toast; toast = (msg, o = {}) => { if (isErrToast(msg)) haptic('error'); return toast0(msg, o); }; }
+
+/* ============ timer bars: after the first draw only the numbers change, so buttons stay put under a finger and VoiceOver keeps its place ============ */
+function barTick(bar, key, left, pct){
+  const t = bar.querySelector('.rb-t');
+  if (!t || bar.dataset.k !== String(key)){ bar.dataset.k = String(key); return false; } // the caller draws it this time
+  const v = Math.floor(left / 60) + ':' + pad(left % 60);
+  if (t.textContent !== v) t.textContent = v;
+  const i = pct != null && bar.querySelector('.bar > i'); if (i) i.style.width = pct + '%';
+  return true;
+}
 
 /* ============ init ============ */
 async function init(){

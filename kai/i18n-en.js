@@ -2377,4 +2377,8 @@ window.I18N_EN = {
 "Вопросы к KAI":"Ask KAI",
 "«Сколько я потратил на этой неделе?», «когда следующий экзамен?»: ответ считается прямо на телефоне.":"“How much did I spend this week?”, “when is my next exam?”: worked out right on your phone.",
 "KAI сравнивает твои дни: например, сколько задач ты успеваешь после 7 часов сна и после короткого.":"KAI compares your days: for example, how many tasks you finish after 7 hours of sleep and after less.",
+"Главное дело дня":"Main task of the day",
+"В 17:00, если оно ещё не сделано":"At 17:00, if it isn't done yet",
+"Главное на сегодня: {t}":"Today's main task: {t}",
+"Ещё не сделано. До вечера есть время.":"Not done yet. There's still time before evening.",
 };

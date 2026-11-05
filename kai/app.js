@@ -4534,7 +4534,7 @@ function recapBanner(){
 A.recapOpen = () => { setMeta({recapSeen: recapRange()[0]}); A.recap(); };
 
 /* ============ v8: the iPhone app. The native wrapper adds its plugins to window.Capacitor; in a browser none of this runs ============ */
-const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')], ['evening', tr('Вечерняя проверка'), tr('Если день ещё не засчитан: за 2 часа до сна')], ['challenges', tr('Вызовы недели'), tr('В субботу в 11:00, если что-то не выполнено')]];
+const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')], ['evening', tr('Вечерняя проверка'), tr('Если день ещё не засчитан: за 2 часа до сна')], ['challenges', tr('Вызовы недели'), tr('В субботу в 11:00, если что-то не выполнено')], ['mit', tr('Главное дело дня'), tr('В 17:00, если оно ещё не сделано')]];
 const REMIND_OFF = new Set(['bed', 'morning', 'evening', 'challenges']); // off until the person turns them on
 const remindOn = k => { const v = (meta().remind || {})[k]; return v === undefined ? !REMIND_OFF.has(k) : v !== false; };
 const REMIND_MAX = 60; // iOS keeps only 64 pending notifications per app
@@ -4570,6 +4570,7 @@ function buildReminders(now = Date.now()){
     if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
   }
   if (remindOn('challenges')){ const c = challengeNudge(today); if (c) add(c.key, c.at, c.title, c.body); }
+  if (remindOn('mit')){ const t = smartTasks().find(isMit); if (t) add('mit' + today, atMin(today, 17 * 60), trf('Главное на сегодня: {t}', {t: t.title}), tr('Ещё не сделано. До вечера есть время.'), true); }
   if (remindOn('warnings')) upcomingWarnings(7).forEach(w => add(`w${w.id}`, atMin(addDays(w.date, -1), 20 * 60), tr('Завтра в планах конфликт'), w.text));
   if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), modOn('tasks') ? tr('Посмотри, как прошла неделя, и запиши планы на следующую') : tr('Посмотри, как прошла твоя неделя'), false, 'recap'); }
   const byTime = (a, b) => a.at - b.at, must = out.filter(r => r.must).sort(byTime).slice(0, REMIND_MUST);
@@ -5720,7 +5721,7 @@ const badgesShown = () => BADGES.filter(b => !BADGE_MODULE[b.k] || modOn(BADGE_M
 const budgetBillsHint = () => `<div class="hint">${bills().some(b => b.type !== 'in') ? trf('Регулярные платежи ({s} в месяц) уже учтены: бюджет откладывает то, что ещё не оплачено.', {s: money(bills().filter(b => b.type !== 'in').reduce((a, b) => a + (+b.amount || 0), 0))}) : tr('Аренду, телефон и подписки удобно добавить как регулярные платежи: бюджет будет откладывать их заранее.')}</div><button class="btn ghost block" data-act="billNew">${ic('repeat')}${tr('Регулярный платёж')}</button>`;
 
 /* ============ reminders, grouped so the list reads at a glance ============ */
-const REMIND_GROUPS = [['Учёба и планы', ['exams', 'classes', 'events', 'tasks', 'warnings']], ['Ритм дня', ['morning', 'gym', 'evening', 'bed', 'challenges']]];
+const REMIND_GROUPS = [['Учёба и планы', ['exams', 'classes', 'events', 'tasks', 'mit', 'warnings']], ['Ритм дня', ['morning', 'gym', 'evening', 'bed', 'challenges']]];
 function remindGroups(){
   const kinds = REMIND_KINDS.filter(([k]) => k !== 'bills' || modOn('money')), used = new Set(REMIND_GROUPS.flatMap(g => g[1]));
   const groups = [...REMIND_GROUPS.map(([h, ks]) => [tr(h), ks.map(k => kinds.find(x => x[0] === k)).filter(Boolean)]), [tr('Остальное'), kinds.filter(([k]) => !used.has(k))]].filter(g => g[1].length);

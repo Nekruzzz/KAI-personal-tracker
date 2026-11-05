@@ -2381,4 +2381,5 @@ window.I18N_EN = {
 "В 17:00, если оно ещё не сделано":"At 17:00, if it isn't done yet",
 "Главное на сегодня: {t}":"Today's main task: {t}",
 "Ещё не сделано. До вечера есть время.":"Not done yet. There's still time before evening.",
+"Лучший день недели — {d1}: {a}% задач; самый трудный — {d2}: {b}%.":"Your best day of the week is {d1}: {a}% of tasks; the hardest is {d2}: {b}%.",
 };

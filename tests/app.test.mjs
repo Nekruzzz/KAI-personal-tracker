@@ -3186,3 +3186,14 @@ test('a weekly challenge taken back below its goal by Undo loses its XP', () => 
     assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), [], 'undone');
   } finally { run(`toast = toast65; saveTasks(tasks65); save('app/meta', meta65)`); }
 });
+
+test('insights name the best and the hardest day of the week', () => {
+  run(`globalThis.days66 = Object.fromEntries(dayKeys().filter(k => k >= addDays(todayISO(), -95)).map(k => [k, clone(S.docs['days/' + k])])); Object.keys(days66).forEach(k => remove('days/' + k))`);
+  try {
+    for (let i = 1; i <= 35; i++) run(`(() => { const k = addDays(todayISO(), -${i}); const w = dow(k); save('days/' + k, {...buildDay(k), status: 'ok', tasks: buildDay(k).tasks.map((t, j) => ({...t, done: w === 2 ? true : w === 6 ? false : j > 0}))}); })()`);
+    const x = JSON.parse(run(`JSON.stringify(insights())`)).find(i => i.d1);
+    assert.ok(x, 'a weekday insight');
+    assert.equal(x.d1, run(`DOW_FULL[2]`)); assert.equal(x.d2, run(`DOW_FULL[6]`));
+    assert.ok(run(`insightsCard()`).includes(run(`DOW_FULL[2]`)));
+  } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days66).forEach(([k, v]) => save('days/' + k, v))`); }
+});

@@ -252,6 +252,22 @@ Asked to think about rewards that keep people using KAI every day. The app alrea
 
 All of it is counted from data the app already keeps, plus three optional fields in `app/meta` (`freeze`, `challenges`, `comebackSeen`); nothing is sent anywhere, and nothing costs money or needs AI. Health rules are unchanged: sick days still pause the streak, and no challenge is about eating less or weight.
 
+## Sixth round: tracking your effort
+
+The owner's focus: see what you actually did with your time, and stay motivated by it. Logging has to be almost effortless.
+
+- **One-tap timers (new):** a Time tracking card at the top of the Day tab with Study, Work, Reading, Workout, Walk and Project, plus the person's own activities (`meta.acts`), ordered by use. The time counts up in a bar above the tab bar and survives the app closing. Study, workout and walk timers feed the existing study, workout and walk totals; the rest are stored in `days/*.track`. Under a minute isn't saved, a forgotten timer stops counting at 16 hours, there is a reminder after 3 hours, and Stop has Undo. Starting Focus stops a running timer.
+- **Your time (new):** a sheet with the week, 30 days or year: total hours against the period before, each activity with its own change, the best day, today's entries (each can be deleted), time added by hand for a forgotten timer, and new activities. Any tracked activity now earns XP and counts as an active day.
+- **Tell KAI by voice (new):** a "Say it out loud" button in Tell KAI. On iPhone it uses Apple's speech recognition through KAI's own plugin, on the phone when the language allows; in browsers with speech recognition, the browser's. The words appear as they're spoken; when listening stops, KAI reads them and shows what it understood, and nothing changes until Apply. After the first use, the Tell KAI button on the Day tab starts listening straight away. Closing the sheet stops listening.
+- **Weekly coach (new):** "Weekly review" now opens a report built from the records, without AI: a headline, hours, active days, focus and streak, what went well, one thing to watch (kind on a weaker week), and goals for next week about 10% above this week. With AI connected, "A deeper look from AI" asks for the same format, and the answer is checked before it's shown. The prompt sends only activity minutes, focus, sleep average, tasks, streak, name and season goals.
+- **Focus with blocked apps (new, iPhone):** a switch in the Focus sheet blocks the apps chosen in Apple's picker for the whole session. Finishing early takes a 30-second wait and typing "I choose distraction over my work". Opening KAI without a session lifts any shield. See `docs/screen-time-blocking.md`, including what still needs a Mac.
+- **KAI's own iPhone plugin:** `native/plugins/kai-native` (Swift, no outside package), wired in by Capacitor through `native/package.json`. It replaced a community speech plugin that has no Swift Package Manager support and would have broken the iPhone build.
+- **Fixes:** a weekly challenges test failed only on Sundays; it now measures XP after the old challenges are replaced. The working copy now uses the repository's line endings, so commits show only real changes.
+
+Tested: `node --test tests/app.test.mjs` (237 tests, 6 new), server `npm test` (44), `check-i18n` (missing 0). In a phone-sized browser: timers, Your time, the weekly coach, voice with a simulated recognizer, and the blocking flow with a simulated iPhone plugin.
+
+Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build` will be the first check) or run on a real iPhone; real speech recognition; real Screen Time blocking; the AI coach with a real model.
+
 ## How it was tested
 
 - `node --test tests/app.test.mjs`: 231 tests, all pass (36 at the start).
@@ -275,7 +291,7 @@ All of it is counted from data the app already keeps, plus three optional fields
 4. **Appearance in the iPhone app.** `Info.plist` forces dark (`UIUserInterfaceStyle = Dark`), so "System" means dark inside the iPhone app; Light can still be chosen in More. Following the system there needs `Automatic` plus a status bar plugin to switch the status bar text colour.
 5. **Plus price and limits:** 10 and 100 requests a day come from the `tiers` table. The price is a placeholder until you decide it.
 6. **Google sign-in inside the iPhone app** needs a URL scheme and Supabase redirect settings, and has to be tried on a device. On the web it already works once added to `providers` in `kai/config.js`.
-7. **Screen Time blocking** needs the Family Controls entitlement from Apple first. See `docs/screen-time-blocking.md`.
+7. **Screen Time blocking** is built, but needs the Family Controls entitlement from Apple before it works in an App Store build. See `docs/screen-time-blocking.md`.
 8. **Features to cut or hide:** see `docs/feature-review.md`. Supplements and the face log are switched off as asked. The content tools and the on-computer and on-phone AI are still there, waiting for your call. The own-key option is now hidden in the iPhone app once the server is connected (reversible with `ownKeys`).
 9. **Apple-style design.** The new look follows Apple's Human Interface Guidelines directly. A third-party design skill from GitHub wasn't used, because it couldn't be checked.
 10. **Commit history note.** One commit ("Test the quick-add date fixes", the first of two with that name) went in with a test that was wrong for Saturdays; the next commit fixes it. Squashing the branch on merge hides both.
@@ -290,4 +306,5 @@ All of it is counted from data the app already keeps, plus three optional fields
 19. **Should the evening check-in (and the new Saturday challenges reminder) be on by default now?** It is the one reminder that protects a streak ("2 more tasks to keep your 12-day streak"), but it stays off until turned on, as before. Turning it on by default would help daily use; it was left off because reminders that weren't asked for can feel pushy.
 20. **Completed to-dos are kept forever.** They count for XP and the weekly challenges, so nothing removes them. After a couple of years of daily repeating to-dos the list could hold around a thousand finished entries, saved (and synced) as one record. KAI could archive finished to-dos older than six months and keep just their count for XP; nothing was removed, since that would delete history. Say if you want it.
 21. **The main-task reminder is on by default** (17:00, only on days a main task was chosen and is still open). It seemed safe since the person picks the task themselves; say if it should start off like the evening check-in.
-
+22. **The sentence for finishing a blocked Focus early** is "I choose distraction over my work" (Russian: "Я выбираю отвлечься вместо учёбы"), after a 30-second wait. Stricter or gentler is a one-line change: `UNLOCK_WAIT` and `unlockPhrase` in `kai/app.js`.
+23. **Time tracking sits at the top of the Day tab** for everyone. If it feels like too much in the first week, it could appear only after the first Tell KAI message.

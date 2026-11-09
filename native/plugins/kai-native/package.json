@@ -1,0 +1,16 @@
+{
+  "name": "kai-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KAI's own iPhone features: blocking distracting apps during Focus (Screen Time) and speech to text for Tell KAI.",
+  "license": "UNLICENSED",
+  "files": [
+    "ios/Sources",
+    "Package.swift"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

@@ -783,7 +783,7 @@ function jobView(it){
     case 'stats': return analysisHTML({...r, platform:it.meta.platform, kind:it.meta.kind, date:it.date, id:it.id}) + by;
     case 'script': return `<div class="note">${tr("Сценарий «")}${esc(r.title)}${tr("» готов.")}</div><button class="btn" data-act="openPost" data-id="${it.id}">${tr("Открыть сценарий")}</button>` + by;
     case 'promo': return `<div class="ai-out">${esc(r.text)}</div>` + by;
-    case 'review': return `<div class="ai-out">${esc(r.text)}</div>` + by;
+    case 'review': { const c = cleanCoach(r); return (c ? coachHTML(c) : `<div class="ai-out">${esc(r.text)}</div>`) + by; }
     case 'screen': return screenView(it) + by;
     case 'kbAsk': return `${it.meta?.q?`<div class="hint">${tr("Вопрос:")} ${esc(it.meta.q)}</div>`:''}<div class="ai-out">${esc(r.text)}</div>` + by;
     case 'kbExtract': return `<div class="note">${tr("Запись «")}${esc(r.title||S.docs['kb/'+it.meta?.kbId]?.title||'')}${tr("» обработана и сохранена в базе.")}</div>` + by;
@@ -1255,7 +1255,7 @@ function renderNav(){
   const tabs = [['day',tr('День'),'day'],['health',tr('Здоровье'),'heart'],['tell','KAI','mic'],['money',tr('Деньги'),'wallet'],['more',tr('Ещё'),'more']].filter(([id]) => modOn(id));
   const cur = S.tab === 'content' ? 'more' : S.tab;
   $('#nav').innerHTML = tabs.map(([id,l,i]) => id==='tell'
-    ? `<button class="mic" data-act="tell" aria-label="${tr("Рассказать о дне")}"><span class="b">${ic('mic')}</span><span>${l}</span></button>`
+    ? `<button class="mic" data-act="tell" data-voice="1" aria-label="${tr("Рассказать о дне")}"><span class="b">${ic('mic')}</span><span>${l}</span></button>`
     : `<button class="${cur===id?'on':''}" data-act="tab" data-v="${id}" ${cur===id?'aria-current="page"':''}><span class="nb">${ic(i)}</span><span>${l}</span></button>`).join('');
   navIndicator(tabs.map(t => t[0]).indexOf(cur), tabs.length);
 }
@@ -1277,10 +1277,11 @@ function viewDay(){
       <div class="hero-sub">${sc < 1 && d.status !== 'sick' && total ? `<button class="hero-go" data-act="toDaily">${status}</button>` : status}</div>
     </div>${ring(sc, 88, 10, '', tr('Выполнено за день'), 'day')}</div>
     <div class="actions">
-      <button data-act="tell">${ic('mic')}${tr("Сказать KAI")}</button>
+      <button data-act="tell" data-voice="1">${ic('mic')}${tr("Сказать KAI")}</button>
       <button data-act="rate">${ic('star')}${d.rating?'<span class="stars">'+'★'.repeat(d.rating)+'<i>'+'★'.repeat(5-d.rating)+'</i></span>':tr('Оценить день')}</button>
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
+  h += trackCard();
   h += comebackCard();
   h += firstTellCard();
   h += timetableCard();
@@ -2179,7 +2180,7 @@ function drawSheet(){
   SH.after && SH.after($('.sh-b'));
   animateUI($('.sheet'));
 }
-function closeSheet(){
+function closeSheet(){ if (VOICE) VOICE.stop(); // closing Tell KAI stops listening
   const back = SH?.opener;
   SH = null;
   if (back) setTimeout(() => refocus(back), reduceMotion() ? 30 : 230);
@@ -2240,7 +2241,7 @@ A.toggleTask = el => {
 A.goTrain = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='train'; S.sub.w = null; window.scrollTo(0,0); render(); };
 A.goFood = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='food'; window.scrollTo(0,0); render(); };
 A.goSupps = () => { S.tab='health'; S.sub.health='supps'; window.scrollTo(0,0); render(); };
-function closeSheetQuiet(){ if (SH){ SH = null; drawSheet(); } }
+function closeSheetQuiet(){ if (VOICE) VOICE.stop(); if (SH){ SH = null; drawSheet(); } }
 A.sick = () => { haptic('medium'); mutDay(todayISO(), d => { d.status = d.status==='sick' ? 'ok' : 'sick'; }); toast(getDay(todayISO()).status==='sick' ? tr('Отметил: болеешь. Серия не сгорит.') : tr('Рад, что ты здоров')); };
 A.delTask = el => withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { d.tasks = d.tasks.filter(t=>t.id!==el.dataset.id); }));
 A.dismissY = () => mutDay(addDays(todayISO(),-1), d => { d.carried = true; });
@@ -2322,6 +2323,7 @@ A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   <button class="link" style="align-self:flex-start" data-act="tellHelp" aria-expanded="${!!SH?.tellHelp}">${SH?.tellHelp ? tr('Скрыть примеры') : tr('Что можно написать?')}</button>
   ${SH?.tellHelp ? tellHelpHTML() : ''}
   ${connectNudge(true)}
+  ${voiceOK() ? `<button class="btn ghost block micb" id="micB" data-act="voice">${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}</button>` : ''}
   <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
   ${provPicker(false)}
   <button class="btn block" data-act="tellGo">${ic('send')}${tr("Разобрать")}</button>
@@ -3918,7 +3920,7 @@ function timeOnFresh(date, d){
 }
 function timeSum(dates){
   const r = {walk:0, gym:0, study:0, active:0, sleepSum:0, sleepN:0};
-  dates.forEach(k => { const t = timeOn(k), dd = S.docs['days/' + k]; r.walk += t.walk; r.gym += t.gym; r.study += t.study; if (t.walk + t.gym + t.study > 0 || (dd && dayScore(dd) >= .7)) r.active++; if (t.sleep){ r.sleepSum += t.sleep; r.sleepN++; } });
+  dates.forEach(k => { const t = timeOn(k), dd = S.docs['days/' + k]; r.walk += t.walk; r.gym += t.gym; r.study += t.study; if (t.walk + t.gym + t.study + trackOther(k) > 0 || (dd && dayScore(dd) >= .7)) r.active++; if (t.sleep){ r.sleepSum += t.sleep; r.sleepN++; } });
   r.total = r.walk + r.gym + r.study;
   return r;
 }
@@ -4440,7 +4442,7 @@ function totalXPFresh(){
   dayKeys().forEach(k => {
     const d = S.docs['days/' + k]; if (!d) return;
     const done = (d.tasks || []).filter(t => t.done).length, t = timeOn(k);
-    xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study) / 2);
+    xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study + trackOther(k)) / 2);
   });
   return xp + smartTasks().filter(t => t.done).length * 10 + smartTasks().filter(t => t.done && t.mit && t.mit === t.doneAt).length * MIT_XP + challengeXP();
 }
@@ -4545,9 +4547,10 @@ function buildReminders(now = Date.now()){
   const out = [], today = todayISO();
   const add = (key, at, title, body, must, go = 'day') => { if (at > now + 30000) out.push({id: remindId(key), key, at, title, body, must: !!must, go}); };
   if (FOCUS){
-    add('focus_end', FOCUS.end, tr('Фокус закончен'), tr('Открой KAI, чтобы засчитать время.'), true);
+    add('focus_end', FOCUS.end, tr('Фокус закончен'), FOCUS.blocked ? tr('Открой KAI, чтобы засчитать время и снять блокировку приложений.') : tr('Открой KAI, чтобы засчитать время.'), true);
     if (FOCUS.hiddenAt) add('focus_back', FOCUS.hiddenAt + 40000, tr('Фокус ещё идёт'), trf('Осталось {m} мин. Вернись, чтобы не сбить сессию.', {m: Math.max(1, Math.ceil((FOCUS.end - FOCUS.hiddenAt) / 60000))}), true);
   }
+  if (TRACK) add('track_long', TRACK.start + 3 * 3600000, tr('Таймер всё ещё идёт'), trf('{a}: 3 часа. Если уже закончил, останови таймер.', {a: actOf(TRACK.a).name}), true);
   if (remindOn('exams')) allEvents().filter(e => (e.kind === 'exam' || e.kind === 'deadline') && e.date >= today).forEach(e => {
     const start = atMin(e.date, hm(e.from || '09:00')), open = planTasks(e.id).filter(t => !t.done).length;
     const steps = e.kind === 'exam' ? [[14, tr('через 2 недели')], [7, tr('через неделю')], [3, tr('через 3 дня')], [1, tr('завтра')]] : [[3, tr('через 3 дня')], [1, tr('завтра')]];
@@ -5342,7 +5345,9 @@ function focusMinutes(now = Date.now()){
 }
 function focusStart(min, label, task, exam){
   const now = Date.now();
+  if (TRACK) trackStop();
   FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба'), task: task || null, exam: exam || null};
+  if (meta().focusBlock && stReady()){ FOCUS.blocked = true; ST().block().catch(() => { if (FOCUS){ FOCUS.blocked = false; focusSave(); } toast(tr('Не получилось заблокировать приложения')); }); }
   focusSave(); focusRun(); syncReminders(); haptic('medium');
   noiseStart();
 }
@@ -5365,12 +5370,13 @@ function focusFinish(complete){
   const now = Date.now(), mins = focusMinutes(now), awayMin = Math.round(focusAway(f, now) / 60000);
   const leaves = f.leaves + (f.hiddenAt && now - f.hiddenAt >= 3000 ? 1 : 0);
   FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing'); noiseStop();
+  if (f.blocked && ST()) ST().unblock().catch(() => {});
   const bar = $('#focusBar'); if (bar) bar.hidden = true;
   try { FOCUS_WAKE?.release(); } catch {} FOCUS_WAKE = null;
   const hhmm = (t => pad(t.getHours()) + ':' + pad(t.getMinutes()))(new Date(f.start));
   mutDay(iso(f.start), d => {
     if (mins > 0) d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + mins};
-    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves, l: String(f.label || '').slice(0, 60)}].slice(-20);
+    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves, l: String(f.label || '').slice(0, 60), ...(f.blocked ? {blocked: true, gaveUp: !!f.gaveUp} : {})}].slice(-20);
   });
   const task = f.task && smartTasks().find(t => t.id === f.task);
   if (task && mins > 0){
@@ -5424,6 +5430,7 @@ A.focusSheet = el => {
     <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
     <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
     ${noiseField()}
+    ${blockField()}
     <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);
   SH.ftask = task; SH.fexam = exam; // read when Start is tapped
 };
@@ -6861,6 +6868,310 @@ function noiseStop(){
   setTimeout(() => { try { if (!NOISE && navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch {} }, 1000); // back to short sounds that respect silent mode
 }
 
+/* ============ v9: time tracked in one tap, Tell KAI by voice, a weekly coach, and apps blocked during Focus ============ */
+
+/* ---- one-tap timers: start an activity, stop it, and the minutes go on record. Study, workouts and walks also count where they always did ---- */
+const ACTS = [
+  ['study', tr('Учёба'), 'cap', 'study'], ['work', tr('Работа'), 'laptop', ''], ['read', tr('Чтение'), 'book', ''],
+  ['gym', tr('Тренировка'), 'gym', 'gym'], ['walk', tr('Прогулка'), 'steps', 'walk'], ['project', tr('Проект'), 'target', ''],
+];
+const TRACK_KEY = 'kai_track', TRACK_MAX = 16 * 60; // a timer left running overnight doesn't become a 20-hour day
+let TRACK = (() => { try { return JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch { return null; } })(), TRACK_IV = 0, TRACK_LAST = null;
+const trackSave = () => { try { if (TRACK) localStorage.setItem(TRACK_KEY, JSON.stringify(TRACK)); else localStorage.removeItem(TRACK_KEY); } catch {} };
+function actOf(id){
+  const a = ACTS.find(x => x[0] === id); if (a) return {id, name: a[1], icon: a[2], kind: a[3]};
+  const c = (meta().acts || []).find(x => x.id === id);
+  return {id, name: c ? c.name : String(id), icon: 'star', kind: ''};
+}
+const allActs = () => [...ACTS.map(a => a[0]), ...(meta().acts || []).filter(x => !x.off).map(x => x.id)];
+/* the activities used most in the last 30 days come first, so the usual one is one tap away */
+function actsByUse(){
+  const n = {};
+  for (let i = 0; i < 30; i++) (S.docs['days/' + addDays(todayISO(), -i)]?.track || []).forEach(x => { n[x.a] = (n[x.a] || 0) + 1; });
+  return allActs().sort((a, b) => (n[b] || 0) - (n[a] || 0));
+}
+const clockOf = ms => { const t = new Date(ms); return pad(t.getHours()) + ':' + pad(t.getMinutes()); };
+function trackAdd(date, a, min, at){
+  const kind = actOf(a).kind, id = uid();
+  mutDay(date, d => {
+    d.track = [...(d.track || []), {id, a, min, at: at || ''}];
+    if (kind === 'walk') d.walkExtra = (d.walkExtra || 0) + min;
+    else if (kind) d.timeExtra = {...(d.timeExtra || {}), [kind]: (d.timeExtra?.[kind] || 0) + min};
+  });
+  TRACK_LAST = {date, id};
+  return id;
+}
+function trackDel(date, id){
+  mutDay(date, d => {
+    const x = (d.track || []).find(e => e.id === id); if (!x) return;
+    d.track = d.track.filter(e => e !== x);
+    const kind = actOf(x.a).kind;
+    if (kind === 'walk') d.walkExtra = Math.max(0, (d.walkExtra || 0) - x.min);
+    else if (kind) d.timeExtra = {...(d.timeExtra || {}), [kind]: Math.max(0, (d.timeExtra?.[kind] || 0) - x.min)};
+  });
+}
+/* minutes per activity: study, workouts and walks from everything that feeds them (classes, Focus, timers, Tell KAI); the rest from timers */
+function actMinutes(dates){
+  const by = {study: 0, gym: 0, walk: 0};
+  dates.forEach(k => {
+    const t = timeOn(k); by.study += t.study; by.gym += t.gym; by.walk += t.walk;
+    (S.docs['days/' + k]?.track || []).forEach(x => { if (!actOf(x.a).kind) by[x.a] = (by[x.a] || 0) + x.min; });
+  });
+  return by;
+}
+const trackOther = k => (S.docs['days/' + k]?.track || []).reduce((a, x) => a + (actOf(x.a).kind ? 0 : x.min), 0);
+const sumMin = by => Object.values(by).reduce((a, b) => a + b, 0);
+
+function trackStart(a){
+  if (FOCUS) return toast(tr('Сначала закончи фокус'));
+  if (TRACK) trackStop();
+  TRACK = {a, start: Date.now()}; trackSave(); trackRun(); haptic('medium'); syncReminders(); scheduleRender();
+}
+function trackRun(){
+  clearInterval(TRACK_IV); if (!TRACK) return;
+  document.body.classList.add('tracking'); TRACK_IV = setInterval(trackTick, 1000); trackTick();
+}
+function trackTick(){
+  const bar = $('#trackBar'); if (!TRACK || !bar) return;
+  const s = Math.max(0, Math.floor((Date.now() - TRACK.start) / 1000)), v = `${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+  bar.hidden = false;
+  const t = bar.querySelector('.rb-t');
+  if (t && bar.dataset.k === TRACK.a + TRACK.start){ if (t.textContent !== v) t.textContent = v; return; } // only the numbers change, so the button stays under a finger
+  bar.dataset.k = TRACK.a + TRACK.start;
+  const a = actOf(TRACK.a);
+  bar.innerHTML = `<div class="rb-in"><span class="ic" aria-hidden="true">${ic(a.icon)}</span><div style="flex:1;min-width:0"><div class="rb-t" role="timer">${v}</div><div class="hint">${esc(a.name)}</div></div><button class="btn" data-act="trackStop">${tr('Стоп')}</button></div>`;
+}
+function trackStop(){
+  const t = TRACK; if (!t) return;
+  TRACK = null; trackSave(); clearInterval(TRACK_IV); TRACK_IV = 0; document.body.classList.remove('tracking');
+  const bar = $('#trackBar'); if (bar){ bar.hidden = true; bar.dataset.k = ''; }
+  syncReminders();
+  const min = Math.min(TRACK_MAX, Math.floor((Date.now() - t.start) / 60000)), a = actOf(t.a);
+  if (min < 1){ toast(tr('Меньше минуты: не записано')); scheduleRender(); return; }
+  trackAdd(iso(t.start), t.a, min, clockOf(t.start));
+  haptic('success');
+  toast(trf('{a}: {t} записано', {a: a.name, t: fmtMin(min)}), {icon: a.icon, tone: 'good', action: {label: tr('Вернуть'), act: 'trackUndo'}});
+}
+A.trackGo = el => trackStart(el.dataset.v);
+A.trackStop = () => trackStop();
+A.trackUndo = () => { hideToast(); const l = TRACK_LAST; TRACK_LAST = null; if (l) trackDel(l.date, l.id); };
+
+function trackCard(){
+  const run = TRACK && actOf(TRACK.a), tot = sumMin(actMinutes([todayISO()]));
+  return `<section class="card trackc"><div class="tc-h"><b>${tr('Учёт времени')}</b><button class="link" data-act="timeSheet">${tot ? trf('Сегодня {t}', {t: fmtMin(tot)}) : tr('Статистика')}</button></div>
+    ${run ? `<div class="hint">${trf('Идёт: {a}. Время видно внизу экрана.', {a: esc(run.name)})}</div><button class="btn block" data-act="trackStop">${ic('check')}${tr('Стоп и записать')}</button>`
+      : `<div class="pills tchips">${actsByUse().slice(0, 6).map(id => { const a = actOf(id); return `<button class="pill" data-act="trackGo" data-v="${esc(id)}">${ic(a.icon)}${esc(a.name)}</button>`; }).join('')}</div>
+      <div class="hint">${tr('Нажми, когда начинаешь, и «Стоп», когда закончил.')}</div>`}</section>`;
+}
+
+/* ---- Your time: where the hours went, against the period before ---- */
+const PERIODS = [['week', tr('Неделя'), 7], ['month', tr('30 дней'), 30], ['year', tr('Год'), 365]];
+function timeStats(len, end = todayISO()){
+  const days = [...Array(len)].map((_, i) => addDays(end, i - len + 1)), prev = days.map(k => addDays(k, -len));
+  const cur = actMinutes(days), was = actMinutes(prev);
+  let best = null;
+  days.forEach(k => { const m = sumMin(actMinutes([k])); if (m > 0 && (!best || m > best[1])) best = [k, m]; });
+  return {days, cur, was, total: sumMin(cur), wasTotal: sumMin(was), best, active: days.filter(k => sumMin(actMinutes([k])) > 0).length};
+}
+const hoursOf = m => { if (m < 60) return Math.round(m) + ' ' + tr('мин'); const h = Math.round(m / 6) / 10; return num(h, Number.isInteger(h) ? 0 : 1) + ' ' + tr('ч'); };
+function timeBody(){
+  const per = PERIODS.find(p => p[0] === (SH.tper || 'week')) || PERIODS[0], st = timeStats(per[2]);
+  const rows = Object.entries(st.cur).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]), max = rows[0]?.[1] || 1;
+  const diff = st.total - st.wasTotal;
+  const today = getDay(todayISO()).track || [];
+  return `<div class="seg" role="group">${PERIODS.map(([id, l]) => `<button class="${per[0] === id ? 'on' : ''}" aria-pressed="${per[0] === id}" data-act="tPer" data-v="${id}">${l}</button>`).join('')}</div>
+    <section class="card"><div class="hero-num">${hoursOf(st.total)}</div><div class="hint">${st.wasTotal && diff ? trf('{d} к периоду до этого', {d: (diff > 0 ? '+' : '−') + hoursOf(Math.abs(diff))}) : tr('на дела за этот период')}${st.active ? ' · ' + trf('активных дней: {n}', {n: st.active}) : ''}</div>
+      ${st.best ? `<div class="hint">${trf('Лучший день: {d}, {t}', {d: fmtShort(st.best[0]), t: hoursOf(st.best[1])})}</div>` : ''}</section>
+    ${rows.length ? `<section class="card" style="display:flex;flex-direction:column;gap:12px">${rows.map(([id, m]) => { const a = actOf(id), w = st.was[id] || 0; return `<div><div class="tr-row"><span>${ic(a.icon)} ${esc(a.name)}</span><b>${hoursOf(m)}</b></div><div class="bar"><i style="width:${Math.max(3, m / max * 100)}%;background:var(--accent)"></i></div>${w && Math.abs(m - w) >= 10 ? `<div class="hint">${trf('{d} к периоду до этого', {d: (m > w ? '+' : '−') + hoursOf(Math.abs(m - w))})}</div>` : ''}</div>`; }).join('')}</section>`
+      : emptyState('target', tr('Пока пусто. Запусти таймер на экране «День» или расскажи KAI, чем занимался.'))}
+    <div class="sec-h"><h2>${tr('Сегодня')}</h2></div>
+    <section class="card" style="padding:4px 16px"><div class="list">${today.map(x => { const a = actOf(x.a); return `<div class="row"><span class="ic">${ic(a.icon)}</span><div class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(x.at || '')} · ${fmtMin(x.min)}</div></div><button class="iconbtn" data-act="trackDelOne" data-id="${esc(x.id)}" aria-label="${tr('Удалить')} ${esc(a.name)}">${ic('x')}</button></div>`; }).join('') || `<div class="empty">${tr('Записей с таймера сегодня нет.')}</div>`}</div></section>
+    <div class="field"><label for="tmA">${tr('Забыл включить таймер? Добавь время')}</label><div style="display:flex;gap:8px"><select class="in" id="tmA">${allActs().map(id => `<option value="${esc(id)}">${esc(actOf(id).name)}</option>`).join('')}</select><input class="in" id="tmM" inputmode="numeric" placeholder="${tr('мин')}" style="width:90px" aria-label="${tr('Минуты')}"><button class="btn" data-act="trackAddManual" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
+    <div class="field"><label for="tmN">${tr('Своё занятие')}</label><div style="display:flex;gap:8px"><input class="in" id="tmN" placeholder="${tr('например, гитара или английский')}"><button class="btn" data-act="actAdd" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
+    <button class="btn ghost block" data-act="weekReview">${ic('spark')}${tr('Разбор недели')}</button>`;
+}
+A.timeSheet = () => openSheet(tr('Твоё время'), timeBody);
+A.tPer = el => { SH.tper = el.dataset.v; haptic('selection'); drawSheet(); };
+A.trackDelOne = el => { trackDel(todayISO(), el.dataset.id); drawSheet(); };
+A.trackAddManual = () => {
+  const a = val('tmA'), m = Math.round(toNum(val('tmM')) || 0);
+  if (!a || m < 1 || m > TRACK_MAX) return toast(tr('Впиши минуты, от 1 до 960'));
+  trackAdd(todayISO(), a, m, ''); haptic('light'); drawSheet(); toast(trf('{a}: {t} записано', {a: actOf(a).name, t: fmtMin(m)}), {icon: actOf(a).icon, tone: 'good'});
+};
+A.actAdd = () => {
+  const name = val('tmN').slice(0, 30); if (!name) return toast(tr('Напиши, чем занимаешься'));
+  const acts = meta().acts || [];
+  if ([...ACTS.map(a => a[1]), ...acts.map(x => x.name)].some(n => n.toLowerCase() === name.toLowerCase())) return toast(tr('Такое занятие уже есть'));
+  setMeta({acts: [...acts, {id: 'a_' + uid(), name}]}); drawSheet(); toast(trf('Добавлено: {a}', {a: name}));
+};
+
+/* ---- Tell KAI by voice: the iPhone's own speech recognition, or the browser's where it has one. What was heard is shown before anything changes ---- */
+const WebSR = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceOK = () => !!((isNative() && plug('Speech')) || WebSR());
+let VOICE = null;
+function drawMic(){
+  const b = $('#micB'); if (!b) return;
+  b.classList.toggle('on', !!VOICE);
+  b.innerHTML = `${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}`;
+}
+async function voiceStart(){
+  if (!$('#tellT') || VOICE) return;
+  const base = (val('tellT') || '').trim(), lang = LANG === 'ru' ? 'ru-RU' : (/^en-/.test(navigator.language || '') ? navigator.language : 'en-US');
+  const put = t => { const b = $('#tellT'); if (b) b.value = (base ? base + ' ' : '') + String(t || '').trim(); };
+  const done = () => { VOICE = null; drawMic(); setMeta({voiceUsed: true}); if (SH && $('#tellT') && val('tellT') && val('tellT') !== base) A.tellGo(); };
+  const sp = isNative() && plug('Speech');
+  if (sp){
+    let ok = false; try { ok = (await sp.authorize()).granted; } catch {}
+    if (!ok) return toast(tr('Разреши микрофон и распознавание речи для KAI в Настройках iPhone'), {ms: 5000});
+    let h1, h2;
+    const off = () => { try { h1?.remove?.(); h2?.remove?.(); } catch {} };
+    h1 = await sp.addListener('partial', d => put(d?.text));
+    h2 = await sp.addListener('end', () => { off(); done(); });
+    try { await sp.start({language: lang}); } catch { off(); return toast(tr('Не получилось включить микрофон')); }
+    VOICE = {stop: () => sp.stop().catch(() => {})};
+  } else {
+    const R = WebSR(); if (!R) return;
+    const r = new R(); r.lang = lang; r.interimResults = true; r.continuous = true;
+    r.onresult = e => put([...e.results].map(x => x[0].transcript).join(' '));
+    r.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast(tr('Разреши доступ к микрофону')); };
+    r.onend = done;
+    try { r.start(); } catch { return; }
+    VOICE = {stop: () => { try { r.stop(); } catch {} }};
+  }
+  haptic('light'); drawMic();
+}
+A.voice = () => { if (VOICE) VOICE.stop(); else voiceStart(); };
+/* once someone has used their voice, the mic button starts listening straight away */
+const tellPlain = A.tell;
+A.tell = (...a) => { tellPlain(...a); if (voiceOK() && meta().voiceUsed && a[0]?.dataset?.voice) setTimeout(voiceStart, 250); };
+
+/* ---- the weekly coach: this week against the last, numbers first, then a few honest words. Works without AI ---- */
+function weekNumbers(end = todayISO()){
+  const span = ds => {
+    const by = actMinutes(ds), f = ds.flatMap(k => S.docs['days/' + k]?.focus || []).filter(x => x.min > 0), s = timeSum(ds);
+    const tasks = ds.reduce((a, k) => a + (S.docs['days/' + k]?.tasks || []).filter(t => t.done).length, 0) + smartTasks().filter(t => t.done && ds.includes(t.doneAt)).length;
+    return {by, total: sumMin(by), active: ds.filter(k => sumMin(actMinutes([k])) > 0 || (S.docs['days/' + k] && dayScore(S.docs['days/' + k]) >= .7)).length, sleep: s.sleepN ? s.sleepSum / s.sleepN : null, focusN: f.length, focusMin: f.reduce((a, x) => a + x.min, 0), leaves: f.reduce((a, x) => a + (x.leaves || 0), 0), tasks};
+  };
+  const days = [...Array(7)].map((_, i) => addDays(end, i - 6));
+  const st = timeStats(7, end);
+  return {days, cur: span(days), was: span(days.map(k => addDays(k, -7))), best: st.best, streak: streak()};
+}
+function coachLocal(n){
+  const {cur, was} = n, top = Object.entries(cur.by).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]);
+  if (!cur.total && !cur.tasks) return {headline: tr('Неделя без записей. Это нормально: начни завтра с одного таймера.'), wins: [], watch: '', next: [tr('Завтра нажми таймер, когда сядешь за главное дело дня.')]};
+  const diff = cur.total - was.total;
+  const headline = was.total && diff >= 30 ? trf('{t} на дела: на {d} больше, чем неделей раньше', {t: hoursOf(cur.total), d: hoursOf(diff)})
+    : trf('{t} на дела за неделю', {t: hoursOf(cur.total)});
+  const wins = [];
+  if (top[0]) wins.push(trf('Больше всего времени: {a}, {t}', {a: actOf(top[0][0]).name, t: hoursOf(top[0][1])}));
+  if (cur.active) wins.push(trf('Активных дней: {n} из 7', {n: cur.active}));
+  if (cur.focusN) wins.push(trf('Фокус: {n} {s}, {t}', {n: cur.focusN, s: plural(cur.focusN, tr('сессия'), tr('сессии'), tr('сессий')), t: hoursOf(cur.focusMin)}));
+  if (n.best) wins.push(trf('Лучший день: {d}, {t}', {d: fmtShort(n.best[0]), t: hoursOf(n.best[1])}));
+  if (cur.tasks) wins.push(trf('Сделано задач: {n}', {n: cur.tasks}));
+  if (n.streak >= 3) wins.push(trf('Серия: {n} {d} подряд', {n: n.streak, d: plural(n.streak, tr('день'), tr('дня'), tr('дней'))}));
+  const watch = was.total && diff <= -60 ? trf('На {t} меньше, чем неделей раньше. Без самокритики: один хороший день завтра уже меняет картину.', {t: hoursOf(-diff)})
+    : cur.sleep && cur.sleep < 7 ? trf('Сон в среднем {h} ч. Меньше 7 часов съедает силы на всё остальное.', {h: num(cur.sleep, 1)})
+    : cur.focusN >= 2 && cur.leaves > cur.focusN * 2 ? trf('В фокусе {n} отвлечений за неделю. Попробуй убрать телефон в другую комнату.', {n: cur.leaves}) : '';
+  const next = [];
+  if (top[0]) next.push(trf('{a}: попробуй {t} за следующую неделю', {a: actOf(top[0][0]).name, t: hoursOf(Math.max(30, Math.round(top[0][1] * 1.1 / 30) * 30))}));
+  if (cur.active < 7) next.push(trf('Цель: {n} активных дней', {n: Math.min(7, cur.active + 1)}));
+  return {headline, wins: wins.slice(0, 4), watch, next: next.slice(0, 3)};
+}
+const cleanCoach = r => r && typeof r.headline === 'string' ? {headline: r.headline.slice(0, 160), wins: (Array.isArray(r.wins) ? r.wins : []).filter(x => typeof x === 'string').slice(0, 4).map(x => x.slice(0, 200)), watch: typeof r.watch === 'string' ? r.watch.slice(0, 240) : '', next: (Array.isArray(r.next) ? r.next : []).filter(x => typeof x === 'string').slice(0, 3).map(x => x.slice(0, 200))} : null;
+function coachHTML(c, n){
+  const nums = n ? `<div class="kv"><div><span>${tr('На дела')}</span><b>${hoursOf(n.cur.total)}</b></div><div><span>${tr('Активных дней')}</span><b>${n.cur.active}/7</b></div><div><span>${tr('Фокус')}</span><b>${hoursOf(n.cur.focusMin)}</b></div><div><span>${tr('Серия')}</span><b>${n.streak}</b></div></div>` : '';
+  return `<section class="card coach" style="display:flex;flex-direction:column;gap:12px"><div class="coach-h">${esc(c.headline)}</div>${nums}
+    ${c.wins.length ? `<div><b>${tr('Что получилось')}</b><ul class="ai-list">${c.wins.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+    ${c.watch ? `<div class="note">${esc(c.watch)}</div>` : ''}
+    ${c.next.length ? `<div><b>${tr('На следующую неделю')}</b><ul class="ai-list">${c.next.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}</section>`;
+}
+function coachPrompt(n){
+  const p = profile(), name = a => actOf(a).name, by = o => Object.fromEntries(Object.entries(o).filter(([, m]) => m > 0).map(([k, m]) => [name(k), m]));
+  const data = {name: p.name || '', goals: season().goals || [], this_week: {...n.cur, by: by(n.cur.by)}, last_week: {...n.was, by: by(n.was.by)}, best_day: n.best ? {date: n.best[0], minutes: n.best[1]} : null, streak_days: n.streak};
+  return `Ты — личный коуч в приложении, где человек отмечает, сколько времени потратил на учёбу, работу, тренировки и другие дела. Ниже его цифры за эту и прошлую неделю (время в минутах).
+${JSON.stringify(data)}
+Напиши разбор недели, который мотивирует продолжать. Пиши тепло, честно и коротко, на «ты». Используй только цифры из данных и ничего не выдумывай; минуты переводи в часы, где их больше 60. Хвали за реальные усилия. Если неделя слабее прошлой, без стыда: признай и дай один простой шаг. Не давай советов о еде, весе и лекарствах.
+Верни ТОЛЬКО JSON: {"headline":"одно предложение до 12 слов","wins":["2–4 конкретные победы с цифрами"],"watch":"одна вещь, которая мешала, с цифрой, или пустая строка","next":["2–3 конкретных шага на следующую неделю с числами"]}`;
+}
+A.weekReview = () => {
+  const n = weekNumbers();
+  openSheet(tr('Разбор недели'), () => `${coachHTML(coachLocal(n), n)}
+    ${aiStatus().ok ? `<button class="btn ghost block" data-act="coachAI">${ic('spark')}${tr('Подробнее от ИИ')}</button>` : `<div class="hint">${tr('Это разбор по твоим записям, без ИИ. С подключённым ИИ можно получить более подробный.')}</div>`}
+    <div id="rvOut"></div>`);
+};
+A.coachAI = async () => {
+  const id = await submitJob('review', {prompt: coachPrompt(weekNumbers()), label: tr('Разбор недели · ') + fmtShort(todayISO())});
+  if (id) queueNow(id, 'rvOut');
+};
+
+/* ---- Focus with apps blocked (iPhone): the chosen apps are shut for the session, and stopping early takes some effort on purpose ---- */
+const ST = () => isNative() && plug('ScreenTime');
+let ST_STATE = null;
+async function stRefresh(){ const p = ST(); if (!p) return null; try { ST_STATE = await p.status(); } catch { ST_STATE = null; } return ST_STATE; }
+const stPicked = s => !!s && ((s.apps || 0) + (s.categories || 0) + (s.sites || 0)) > 0;
+const stReady = () => !!(ST_STATE?.supported && ST_STATE.authorized && stPicked(ST_STATE));
+function blockField(){
+  if (!ST()) return '';
+  const s = ST_STATE, on = !!meta().focusBlock;
+  if (s && !s.supported) return `<div class="hint">${tr('Блокировка приложений работает с iOS 16.')}</div>`;
+  const chosen = stPicked(s) ? trf('Выбрано приложений и категорий: {n}', {n: (s.apps || 0) + (s.categories || 0) + (s.sites || 0)}) : tr('Приложения ещё не выбраны');
+  return `<label class="row" style="padding:6px 0"><div class="mid"><div class="t">${tr('Блокировать отвлекающие приложения')}</div><div class="s">${s?.authorized ? esc(chosen) : tr('Нужно разрешение Экранного времени')}</div></div><input type="checkbox" switch class="sw" data-ch="focusBlock" aria-label="${tr('Блокировать отвлекающие приложения')}" ${on ? 'checked' : ''}></label>
+    ${on ? `<button class="btn ghost" data-act="stPick">${ic('shield')}${stPicked(s) ? tr('Изменить список') : tr('Выбрать приложения')}</button>` : ''}`;
+}
+CH.focusBlock = async el => {
+  if (!el.checked){ setMeta({focusBlock: false}); return drawSheet(); }
+  const p = ST(); if (!p) return;
+  if (!ST_STATE?.authorized){
+    try { await p.authorize(); } catch {}
+    await stRefresh();
+    if (!ST_STATE?.authorized){ el.checked = false; return toast(tr('Без разрешения Экранного времени блокировать приложения нельзя'), {ms: 5000}); }
+  }
+  setMeta({focusBlock: true}); drawSheet();
+  if (!stPicked(ST_STATE)) A.stPick();
+};
+A.stPick = async () => {
+  const p = ST(); if (!p) return;
+  try { await p.pickApps(); } catch {}
+  await stRefresh(); drawSheet();
+};
+const focusSheetPlain = A.focusSheet;
+A.focusSheet = el => { focusSheetPlain(el); if (ST()) stRefresh().then(() => { if (SH && !FOCUS) drawSheet(); }); };
+/* stopping early while apps are blocked: a short wait and a sentence to type, so giving up is a choice rather than a reflex */
+const UNLOCK_WAIT = 30;
+const unlockPhrase = () => tr('Я выбираю отвлечься вместо учёбы');
+const normPhrase = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function unlockBody(){
+  SH.unlockAt = SH.unlockAt || Date.now() + UNLOCK_WAIT * 1000; // set on the first draw, so the wait is shown from the start
+  const left = Math.max(0, Math.ceil((SH.unlockAt - Date.now()) / 1000)), mins = FOCUS ? Math.max(1, Math.ceil((FOCUS.end - Date.now()) / 60000)) : 0;
+  return `<div class="hint">${trf('До конца фокуса {m} мин. Ты уже начал, осталось немного.', {m: mins})}</div>
+    <button class="btn block" data-act="unlockBack">${ic('target')}${tr('Вернуться к фокусу')}</button>
+    <div class="note" id="ulS">${left ? trf('Подожди {s} сек, прежде чем закончить.', {s: left}) : tr('Можно закончить.')}</div>
+    <div class="field"><label for="ulP">${trf('Чтобы закончить, напиши: «{p}»', {p: esc(unlockPhrase())})}</label><input class="in" id="ulP" autocomplete="off" autocapitalize="off"></div>
+    <button class="btn ghost block danger" data-act="unlockGo">${tr('Закончить и открыть приложения')}</button>`;
+}
+A.unlockSheet = () => {
+  openSheet(tr('Закончить раньше?'), unlockBody);
+  const iv = setInterval(() => {
+    const el = $('#ulS'); if (!el || !SH?.unlockAt || !FOCUS){ clearInterval(iv); return; }
+    const left = Math.max(0, Math.ceil((SH.unlockAt - Date.now()) / 1000));
+    el.textContent = left ? trf('Подожди {s} сек, прежде чем закончить.', {s: left}) : tr('Можно закончить.');
+    if (!left) clearInterval(iv);
+  }, 500);
+};
+A.unlockBack = () => { closeSheet(); haptic('success'); toast(tr('Так держать'), {icon: 'target', tone: 'good'}); };
+A.unlockGo = () => unlockTry(val('ulP'));
+function unlockTry(typed){
+  if (!FOCUS) return closeSheet();
+  if (Date.now() < SH.unlockAt) return toast(tr('Ещё немного подожди'));
+  if (normPhrase(typed) !== normPhrase(unlockPhrase())) return toast(tr('Напиши фразу точно, как в подсказке'));
+  FOCUS.gaveUp = true; focusSave(); closeSheet(); focusFinish(false);
+}
+const focusEndPlain = A.focusEnd;
+A.focusEnd = () => { if (FOCUS?.blocked) return A.unlockSheet(); focusEndPlain(); };
+/* a shield must never outlive its session: with no Focus running, opening KAI lifts it */
+function stSafety(){ const p = ST(); if (p && !FOCUS) p.unblock().catch(() => {}); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ stSafety(); if (TRACK) trackTick(); } });
+
 /* ============ init ============ */
 async function init(){
   render();
@@ -6884,6 +7195,8 @@ async function init(){
   render();
   openFromLink();
   focusResume(); // a focus session from before the app was closed
+  if (TRACK) trackRun(); // a timer keeps counting while the app is closed
+  stSafety();
   whatsNewSoon();
 }
 init();

@@ -69,3 +69,11 @@ New features from the later rounds, with what a person sees before they use them
 - **What's new:** once per update, for people who used an earlier version; the list lives in `WHATS_NEW` and its id in `WHATS_NEW_ID` (change the id to show a new list).
 
 Candidates to cut if the app feels crowded: the month comparison line (the category words say more), the evening check-in (overlaps with the day's own "2 more tasks" line), and Focus awards.
+
+## Added for tracking effort, and how each stays out of the way
+
+- **Time tracking card:** one card on the Day tab with six one-tap buttons. While a timer runs, one bar above the tab bar.
+- **Your time:** behind the card's "Stats" link.
+- **Voice:** one button in Tell KAI, shown only where speech recognition exists. It never starts listening before the person has used it once.
+- **Weekly coach:** replaces the old AI-only weekly review in the same places; the AI part is one optional button.
+- **App blocking:** one switch in the Focus sheet, iPhone only, off until turned on.

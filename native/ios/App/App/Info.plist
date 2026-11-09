@@ -70,6 +70,10 @@
 	<string>KAI opens the photos you choose, such as a meal or your progress.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>KAI saves an image to Photos only when you choose Save Image, for example your weekly summary.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>KAI listens only while the microphone in Tell KAI is on, to turn what you say into text.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>KAI turns what you say in Tell KAI into text, on the iPhone when it can.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>KAI reads your steps, sleep and workouts to show your progress and plan your day. It never writes to Health.</string>
 	<key>UIApplicationShortcutItems</key>

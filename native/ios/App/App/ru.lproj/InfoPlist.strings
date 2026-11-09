@@ -9,3 +9,5 @@ NSHealthShareUsageDescription = "KAI читает шаги, сон и трени
 "Today" = "Сегодня";
 "New To-Do" = "Новая задача";
 "Focus" = "Фокус";
+NSMicrophoneUsageDescription = "KAI слушает только пока включён микрофон в «Скажи KAI», чтобы превратить сказанное в текст.";
+NSSpeechRecognitionUsageDescription = "KAI превращает сказанное в «Скажи KAI» в текст, по возможности прямо на iPhone.";

@@ -2756,9 +2756,9 @@ test('weekly challenges: fixed on Monday from last week, done once, worth XP', (
     assert.ok(/This week|Вызовы недели/.test(run(`challengeCard()`)));
     run(`challengeTick()`);
     assert.ok(run(`!!meta().challenges[weekChallenges().mon]`), 'saved for the week');
-    const xp0 = run(`totalXP()`);
     // make the first challenge reachable and tick
     run(`save('app/meta', {...meta(), challenges: {[weekChallenges().mon]: {list: [{id: 'todos', goal: 1}], done: []}}}); globalThis.tasks45 = clone(smartTasks()); saveTasks([...smartTasks(), {id: 'c45', title: 'x', done: true, doneAt: todayISO(), pri: 2}])`);
+    const xp0 = run(`totalXP() - challengeXP()`); // measured after the old challenges are replaced, so a Sunday with challenges already won does not count twice
     run(`challengeTick()`);
     assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), ['todos']);
     assert.equal(run(`challengeXP()`), 150, 'one of one: the challenge and the bonus');
@@ -3196,4 +3196,130 @@ test('insights name the best and the hardest day of the week', () => {
     assert.equal(x.d1, run(`DOW_FULL[2]`)); assert.equal(x.d2, run(`DOW_FULL[6]`));
     assert.ok(run(`insightsCard()`).includes(run(`DOW_FULL[2]`)));
   } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days66).forEach(([k, v]) => save('days/' + k, v))`); }
+});
+
+/* ---- v9: timers, the weekly coach, Focus with blocked apps ---- */
+test('timers: one tap starts, Stop saves the minutes, Undo takes them back', () => {
+  const T0 = Date.UTC(2030, 0, 9, 9, 0);
+  run(`globalThis.now9 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toasts9 = []; globalThis.toast9 = toast; toast = m => toasts9.push(m)`);
+  const day = run(`iso(${T0})`), study0 = run(`getDay('${day}').timeExtra?.study || 0`);
+  try {
+    run(`trackStart('read'); T += 42 * 60000`);
+    assert.ok(run(`JSON.parse(localStorage.getItem('kai_track')).start`) > 0, 'kept if the app closes');
+    run(`trackStop()`);
+    const t = JSON.parse(run(`JSON.stringify(getDay('${day}').track)`)).at(-1);
+    assert.deepEqual([t.a, t.min], ['read', 42]);
+    assert.equal(run(`getDay('${day}').timeExtra?.study || 0`), study0, 'reading is not study');
+    assert.match(run(`toasts9.join('|')`), /Reading: 42 min saved/);
+    run(`trackStart('study'); T += 90 * 60000; trackStop()`);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - study0, 90, 'study timers count as study everywhere');
+    run(`A.trackUndo()`);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - study0, 0, 'undo takes both back');
+    assert.equal(run(`getDay('${day}').track.some(x => x.a === 'study')`), false);
+    run(`trackStart('work'); T += 30000; trackStop()`);
+    assert.equal(run(`getDay('${day}').track.some(x => x.a === 'work')`), false, 'under a minute is not saved');
+    run(`trackStart('work'); T += 30 * 3600000; trackStop()`);
+    assert.equal(run(`getDay('${day}').track.find(x => x.a === 'work').min`), 960, 'a forgotten timer stops counting at 16 hours');
+    run(`trackStart('walk'); focusStart(25, 'x')`);
+    assert.equal(run(`TRACK`), null, 'Focus stops a running timer');
+    run(`FOCUS = null; focusSave()`);
+  } finally { run(`Date.now = now9; toast = toast9; TRACK = null; trackSave(); FOCUS = null; focusSave(); mutDay('${day}', d => { d.track = []; })`); }
+});
+
+test('timers: a running timer is reminded after 3 hours, and is shown at the top of the Day tab', () => {
+  run(`TRACK = {a: 'read', start: Date.now()}`);
+  try {
+    assert.ok(run(`buildReminders().some(r => r.key === 'track_long')`));
+    assert.match(run(`viewDay()`), /trackStop/);
+  } finally { run(`TRACK = null; trackSave()`); }
+  assert.match(run(`viewDay()`), /data-act="trackGo" data-v="study"/);
+  assert.equal(run(`buildReminders().some(r => r.key === 'track_long')`), false);
+});
+
+test('your time: activities against the period before, own activities, and time added by hand', () => {
+  const today = run(`todayISO()`), wk = run(`addDays(todayISO(), -7)`);
+  run(`globalThis.meta9 = clone(meta()); [${JSON.stringify(today)}, ${JSON.stringify(wk)}].forEach(k => mutDay(k, d => { d.track = []; }))`);
+  try {
+    run(`trackAdd('${today}', 'read', 120, '20:00'); trackAdd('${wk}', 'read', 60, '20:00')`);
+    const st = JSON.parse(run(`JSON.stringify(timeStats(7))`));
+    assert.equal(st.cur.read, 120);
+    assert.equal(st.was.read, 60);
+    run(`SH = {}`);
+    assert.match(run(`timeBody()`), /Reading/);
+    run(`setMeta({acts: [{id: 'a_g', name: 'Guitar'}]})`);
+    assert.equal(run(`actOf('a_g').name`), 'Guitar');
+    run(`trackAdd('${today}', 'a_g', 25, '')`);
+    assert.equal(run(`actsByUse().indexOf('a_g') < actsByUse().indexOf('project')`), true, 'used activities come first');
+    const xp0 = run(`totalXP()`);
+    run(`trackAdd('${today}', 'a_g', 40, '')`);
+    assert.ok(run(`totalXP()`) > xp0, 'any tracked effort earns XP');
+    assert.equal(run(`timeSum([todayISO()]).active`), 1);
+  } finally { run(`SH = null; save('app/meta', meta9); [${JSON.stringify(today)}, ${JSON.stringify(wk)}].forEach(k => mutDay(k, d => { d.track = []; }))`); }
+});
+
+test('the weekly coach works without AI, is kind on a weak week, and only shows checked AI text', () => {
+  const n = (cur, was) => JSON.stringify({cur: {by: {}, total: 0, active: 0, sleep: null, focusN: 0, focusMin: 0, leaves: 0, tasks: 0, ...cur}, was: {by: {}, total: 0, active: 0, focusN: 0, focusMin: 0, leaves: 0, tasks: 0, ...was}, best: null, streak: 0});
+  const empty = JSON.parse(run(`JSON.stringify(coachLocal(${n({}, {})}))`));
+  assert.match(empty.headline, /no records/);
+  const good = JSON.parse(run(`JSON.stringify(coachLocal(${n({by: {study: 600, read: 120}, total: 720, active: 6, focusN: 4, focusMin: 150}, {by: {study: 400}, total: 400})}))`));
+  assert.match(good.headline, /12 h of real work: 5\.3 h more/);
+  assert.ok(good.wins.some(w => /Most time: Study, 10 h/.test(w)), good.wins.join(' | '));
+  assert.ok(good.next.some(w => /Study: try for 11 h/.test(w)), good.next.join(' | '));
+  const weak = JSON.parse(run(`JSON.stringify(coachLocal(${n({by: {study: 60}, total: 60, active: 2}, {by: {study: 400}, total: 400})}))`));
+  assert.match(weak.watch, /No need to be hard on yourself/);
+  assert.equal(run(`cleanCoach({headline: 5})`), null);
+  const c = JSON.parse(run(`JSON.stringify(cleanCoach({headline: 'Great week', wins: ['a', 3, 'b', 'c', 'd', 'e'], watch: null, next: ['x']}))`));
+  assert.deepEqual([c.wins.length, c.watch, c.next.length], [4, '', 1]);
+  assert.doesNotMatch(run(`coachHTML(cleanCoach({headline: '<img src=x onerror=alert(1)>', wins: [], next: []}))`), /<img/);
+  assert.match(run(`jobView({kind: 'review', provider: 'kai', result: {headline: 'Strong week', wins: ['10 h of study'], watch: '', next: []}})`), /Strong week/);
+  assert.match(run(`jobView({kind: 'review', provider: 'kai', result: {text: 'old plain review'}})`), /old plain review/);
+  assert.match(run(`coachPrompt(weekNumbers())`), /"this_week"/);
+});
+
+test('Focus with blocked apps: blocks at the start, unblocks at the end, and stopping early takes a wait and a typed sentence', async () => {
+  const T0 = Date.UTC(2030, 0, 11, 9, 0);
+  run(`globalThis.now10 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toast10 = toast; toast = () => {}; globalThis.meta10 = clone(meta());     globalThis.stCalls = []; window.Capacitor = {isNativePlatform: () => true, Plugins: {ScreenTime: {status: async () => ({supported: true, authorized: true, apps: 3, categories: 1, sites: 0}), block: async () => { stCalls.push('block'); }, unblock: async () => { stCalls.push('unblock'); }}}}`);
+  const day = run(`iso(${T0})`);
+  try {
+    run(`setMeta({focusBlock: true}); ST_STATE = {supported: true, authorized: true, apps: 3, categories: 1, sites: 0}`);
+    run(`focusStart(25, 'Physics')`);
+    assert.equal(run(`FOCUS.blocked`), true);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['block']);
+    run(`FOCUS_SAVE = FOCUS; FOCUS = null; SH = {}`);
+    assert.match(run(`blockField()`), /Block distracting apps.*Apps and categories chosen: 4/, 'the Focus sheet offers the switch on an iPhone');
+    run(`FOCUS = FOCUS_SAVE; SH = null`);
+    assert.match(run(`buildReminders(T).find(r => r.key === 'focus_end').body`), /unblock your apps/);
+    run(`T += 10 * 60000; A.focusEnd()`);
+    assert.ok(run(`!!FOCUS`), 'End now opens the unlock step instead of ending');
+    assert.match(run(`unlockBody()`), /I choose distraction over my work/);
+    run(`unlockTry('I choose distraction over my work')`);
+    assert.ok(run(`!!FOCUS`), 'not before the wait');
+    run(`T += 31000; unlockTry('whatever')`);
+    assert.ok(run(`!!FOCUS`), 'not with the wrong sentence');
+    run(`unlockTry('i choose DISTRACTION over my work!')`);
+    assert.equal(run(`FOCUS`), null);
+    await new Promise(r => setTimeout(r, 5));
+    assert.equal(run(`stCalls.at(-1)`), 'unblock');
+    const f = JSON.parse(run(`JSON.stringify(getDay('${day}').focus.at(-1))`));
+    assert.deepEqual([f.blocked, f.gaveUp, f.min], [true, true, 10]);
+    run(`stCalls.length = 0; focusStart(25, 'x'); T += 26 * 60000; focusTick()`);
+    await new Promise(r => setTimeout(r, 5));
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['block', 'unblock'], 'a full session unblocks by itself');
+    run(`stCalls.length = 0; setMeta({focusBlock: false}); focusStart(25, 'y')`);
+    assert.equal(run(`FOCUS.blocked || false`), false, 'nothing is blocked when the setting is off');
+    run(`A.focusEnd()`);
+    assert.equal(run(`FOCUS`), null, 'and ending early is one tap, as before');
+    run(`stCalls.length = 0; stSafety()`);
+    await new Promise(r => setTimeout(r, 5));
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['unblock'], 'opening KAI lifts any shield left without a session');
+  } finally { run(`Date.now = now10; toast = toast10; FOCUS = null; focusSave(); delete window.Capacitor; ST_STATE = null; save('app/meta', meta10)`); }
+});
+
+test('voice: offered only where speech recognition exists, and the mic on the Day tab can start it', () => {
+  assert.equal(run(`voiceOK()`), false);
+  run(`window.webkitSpeechRecognition = function(){}`);
+  try {
+    assert.equal(run(`voiceOK()`), true);
+    assert.match(run(`viewDay()`), /data-act="tell" data-voice="1"/);
+  } finally { run(`delete window.webkitSpeechRecognition`); }
 });

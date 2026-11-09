@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "KAI",
   "short_name": "KAI",
   "description": "Your day, food, workouts, study and money in one place. Works offline.",
@@ -69,5 +70,11 @@
         }
       ]
     }
+  ],
+  "categories": [
+    "productivity",
+    "health",
+    "lifestyle",
+    "education"
   ]
 }

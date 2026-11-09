@@ -278,7 +278,11 @@ const localOnly = new Map();
 const inFlight = path => localOnly.set(path, (localOnly.get(path) || 0) + 1);
 const landed = path => { const n = (localOnly.get(path) || 1) - 1; if (n > 0) localOnly.set(path, n); else localOnly.delete(path); };
 const chains = {};
+const ADAPT = new Map();
 function dataChanged(){ ADAPT.clear(); } // cached answers that depend on data
+// answers worked out once until the data changes (ADAPT is cleared on every save), and the day, since some depend on it
+const memo = (k, f) => { const key = k + '|' + todayISO(); if (ADAPT.has(key)) return ADAPT.get(key); const v = f(); ADAPT.set(key, v); return v; };
+const keysWith = prefix => memo('keys:' + prefix, () => Object.keys(S.docs).filter(k => k.startsWith(prefix)));
 function save(path, data){
   S.docs[path] = data; inFlight(path); syncMark(path); remindSoon(); dataChanged();
   chains[path] = (chains[path] || Promise.resolve()).then(() => DB.doc(path).set(data)).then(() => { landed(path); delete retries[path]; }).catch(e => {
@@ -331,10 +335,10 @@ const plan = () => S.docs['app/plan'] || DEFAULT_PLAN;
 const profile = () => S.docs['app/profile'] || {name:''};
 const season = () => S.docs['app/season'] || {title:tr('Сезон 1'), start: todayISO(), length:90, goals:[]};
 const content = () => { const c = S.docs['app/content'] || DEFAULT_CONTENT; return c; };
-const posts = () => Object.entries(S.docs).filter(([k])=>k.startsWith('posts/')).map(([k,v])=>({...v, id:k.slice(6)}));
+const posts = () => keysWith('posts/').map(k => ({...S.docs[k], id:k.slice(6)}));
 const analyses = () => Object.entries(S.docs).filter(([k])=>k.startsWith('analyses/')).map(([k,v])=>({...v, id:k.slice(9)})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 const kbItems = () => Object.entries(S.docs).filter(([k])=>k.startsWith('kb/')).map(([k,v])=>({...v, id:k.slice(3)})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-const dayKeys = () => Object.keys(S.docs).filter(k=>k.startsWith('days/')).map(k=>k.slice(5)).sort();
+const dayKeys = () => memo('dayKeys', () => keysWith('days/').map(k=>k.slice(5)).sort()).slice(); // a copy: callers may reverse it
 
 /* ---- units: always stored in kg and cm, so the calculations and the AI never change; pounds and inches exist only on screen ---- */
 const isUS = () => profile().units === 'us';
@@ -385,7 +389,7 @@ function buildDay(date){
   if (w && pl.workouts[w]) tasks.push({id:'gym', title:gymWord()+pl.workouts[w].name.split(' · ')[0], cat:'gym', done:false});
   const cls = (pl.classes||[]).filter(c=>Number(c.day)===dow(date));
   if (cls.length) tasks.push({id:'study', title:tr('Учёба · ')+cls.length+' '+plural(cls.length,tr('пара'),tr('пары'),tr('пар')), cat:'study', done:false});
-  const ps = posts().filter(p=>p.date===date && p.status!=='Опубликовано');
+  const ps = (memo('postsByDate', () => { const m = {}; posts().forEach(p => { if (p.status !== 'Опубликовано') (m[p.date] = m[p.date] || []).push(p); }); return m; })[date] || []);
   if (ps.length && modOn('content')) tasks.push({id:'content', title:tr('Контент · ')+ps.length+' '+plural(ps.length,tr('ролик'),tr('ролика'),tr('роликов')), cat:'content', done:false});
   (pl.dailyTasks||[]).forEach(t => { if (t.cat==='supps' && (!SUPPS_ON || !(pl.supps||[]).length)) return; if (Array.isArray(t.days) && t.days.length && !t.days.includes(dow(date))) return; const {days, ...x} = t; tasks.push({...x, done:false}); });
   return {date, tasks, meals:[], sets:{}, supps:{}, status:'ok', rating:null, steps:null, sleep:null, weight:null, log:[]};
@@ -779,7 +783,7 @@ function jobView(it){
     case 'stats': return analysisHTML({...r, platform:it.meta.platform, kind:it.meta.kind, date:it.date, id:it.id}) + by;
     case 'script': return `<div class="note">${tr("Сценарий «")}${esc(r.title)}${tr("» готов.")}</div><button class="btn" data-act="openPost" data-id="${it.id}">${tr("Открыть сценарий")}</button>` + by;
     case 'promo': return `<div class="ai-out">${esc(r.text)}</div>` + by;
-    case 'review': return `<div class="ai-out">${esc(r.text)}</div>` + by;
+    case 'review': { const c = cleanCoach(r); return (c ? coachHTML(c) : `<div class="ai-out">${esc(r.text)}</div>`) + by; }
     case 'screen': return screenView(it) + by;
     case 'kbAsk': return `${it.meta?.q?`<div class="hint">${tr("Вопрос:")} ${esc(it.meta.q)}</div>`:''}<div class="ai-out">${esc(r.text)}</div>` + by;
     case 'kbExtract': return `<div class="note">${tr("Запись «")}${esc(r.title||S.docs['kb/'+it.meta?.kbId]?.title||'')}${tr("» обработана и сохранена в базе.")}</div>` + by;
@@ -893,7 +897,7 @@ A.phoneDel = async () => {
 };
 
 /* ============ v3: feel — haptics, sound, particles, confetti, flame, rewards ============ */
-const FX = () => ({haptics:true, sound:false, ...(meta().fx||{})});
+const FX = () => ({haptics:true, sound:true, ...(meta().fx||{})}); // sound is on by default; a choice made in settings is kept
 const reduceMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 /* Haptics. Android: Vibration API. iPhone (iOS 18+): Safari has no Vibration API, but toggling a native
@@ -912,13 +916,14 @@ const HAP = {
   success: {v: [14, 70, 14, 70, 45], ios: [0, 110, 230]},
   heavy: {v: [30, 40, 60], ios: [0, 70, 140, 210]},
   error: {v: [45, 60, 45], ios: [0, 90, 180]},
+  warning: {v: [30, 80, 30], ios: [0, 120]},
 };
 let HAP_AT = 0;
 function haptic(kind = 'light'){
   HAP_AT = performance.now();
   if (!FX().haptics) return;
   const nh = isNative() && plug('Haptics');
-  if (nh){ (kind === 'success' ? nh.notification({type: 'SUCCESS'}) : nh.impact({style: kind === 'medium' ? 'MEDIUM' : kind === 'heavy' ? 'HEAVY' : 'LIGHT'})).catch?.(() => {}); return; }
+  if (nh){ nativeHaptic(nh, kind); return; }
   const p = HAP[kind] || HAP.light;
   try { if (typeof navigator.vibrate === 'function') { navigator.vibrate(p.v); return; } } catch {}
   /* iOS only plays the tick while the tap is still being handled, so the first one is fired right now, not from a timer */
@@ -927,12 +932,12 @@ function haptic(kind = 'light'){
 /* every tap gets a tick even when its handler forgot to ask for one: removing is firmer, saving is light, the rest is a selection tick */
 function hapDefault(act){
   if (act === 'scrim') return null;
-  if (/Del|Remove|Reset|Cancel|Clear|Drop|Trash/.test(act)) return 'medium';
+  if (/Del|Remove|Reset|Cancel|Clear|Drop|Trash|^undo/.test(act)) return 'medium';
   if (/Add|Save|Done|Go$|Apply|Take|Send|Submit|Connect|Paste|Start|Finish|Mark|Check/.test(act)) return 'light';
   return 'selection';
 }
 
-/* Short synthesized sounds (off by default, switch in profile). */
+/* Short synthesized sounds (on by default, switch in profile). They follow the silent switch and mix with music: see the audio session below. */
 function sound(kind){
   if (!FX().sound || typeof AUDIO === 'undefined' || !AUDIO) return;
   try {
@@ -943,7 +948,7 @@ function sound(kind){
       pr: [[587, 0, .1], [784, .08, .1], [988, .16, .1], [1175, .24, .28]],
       badge: [[659, 0, .12], [880, .1, .12], [1047, .2, .12], [1319, .3, .35]],
     }[kind] || [];
-    notes.forEach(([f, t, d]) => { const o = AUDIO.createOscillator(), g = AUDIO.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(.0001, now + t); g.gain.exponentialRampToValueAtTime(.22, now + t + .015); g.gain.exponentialRampToValueAtTime(.0001, now + t + d); o.connect(g).connect(AUDIO.destination); o.start(now + t); o.stop(now + t + d + .03); });
+    notes.forEach(([f, t, d]) => { const o = AUDIO.createOscillator(), g = AUDIO.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(.0001, now + t); g.gain.exponentialRampToValueAtTime(kind === 'pop' ? .12 : .2, now + t + .015); g.gain.exponentialRampToValueAtTime(.0001, now + t + d); o.connect(g).connect(AUDIO.destination); o.start(now + t); o.stop(now + t + d + .03); });
   } catch {}
 }
 
@@ -1122,7 +1127,8 @@ const BADGES = [
   {id:'freeze1', icon:'snow', c:'#4fa8ff', t:tr('Холодный расчёт'), d:tr('Заморозка сохранила серию'), k:'frozen', n:1},
   {id:'comeback', icon:'flame', c:'#ff8a2e', t:tr('Возвращение'), d:tr('Засчитать день сразу после прерванной серии от 3 дней'), k:'comeback', n:1},
 ];
-function badgeStats(){
+function badgeStats(){ return {...memo('badgeStats', badgeStatsFresh)}; }
+function badgeStatsFresh(){
   const ks = dayKeys(), t = targets();
   const st = {checks:0, best: Math.max(bestStreak(), streak()), perfect:0, gym:0, prs:0, proteinRun:0, stepsRun:0, sleepRun:0, lost:0, posts:0, backup: meta().lastBackup ? 1 : 0, focusN:0, focusH:0, focusClean:0};
   let run = {p:0, s:0, z:0}, prev = null;
@@ -1219,13 +1225,13 @@ function render(){
   renderTop(); renderNav();
   const v = $('#view');
   const y = window.scrollY;
-  v.innerHTML = ({day:viewDay, health:viewHealth, content:viewContent, money:viewMoney, more:viewMore}[S.tab] || viewDay)();
+  v.innerHTML = safeView(({day:viewDay, health:viewHealth, content:viewContent, money:viewMoney, more:viewMore}[S.tab] || viewDay));
   if (S.animIn && !reduceMotion()){ v.classList.remove('tab-in'); void v.offsetWidth; v.classList.add('tab-in'); clearTimeout(S.animT); S.animT = setTimeout(()=>v.classList.remove('tab-in'), 600); }
   S.animIn = false;
   window.scrollTo(0, y);
   animateUI(v);
   if ($('#storeInfo')) showStorage(); // the data section's storage line and copies are filled in after drawing
-  glassScroll();
+  requestAnimationFrame(glassScroll); // reading the scroll position right after replacing the page forced a layout
   queueBadgeCheck();
 }
 const emptyState = (icon, text) => `<div class="empty"><span class="e-ic">${ic(icon)}</span><span>${text}</span></div>`;
@@ -1249,7 +1255,7 @@ function renderNav(){
   const tabs = [['day',tr('День'),'day'],['health',tr('Здоровье'),'heart'],['tell','KAI','mic'],['money',tr('Деньги'),'wallet'],['more',tr('Ещё'),'more']].filter(([id]) => modOn(id));
   const cur = S.tab === 'content' ? 'more' : S.tab;
   $('#nav').innerHTML = tabs.map(([id,l,i]) => id==='tell'
-    ? `<button class="mic" data-act="tell" aria-label="${tr("Рассказать о дне")}"><span class="b">${ic('mic')}</span><span>${l}</span></button>`
+    ? `<button class="mic" data-act="tell" data-voice="1" aria-label="${tr("Рассказать о дне")}"><span class="b">${ic('mic')}</span><span>${l}</span></button>`
     : `<button class="${cur===id?'on':''}" data-act="tab" data-v="${id}" ${cur===id?'aria-current="page"':''}><span class="nb">${ic(i)}</span><span>${l}</span></button>`).join('');
   navIndicator(tabs.map(t => t[0]).indexOf(cur), tabs.length);
 }
@@ -1268,13 +1274,14 @@ function viewDay(){
     <div class="hero-top"><span class="greet">${greeting()}${profile().name?', '+esc(profile().name):''}</span>${streakChip()}</div>
     <div class="hero-row"><div class="grow">
       <div class="hero-num">${done}<span class="of"> ${tr("из")} ${total}</span></div>
-      <div class="hero-sub">${status}</div>
+      <div class="hero-sub">${sc < 1 && d.status !== 'sick' && total ? `<button class="hero-go" data-act="toDaily">${status}</button>` : status}</div>
     </div>${ring(sc, 88, 10, '', tr('Выполнено за день'), 'day')}</div>
     <div class="actions">
-      <button data-act="tell">${ic('mic')}${tr("Сказать KAI")}</button>
+      <button data-act="tell" data-voice="1">${ic('mic')}${tr("Сказать KAI")}</button>
       <button data-act="rate">${ic('star')}${d.rating?'<span class="stars">'+'★'.repeat(d.rating)+'<i>'+'★'.repeat(5-d.rating)+'</i></span>':tr('Оценить день')}</button>
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
+  h += trackCard();
   h += comebackCard();
   h += firstTellCard();
   h += timetableCard();
@@ -1284,15 +1291,16 @@ function viewDay(){
   h += warnCard();
   h += examCard();
   h += checkinCard();
+  // the daily list decides whether the day counts, so it comes before the rest of the day
+  h += `<div class="sec-h" id="dailyH"><h2 tabindex="-1">${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
+  <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
   h += nowCard();
   h += taskCard();
   h += timelineCard();
+  h += challengeCard();
   h += screenCard();
   h += onboardCard();
   h += backupBanner();
-  h += `<div class="sec-h"><h2>${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
-  <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
-  h += challengeCard();
   // week: kept with the other numbers in the folded stats, so the Day screen stays about today
   const beforeWeek = h; h = '';
   const mon = addDays(date, 1-dow(date));
@@ -1321,7 +1329,7 @@ function viewDay(){
   </section>`;
   h += weekCard();
   h += badgesShelf();
-  const statsHTML = progressCard() + h; h = hKeep;
+  const statsHTML = progressCard() + insightsCard() + h; h = hKeep;
   h += acc('stats', 'activity', tr('Прогресс и награды'), statsSummary(st, avg7), statsHTML, true);
   return h;
 }
@@ -1615,6 +1623,7 @@ function viewMoney(){
   ${monthRecapCard(m)}
   ${billsCard(m)}
   ${debtsCard(m)}
+  ${savingsCard(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
@@ -1636,7 +1645,7 @@ const PRODUCTS = [
   [tr('Яйцо куриное'), 157, 12.7, 10.9, 0.7, [tr('шт'), 55]],
   [tr('Яичный белок'), 44, 11.1, 0, 0, [tr('белок'), 33]],
   [tr('Куриная грудка, сырая'), 113, 23.6, 1.9, 0.4],
-  [tr('Куриная грудка, варёная'), 137, 29.8, 1.8, 0.5],
+  [tr('Куриная грудка, варёная'), 137, 29.8, 1.8, 0.5, [tr('шт'), 150]],
   [tr('Куриное бедро без кожи, сырое'), 121, 19.7, 4.1, 0],
   [tr('Индейка, филе сырое'), 84, 19.2, 0.7, 0],
   [tr('Говядина, мякоть сырая'), 187, 18.9, 12.4, 0],
@@ -1717,7 +1726,7 @@ const PRODUCTS = [
   [tr('Бублик (бейгл)'), 257, 10, 1.6, 50, [tr('шт'), 100]],
   [tr('Круассан'), 406, 8, 21, 46, [tr('шт'), 60]],
   [tr('Батат'), 86, 1.6, 0.1, 20],
-  [tr('Картофель фри'), 312, 3.4, 15, 41],
+  [tr('Картофель фри'), 312, 3.4, 15, 41, [tr('порция'), 110]],
   [tr('Авокадо'), 160, 2, 14.7, 8.5, [tr('шт'), 150]],
   [tr('Шпинат'), 23, 2.9, 0.4, 3.6],
   [tr('Грибы'), 22, 3.1, 0.3, 3.3],
@@ -1755,7 +1764,7 @@ const PRODUCTS = [
   [tr('Чипсы'), 536, 7, 35, 53],
   [tr('Майонез'), 680, 1, 75, 0.6, [tr('ст. л.'), 14]],
   [tr('Кетчуп'), 101, 1, 0.1, 27, [tr('ст. л.'), 17]],
-  [tr('Кола'), 42, 0, 0, 10.6],
+  [tr('Кола'), 42, 0, 0, 10.6, [tr('банка'), 330]],
   [tr('Апельсиновый сок'), 45, 0.7, 0.2, 10.4],
   [tr('Пиво'), 43, 0.5, 0, 3.6],
   [tr('Вино'), 83, 0.1, 0, 2.6],
@@ -1769,11 +1778,13 @@ const PRODUCTS = [
   [tr('Сырники'), 220, 15, 9, 20, [tr('шт'), 50]],
   [tr('Вареники с картошкой'), 200, 5, 5, 33],
   [tr('Блины'), 230, 6, 8, 33, [tr('шт'), 50]],
-  [tr('Борщ'), 50, 2.5, 2.5, 5],
+  [tr('Борщ'), 65, 3.5, 3.6, 5.2], // with meat and sour cream, as usually eaten
   [tr('Суп, ориентир.'), 45, 2, 1.5, 6],
   [tr('Суп чечевичный'), 70, 4.5, 1.5, 10],
   [tr('Салат Цезарь с курицей, ориентир.'), 180, 10, 13, 6],
   [tr('Маффин'), 380, 6, 18, 50, [tr('шт'), 100]],
+  [tr('Бигмак'), 257, 12, 13, 21, [tr('шт'), 215]],
+  [tr('Омлет'), 154, 10, 12, 1.5, [tr('порция'), 150]],
 ];
 // each food's name in the other language too, so "rice" and "рис" both find it
 const RU_OF = (() => { const ru = {}; Object.entries(window.I18N_EN || {}).forEach(([k, v]) => { ru[v] = ru[v] || k; }); return ru; })();
@@ -1912,6 +1923,8 @@ function adaptiveAdvice(){
   if (trend.rate > -0.25){
     const up = trend.rate > 0.1; // going up, not just slowly down: say so
     if (logged < 8) return {state:'log', rate:trend.rate, text: rateTxt + ` ${up ? tr("Вес растёт, но еда записана только за") : tr("Вес почти не снижается, но еда записана только за")} ${logged} ${tr("из 14 дней. Сначала 1–2 недели записывай всё, что ешь: часто лишние калории прячутся в перекусах и масле.")}`};
+    const low = loggedFarBelow(t); // logged food far under the target: either not everything is written down, or too little is eaten. Neither calls for eating less
+    if (low) return {state:'log', rate:trend.rate, text: rateTxt + ' ' + trf('Записано в среднем {k} ккал в день, намного ниже нормы {t}, поэтому KAI не советует есть меньше. Если записано не всё, записывай полные дни. Если ешь действительно так мало, обсуди это с врачом.', {k: num(low), t: num(t.kcal)})};
     const k = Math.max(t.bmr, KCAL_FLOOR, t.kcal - 150);
     // already at the floor: eating less is not the answer
     if (k >= t.kcal) return {state:'slow', rate:trend.rate, text: rateTxt + ` ${tr("Норма уже на нижней границе, ниже KAI не советует. Больше движения и сна помогут сильнее, а если вес стоит долго, стоит обсудить это с врачом.")}`};
@@ -1940,8 +1953,8 @@ function careNote(t){
 }
 function careSignal(text){
   const s = String(text || '');
-  if (/суицид|покончить с собой|не хочу жить|хочу умереть|убить себя|порезать себя|навредить себе|kill myself|suicid|end my life|want to die|don.?t want to live|hurt myself|self[- ]harm/i.test(s)) return 'crisis';
-  if (/вызвать рвоту|вызываю рвоту|вызвал[аи]? рвоту|слабительн|голодаю|морю себя голодом|не ел[аи]? (\d+|несколько|два|две|три|четыре|пять) (дн|дня|дней|сут)|make myself (sick|throw up|vomit)|laxative|purg(e|ing)|starv(e|ing) myself|haven.?t eaten (in|for) (\d+|two|three|four|five|several|a few) days/i.test(s)) return 'eating';
+  if (/суицид|покончить с собой|не хочу жить|хочу умереть|убить себя|порезать себя|навредить себе|kill myself|suicid|end my life|want to die|don.?t want to live|hurt myself|self[- ]harm/i.test(s) || CRISIS_MORE.test(s)) return 'crisis';
+  if (/вызвать рвоту|вызываю рвоту|вызвал[аи]? рвоту|слабительн|голодаю|морю себя голодом|не ел[аи]? (\d+|несколько|два|две|три|четыре|пять) (дн|дня|дней|сут)|make myself (sick|throw up|vomit)|laxative|purg(e|ing)|starv(e|ing) myself|haven.?t eaten (in|for) (\d+|two|three|four|five|several|a few) days/i.test(s) || tinyIntake(s)) return 'eating';
   return null;
 }
 function careCard(kind){
@@ -2042,8 +2055,10 @@ async function startRest(sec, label){
 function tickRest(){
   const bar = $('#restBar'); if (!bar) return;
   const left = Math.ceil((TIMER.end - Date.now())/1000);
-  if (left <= 0){ stopRest(); beep(); toast(tr('Отдых окончен: следующий подход')); return; }
+  if (left <= 0){ stopRest(); beep(); haptic('success'); toast(tr('Отдых окончен: следующий подход')); return; }
+  if (left <= 3 && TIMER.tick !== left){ TIMER.tick = left; haptic('light'); } // 3, 2, 1: felt in the hand
   bar.hidden = false;
+  if (barTick(bar, TIMER.label, left, (1 - left / TIMER.total) * 100)) return;
   bar.innerHTML = `<div class="rb-in"><div style="flex:1;min-width:0"><div class="rb-t">${Math.floor(left/60)}:${pad(left%60)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tr("Отдых ·")} ${esc(TIMER.label)}</div></div><button class="btn ghost" data-act="restAdd">${tr("+30 с")}</button><button class="btn ghost" data-act="restStop">${tr("Стоп")}</button></div><div class="bar" style="height:4px;margin-top:8px"><i style="width:${(1-left/TIMER.total)*100}%;background:var(--accent)"></i></div>`;
 }
 function stopRest(){ document.body.classList.remove('resting'); clearInterval(TIMER.iv); TIMER.iv = null; TIMER.end = 0; const bar = $('#restBar'); if (bar) bar.hidden = true; try { TIMER.wake?.release(); } catch {} TIMER.wake = null; }
@@ -2165,7 +2180,7 @@ function drawSheet(){
   SH.after && SH.after($('.sh-b'));
   animateUI($('.sheet'));
 }
-function closeSheet(){
+function closeSheet(){ if (VOICE) VOICE.stop(); // closing Tell KAI stops listening
   const back = SH?.opener;
   SH = null;
   if (back) setTimeout(() => refocus(back), reduceMotion() ? 30 : 230);
@@ -2226,7 +2241,7 @@ A.toggleTask = el => {
 A.goTrain = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='train'; S.sub.w = null; window.scrollTo(0,0); render(); };
 A.goFood = () => { closeSheetQuiet(); S.tab='health'; S.sub.health='food'; window.scrollTo(0,0); render(); };
 A.goSupps = () => { S.tab='health'; S.sub.health='supps'; window.scrollTo(0,0); render(); };
-function closeSheetQuiet(){ if (SH){ SH = null; drawSheet(); } }
+function closeSheetQuiet(){ if (VOICE) VOICE.stop(); if (SH){ SH = null; drawSheet(); } }
 A.sick = () => { haptic('medium'); mutDay(todayISO(), d => { d.status = d.status==='sick' ? 'ok' : 'sick'; }); toast(getDay(todayISO()).status==='sick' ? tr('Отметил: болеешь. Серия не сгорит.') : tr('Рад, что ты здоров')); };
 A.delTask = el => withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { d.tasks = d.tasks.filter(t=>t.id!==el.dataset.id); }));
 A.dismissY = () => mutDay(addDays(todayISO(),-1), d => { d.carried = true; });
@@ -2274,7 +2289,7 @@ A.finishW = el => {
 };
 A.sleepQ = el => mutDay(todayISO(), d => { d.sleepQ = +el.dataset.v; });
 A.suppTake = el => { if (!getDay(todayISO()).supps?.[el.dataset.n]){ haptic('light'); burstAt(el, {n:10}); } else haptic('selection'); mutDay(todayISO(), d => { d.supps = d.supps||{}; d.supps[el.dataset.n] = !d.supps[el.dataset.n]; const all = (plan().supps||[]).every(s=>d.supps[s.name]); const t = d.tasks.find(x=>x.id==='supps'); if (t) t.done = all; }); };
-A.delSupp = el => { const p = clone(plan()); p.supps.splice(+el.dataset.i,1); save('app/plan', p); };
+A.delSupp = el => withUndo(['app/plan'], () => { const p = clone(plan()); p.supps.splice(+el.dataset.i,1); save('app/plan', p); });
 A.delMeal = el => withUndo(['days/' + todayISO()], () => mutDay(todayISO(), d => { d.meals.splice(+el.dataset.i,1); }));
 A.mPrev = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m-2, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
 A.mNext = () => { const [y,m] = S.moneyMonth.split('-').map(Number); const d = new Date(y, m, 1); S.moneyMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); render(); };
@@ -2308,6 +2323,7 @@ A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   <button class="link" style="align-self:flex-start" data-act="tellHelp" aria-expanded="${!!SH?.tellHelp}">${SH?.tellHelp ? tr('Скрыть примеры') : tr('Что можно написать?')}</button>
   ${SH?.tellHelp ? tellHelpHTML() : ''}
   ${connectNudge(true)}
+  ${voiceOK() ? `<button class="btn ghost block micb" id="micB" data-act="voice">${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}</button>` : ''}
   <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
   ${provPicker(false)}
   <button class="btn block" data-act="tellGo">${ic('send')}${tr("Разобрать")}</button>
@@ -2317,6 +2333,7 @@ A.tellGo = async () => {
   SH.tellText = text;
   if (carePause(text, 'tellOut', 'tellGo')) return;
   const date = todayISO();
+  { const ans = localAnswer(text); if (ans){ const out = $('#tellOut'); if (out) out.innerHTML = answerCard(ans); return; } } // "how much did I spend this week?" is answered from the records
   if (!aiStatus().ok && tellLocal(text, date)) return; // no AI yet: the common things are understood on the phone
   const id = await submitJob('tell', {prompt: tellPrompt(text, date), meta:{date, text}, provider: SH.prov||'auto', label:tr('Разбор · ')+fmtShort(date)});
   queueNow(id, 'tellOut');
@@ -2359,6 +2376,7 @@ function tellLines0(r, date){
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
+  (r.savings || []).forEach(x => { const g = savings().find(y => y.id === x.id); if (g) lines.push(trf('В копилку «{t}»: +{s}', {t: g.title, s: money(x.amount)})); });
   (r.exam_results || []).forEach(x => { const e = allEvents().find(y => y.id === x.id); if (e) lines.push(trf(x.passed ? 'Результат «{e}»: сдан{g}' : 'Результат «{e}»: не сдан{g}', {e: e.title, g: x.grade ? ' · ' + x.grade : ''})); });
   return lines;
 }
@@ -2370,7 +2388,7 @@ A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
   // everything this answer can change, kept so one tap can undo it
-  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts']);
+  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts', 'app/savings']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
@@ -2386,6 +2404,7 @@ A.tellApply = el => {
   });
   tellPlanApply(r, date);
   if ((r.debts || []).length && modOn('money')) debtsAdd(r.debts, date);
+  if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -2965,7 +2984,8 @@ const DEFAULT_ROUTINE = {
   events: [],
 };
 const KIND = {wake:['sun','c4'], walk:['steps','c3'], meal:['food','c2'], class:['cap','c1'], study:['cap','c1'], gym:['gym','c1'], project:['laptop','c5'], free:['coffee','c0'], rest:['moon','c7'], sleep:['moon','c7'], event:['star','c6']};
-const hm = s => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };
+const HM = new Map();
+const hm = s => { let v = HM.get(s); if (v === undefined){ const [h, m] = String(s).split(':').map(Number); v = h * 60 + (m || 0); if (HM.size < 5000) HM.set(s, v); } return v; };
 const hmStr = n => { n = ((Math.round(n) % 1440) + 1440) % 1440; return pad(Math.floor(n / 60)) + ':' + pad(n % 60); };
 function eventsFor(date){
   const R = plan().routine; if (!R) return [];
@@ -3266,6 +3286,8 @@ function viewMore(){
     <label class="row" style="padding:6px 0"><input type="checkbox" id="expPhotos" style="width:20px;height:20px"><div class="mid"><div class="t">${tr("Включить фото формы в копию")}</div></div></label>
     <button class="btn ghost" data-act="chatReport">${tr("Скопировать отчёт для чата с ИИ")}</button>
     <button class="btn ghost" data-act="moneyCsv">${tr("Деньги таблицей (CSV)")}</button>
+    <button class="btn ghost" data-act="daysCsv">${tr("Дни таблицей (CSV)")}</button>
+    ${errLog().length ? `<button class="btn ghost" data-act="errCopy">${trf('Скопировать журнал ошибок ({n})', {n: errLog().length})}</button>` : ''}
     <div id="copyList" style="display:flex;flex-direction:column;gap:6px"></div>
     <div class="hint">${tr("Удаление стирает всё, что KAI хранит на этом телефоне. Облачная копия, если ты входил в аккаунт, остаётся: её удаляют в разделе «Аккаунт».")}</div>
     <button class="btn danger" data-act="wipeLocal">${ic('trash')}${tr("Удалить все данные на этом телефоне")}</button>`);
@@ -3463,6 +3485,7 @@ function checkins(){
   if (modOn('tasks')){
     if (hr >= 6 && hr < 12 && !smartTasks().some(t => !t.done && t.due === date) && !d.planDone) q('plan', {type: 'plan', text: tr('Что нужно сделать сегодня?')});
     { const mq = mitQ(date, hr); if (mq) q(mq.k, mq); }
+    { const wq = weekPlanQ(date, hr); if (wq) out.push(wq); }
     smartTasks().filter(t => isOverdue(t) && !studyOver(t)).slice(0, 3).forEach(t => q('t_' + t.id, {type: 'task', id: t.id, text: `${tr('«')}${t.title}${tr('»')} — ${t.due < date ? tr('просрочено, сделал?') : tr('пора. Сделал?')}`}));
     smartTasks().filter(t => !t.done && !t.due && t.askedWhen !== date && t.created !== date && !studyOver(t)).slice(0, 1).forEach(t => q('w_' + t.id, {type: 'when', id: t.id, text: `${tr("Когда сделаешь «")}${t.title}${tr('»')}?`}));
   }
@@ -3493,6 +3516,7 @@ function checkinCard(){
   else if (c.type === 'exam') body = examResultBody(c, b);
   else if (c.type === 'sleep') body = sleepQBody(c);
   else if (c.type === 'mit') body = mitQBody(c);
+  else if (c.type === 'week') body = weekPlanBody(c);
   else if (c.type === 'debt') body = `<div class="btnrow">${b('yes', tr('Да, вернули'))}${b('no', tr('Ещё нет'), 'ghost')}</div>`;
   else if (c.type === 'bill') body = `<div class="btnrow">${b('paid', c.inc ? tr('Получено') : tr('Оплачено'))}${b('skip', tr('Пропустить месяц'), 'ghost')}</div><button class="link" style="align-self:center" data-act="ciAns" data-k="${esc(c.k)}" data-a="later" data-id="${esc(c.id || '')}">${tr('Позже')}</button>`;
   else if (c.type === 'weekly') body = `<div class="list">${WEEKLY_Q.map((x, i) => `<button class="row" data-act="wkTog" data-i="${i}"><span class="chk ${S.open['wq_' + i] ? 'on' : ''}" aria-hidden="true">${ic('check')}</span><div class="mid"><div class="t" style="font-weight:500">${x}</div></div></button>`).join('')}</div><div class="hint">${tr("Если отмечено 2 и больше, следующая неделя пойдёт с меньшим объёмом: на подход меньше, вес прежний.")}</div><div class="btnrow"><button class="btn" data-act="wkDone" data-k="${esc(c.k)}">${tr("Готово")}</button></div>`;
@@ -3522,6 +3546,7 @@ A.ciAns = el => {
   if (k === 'plan') return mutDay(date, d => { d.planDone = true; d.asked = {...(d.asked || {}), plan: 'no'}; });
   if (k.startsWith('x_')) return examResultAns(a, id, mark);
   if (k === 'sl') return sleepQAns(a, mark);
+  if (k.startsWith('wp_')) return setMeta({weekPlan: k});
   if (k === 'mit') return a === 'no' ? mark('no') : (setMit(a), mark('yes'));
   if (k.startsWith('p_')) return billDueAns(a, id, mark);
   if (k.startsWith('d_')) return debtAns(a, id, mark);
@@ -3645,8 +3670,7 @@ function daysSinceGym(date){
   return ks.length ? dayDiff(ks[ks.length - 1], date) : null;
 }
 const sleepBand = d => { const r = d.ready?.sleep; if (r) return r; const h = toNum(d.sleep); return h == null ? null : h < 6 ? 'low' : h < 7 ? 'ok' : 'good'; };
-/* asked several times per exercise on every redraw; the answer only changes when data does */
-const ADAPT = new Map();
+/* asked several times per exercise on every redraw; the answer only changes when data does (ADAPT is declared next to dataChanged) */
 function adaptInfo(date){
   const key = date + '|' + todayISO();
   if (!ADAPT.has(key)) ADAPT.set(key, adaptInfoFresh(date));
@@ -3819,7 +3843,8 @@ function warningsFor(date){
   });
   return out;
 }
-function upcomingWarnings(days = 21, all = false){
+function upcomingWarnings(days = 21, all = false){ return memo('warn:' + days + ':' + all, () => upcomingWarningsFresh(days, all)).slice(); }
+function upcomingWarningsFresh(days, all){
   const off = meta().warnOff || {}, out = [], t = todayISO();
   for (let i = 0; i <= days; i++) out.push(...warningsFor(addDays(t, i)));
   return all ? out : out.filter(w => !off[w.id]);
@@ -3895,7 +3920,7 @@ function timeOnFresh(date, d){
 }
 function timeSum(dates){
   const r = {walk:0, gym:0, study:0, active:0, sleepSum:0, sleepN:0};
-  dates.forEach(k => { const t = timeOn(k), dd = S.docs['days/' + k]; r.walk += t.walk; r.gym += t.gym; r.study += t.study; if (t.walk + t.gym + t.study > 0 || (dd && dayScore(dd) >= .7)) r.active++; if (t.sleep){ r.sleepSum += t.sleep; r.sleepN++; } });
+  dates.forEach(k => { const t = timeOn(k), dd = S.docs['days/' + k]; r.walk += t.walk; r.gym += t.gym; r.study += t.study; if (t.walk + t.gym + t.study + trackOther(k) > 0 || (dd && dayScore(dd) >= .7)) r.active++; if (t.sleep){ r.sleepSum += t.sleep; r.sleepN++; } });
   r.total = r.walk + r.gym + r.study;
   return r;
 }
@@ -3935,29 +3960,32 @@ function tellPlan(r){
   const cancel = new Set(r.cancel_events || []);
   let evs = (pl.routine.events || []).filter(e => !cancel.has(e.id));
   (r.update_events || []).forEach(u => { const e = evs.find(x => x.id === u?.id); if (!e) return; if (DATE_RE.test(u.date || '')) e.date = u.date; if (HM_RE.test(u.from || '')){ e.from = u.from; delete e.until; } if (HM_RE.test(u.until || '')) e.until = u.until; if (u.title) e.title = String(u.title).slice(0, 120); });
-  evs = evs.concat((r.events || []).map(cleanEv).filter(Boolean));
+  evs = evs.concat((r.events || []).map(cleanEv).filter(Boolean).filter(e => !evs.some(x => sameTitle(x.title, e.title) && x.date === e.date))); // the same event told twice is added once
   pl.routine.events = evs;
-  const tasks = (r.new_tasks || []).map(cleanTask).filter(Boolean);
+  const tasks = (r.new_tasks || []).map(cleanTask).filter(Boolean).filter((t, i, a) => !dupTask(t) && a.findIndex(x => sameTitle(x.title, t.title) && x.due === t.due) === i); // "gym every Monday" told twice is one to-do
   const moves = (r.move_workouts || []).filter(m => DATE_RE.test(m?.from || '') && workoutFor(m.from) && (!m.to || DATE_RE.test(m.to)));
   return {pl, tasks, moves};
 }
 function previewWarnings(r){
+  if (r?.care) return [{id: 'care', text: careNote2(r.care)}];
   const before = new Set(upcomingWarnings(60, true).map(w => w.id)), {pl, tasks, moves} = tellPlan(r);
   const keys = ['app/plan', 'app/tasks', ...moves.flatMap(m => ['days/' + m.from, ...(m.to ? ['days/' + m.to] : [])])], saved = {};
   const days = moves.map(m => [m, getDay(m.from), m.to ? getDay(m.to) : null, workoutFor(m.from)]);
   keys.forEach(k => { saved[k] = S.docs[k]; });
   try {
+    dataChanged();
     S.docs['app/plan'] = pl; S.docs['app/tasks'] = {items: [...smartTasks(), ...tasks]};
     days.forEach(([m, a, b, w]) => { S.docs['days/' + m.from] = {...a, workout: null}; if (b) S.docs['days/' + m.to] = {...b, workout: w}; });
     return upcomingWarnings(60, true).filter(w => !before.has(w.id));
-  } finally { keys.forEach(k => { if (saved[k] === undefined) delete S.docs[k]; else S.docs[k] = saved[k]; }); }
+  } finally { keys.forEach(k => { if (saved[k] === undefined) delete S.docs[k]; else S.docs[k] = saved[k]; }); dataChanged(); }
 }
 function tellPlanLines(r){
   const lines = [], {tasks, moves} = tellPlan(r), name = id => allEvents().find(e => e.id === id)?.title || id;
-  (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(`+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
+  (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(allEvents().some(x => sameTitle(x.title, e.title) && x.date === e.date) ? trf('Уже в планах: {t}', {t: e.title}) : `+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
   (r.update_events || []).filter(u => allEvents().some(e => e.id === u?.id)).forEach(u => lines.push(`${tr("Изменить «")}${name(u.id)}${tr('»')}: ${[u.date && DATE_RE.test(u.date) ? fmtShort(u.date) : '', u.from || ''].filter(Boolean).join(tr(' в '))}`));
   (r.cancel_events || []).filter(id => allEvents().some(e => e.id === id)).forEach(id => lines.push(`${tr("Отменить «")}${name(id)}${tr('»')}`));
   tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}${t.every ? ' · ' + everyText(t) : ''}`));
+  [...new Set((r.new_tasks || []).map(cleanTask).filter(t => t && dupTask(t)).map(t => t.title))].forEach(t => lines.push(trf('Уже в планах: {t}', {t})));
   moves.forEach(m => lines.push(m.to ? `${tr("Перенести тренировку:")} ${fmtShort(m.from)} → ${fmtShort(m.to)}` : `${tr("Убрать тренировку")} ${fmtShort(m.from)}`));
   const tn = {walk:tr('Ходьба'), gym:tr('Тренировка'), study:tr('Учёба')};
   (r.time_log || []).filter(x => tn[x?.kind] && +x.min > 0).forEach(x => lines.push(`${tn[x.kind]}: ${fmtMin(+x.min)}`));
@@ -4408,12 +4436,13 @@ A.spApply = () => {
 
 /* ---- levels: earned from what is already logged, so nothing extra to track ---- */
 const xpFor = n => 50 * n * (n + 1); // total XP needed to reach level n + 1
-function totalXP(){
+function totalXP(){ return memo('xp', totalXPFresh); }
+function totalXPFresh(){
   let xp = 0;
   dayKeys().forEach(k => {
     const d = S.docs['days/' + k]; if (!d) return;
     const done = (d.tasks || []).filter(t => t.done).length, t = timeOn(k);
-    xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study) / 2);
+    xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study + trackOther(k)) / 2);
   });
   return xp + smartTasks().filter(t => t.done).length * 10 + smartTasks().filter(t => t.done && t.mit && t.mit === t.doneAt).length * MIT_XP + challengeXP();
 }
@@ -4478,7 +4507,7 @@ function recapCanvas(st){
     else glass(cx - 50, cy - 50, 100, 100, 50);
     c.fillStyle = lit ? '#04140a' : soft; c.font = font(700, 30); c.textAlign = 'center'; c.fillText(DOW[dow(k)], cx, cy + 11); c.textAlign = 'left';
   });
-  c.fillStyle = '#fff'; c.font = font(700, 40); c.textAlign = 'right'; c.fillText(`${tr('Уровень')} ${st.level}`, W - 80, 120); c.textAlign = 'left';
+  c.fillStyle = '#fff'; c.font = font(700, 40); c.textAlign = 'right'; c.fillText(`${tr('Уровень')} ${st.level} · ${levelTitle(st.level)}`, W - 80, 120); c.textAlign = 'left';
   return cv;
 }
 /* what the summary shows: the time put in as the headline, or the tasks done when no time was logged (never a
@@ -4487,7 +4516,7 @@ function recapPlan(st){
   const hours = m => m >= 60 ? num(m / 60, 1) + ' ' + tr('ч') : Math.round(m) + ' ' + tr('мин'), timed = st.total >= 1;
   return {
     head: timed ? hours(st.total) : String(st.tasks), headLabel: timed ? tr('вложено за неделю') : tr('задач сделано за неделю'),
-    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [st.chDone || 0, `${st.chDone} / ${st.chN}`, tr('вызовов недели'), '#ffd84d'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
+    tiles: [[st.walk, hours(st.walk), tr('ходьба'), '#2ebd6b'], [st.gym, hours(st.gym), tr('зал'), '#4f9cf0'], [st.study, hours(st.study), tr('учёба'), '#f0b43c'], [1, st.active + ' / 7', tr('активных дней'), '#ff9f43'], [st.streak, String(st.streak), tr('дней подряд'), '#ff6b6b'], [st.chDone || 0, `${st.chDone} / ${st.chN}`, tr('вызовов недели'), '#ffd84d'], [timed ? st.tasks : 0, String(st.tasks), tr('задач сделано'), '#7bd64a'], [st.focus || 0, String(st.focus || 0), tr('фокус-сессий'), '#9b8cff']].filter(t => t[0] > 0).map(t => t.slice(1)).slice(0, 6),
   };
 }
 A.recap = () => {
@@ -4507,7 +4536,7 @@ function recapBanner(){
 A.recapOpen = () => { setMeta({recapSeen: recapRange()[0]}); A.recap(); };
 
 /* ============ v8: the iPhone app. The native wrapper adds its plugins to window.Capacitor; in a browser none of this runs ============ */
-const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')], ['evening', tr('Вечерняя проверка'), tr('Если день ещё не засчитан: за 2 часа до сна')], ['challenges', tr('Вызовы недели'), tr('В субботу в 11:00, если что-то не выполнено')]];
+const REMIND_KINDS = [['exams', tr('Экзамены и дедлайны'), tr('За 2 недели, неделю, 3 дня, день и 2 часа')], ['events', tr('События'), tr('За час')], ['classes', tr('Пары'), tr('За 15 минут')], ['gym', tr('Тренировки'), tr('За 30 минут')], ['tasks', tr('Задачи со временем'), tr('Ко времени')], ['warnings', tr('Конфликты в планах'), tr('Накануне в 20:00')], ['recap', tr('Итоги недели'), tr('В воскресенье в 20:00')], ['bed', tr('Отбой'), tr('За 30 минут до сна по расписанию')], ['morning', tr('План на утро'), tr('При подъёме: день одной строкой')], ['bills', tr('Регулярные платежи'), tr('В день платежа в 10:00')], ['evening', tr('Вечерняя проверка'), tr('Если день ещё не засчитан: за 2 часа до сна')], ['challenges', tr('Вызовы недели'), tr('В субботу в 11:00, если что-то не выполнено')], ['mit', tr('Главное дело дня'), tr('В 17:00, если оно ещё не сделано')]];
 const REMIND_OFF = new Set(['bed', 'morning', 'evening', 'challenges']); // off until the person turns them on
 const remindOn = k => { const v = (meta().remind || {})[k]; return v === undefined ? !REMIND_OFF.has(k) : v !== false; };
 const REMIND_MAX = 60; // iOS keeps only 64 pending notifications per app
@@ -4518,9 +4547,10 @@ function buildReminders(now = Date.now()){
   const out = [], today = todayISO();
   const add = (key, at, title, body, must, go = 'day') => { if (at > now + 30000) out.push({id: remindId(key), key, at, title, body, must: !!must, go}); };
   if (FOCUS){
-    add('focus_end', FOCUS.end, tr('Фокус закончен'), tr('Открой KAI, чтобы засчитать время.'), true);
+    add('focus_end', FOCUS.end, tr('Фокус закончен'), FOCUS.blocked ? tr('Открой KAI, чтобы засчитать время и снять блокировку приложений.') : tr('Открой KAI, чтобы засчитать время.'), true);
     if (FOCUS.hiddenAt) add('focus_back', FOCUS.hiddenAt + 40000, tr('Фокус ещё идёт'), trf('Осталось {m} мин. Вернись, чтобы не сбить сессию.', {m: Math.max(1, Math.ceil((FOCUS.end - FOCUS.hiddenAt) / 60000))}), true);
   }
+  if (TRACK) add('track_long', TRACK.start + 3 * 3600000, tr('Таймер всё ещё идёт'), trf('{a}: 3 часа. Если уже закончил, останови таймер.', {a: actOf(TRACK.a).name}), true);
   if (remindOn('exams')) allEvents().filter(e => (e.kind === 'exam' || e.kind === 'deadline') && e.date >= today).forEach(e => {
     const start = atMin(e.date, hm(e.from || '09:00')), open = planTasks(e.id).filter(t => !t.done).length;
     const steps = e.kind === 'exam' ? [[14, tr('через 2 недели')], [7, tr('через неделю')], [3, tr('через 3 дня')], [1, tr('завтра')]] : [[3, tr('через 3 дня')], [1, tr('завтра')]];
@@ -4543,8 +4573,9 @@ function buildReminders(now = Date.now()){
     if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
   }
   if (remindOn('challenges')){ const c = challengeNudge(today); if (c) add(c.key, c.at, c.title, c.body); }
+  if (remindOn('mit')){ const t = smartTasks().find(isMit); if (t) add('mit' + today, atMin(today, 17 * 60), trf('Главное на сегодня: {t}', {t: t.title}), tr('Ещё не сделано. До вечера есть время.'), true); }
   if (remindOn('warnings')) upcomingWarnings(7).forEach(w => add(`w${w.id}`, atMin(addDays(w.date, -1), 20 * 60), tr('Завтра в планах конфликт'), w.text));
-  if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), tr('Посмотри, как прошла твоя неделя'), false, 'recap'); }
+  if (remindOn('recap')){ let k = today; while (dow(k) !== 7) k = addDays(k, 1); add(`r${k}`, atMin(k, 20 * 60), tr('Итоги недели готовы'), modOn('tasks') ? tr('Посмотри, как прошла неделя, и запиши планы на следующую') : tr('Посмотри, как прошла твоя неделя'), false, 'recap'); }
   const byTime = (a, b) => a.at - b.at, must = out.filter(r => r.must).sort(byTime).slice(0, REMIND_MUST);
   return [...must, ...out.filter(r => !r.must).sort(byTime).slice(0, REMIND_MAX - must.length)].sort(byTime);
 }
@@ -4735,7 +4766,7 @@ const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ?
 const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|uber|lyft|bolt|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/аптек|pharmacy|drugstore|лекарств|medicine|gym membership|абонемент|спортзал/i, 'Спорт и здоровье'], [/книг|books?\b|textbook|учебник|tuition|course|курс[ыа]?\b|printing|печать|распечат/i, 'Учёба'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|позвонить|купить|оплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать)/i;
-const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул[аи]?сь|встал[аи]?(?![а-яё])/i;
+const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул(?:ся|ась|ись)|встал[аи]?(?![а-яё])/i;
 const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован|\bmeet\b|flight|рейс|вылет|самол[её]т|wedding|свадьб|exhibition|выставк|матч/i;
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
 const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d{1,3}(?:,\\d{3})+(?![\\d])|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
@@ -4757,7 +4788,7 @@ function localMoney(c){
   m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for|at|в|во)\\s+(.+))?$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
-  m = c.match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
+  m = c.replace(/^(?:had|drank|got|ate|выпил[аи]?|съел[аи]?|взял[аи]?)\s+(?:a\s+|an\s+)?/i, '').match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); } // "gift for mom 30", "lunch for 12", "билет на поезд 1200"
   // "$5 coffee", "300р такси": the amount first, but only with a currency, so "2 pizzas" stays food
   m = c.match(new RegExp('^(' + AMT + ')\\s+((?:' + SPEND_WORDS + ')(?![a-zа-яё]).{0,30})$', 'i'));
@@ -4765,15 +4796,16 @@ function localMoney(c){
   return null;
 }
 function localTellParse(text, date, opts = {}){
+  { const care = careSignal(text); if (care) return {r: {reply: '', time_log: [], money: [], new_tasks: [], events: [], care}, left: [String(text)]}; } // nothing is planned from a message like this; the support card speaks first
   const r = {reply: '', time_log: [], money: [], new_tasks: [], events: []}, left = [];
   // spelled-out durations become numbers first, so "an hour and a half" isn't split at "and"
-  const spelled = String(text).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
+  const spelled = clockWords(String(text)).replace(/полтора часа|an hour and a half|one and a half hours/ig, '90 мин').replace(/полчаса|half an hour/ig, '30 мин').replace(/(^|\s)(?:один\s+)?час(?![а-яё])|(^|\s)(?:an|one)\s+hour(?!s)/ig, (m0, a, b) => (a ?? b ?? ' ') + '60 мин');
   // gym sets first, before the text is split at commas: "squats 60 kg for 8, 8 and 7", "отжимания 3х10"
   const sets = [];
   let rest = localSets(spelled, date, sets);
   // "went to bed at 23:30, woke up at 7" / "лёг в 23, встал в 7": the hours in between
   rest = rest.replace(/((?:по)?спал[аи]?|slept)\s+(с|from)\s+часу/i, '$1 $2 1').replace(/((?:по)?спал[аи]?|slept)\s+(с|from)\s+(?:полуночи|midnight)/i, '$1 $2 0');
-  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|slept|(?:по)?спал[аи]? с|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?\D{1,40}?(?:woke(?: up)?|got up|until|till|to|встал[аи]?|проснул[аи]?сь|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?/i);
+  const bed = rest.match(/(?:went to bed|fell asleep|got to sleep|slept from|slept|(?:по)?спал[аи]? с|лёг|легла|лег|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?\D{1,40}?(?:woke(?: up)?|got up|until|till|to|встал[аи]?|проснул(?:ся|ась|ись)|до)\s+(?:at\s+|в\s+|около\s+|around\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?/i);
   if (bed){
     const h24 = (h, ap) => ap ? h % 12 + (/pm/i.test(ap) ? 12 : 0) : h, span = from => ((h24(+bed[4], bed[6]) * 60 + +(bed[5] || 0)) - (from * 60 + +(bed[2] || 0)) + 1440) % 1440 / 60;
     let h = span(h24(+bed[1], bed[3]));
@@ -4781,32 +4813,34 @@ function localTellParse(text, date, opts = {}){
     if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(bed[0], ' '); }
   }
   if (sets.length) r.sets = sets;
-  const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(Boolean)
+  const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
-  for (const c of parts){
+  for (const c0 of parts){
+    const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
     if (modOn('money')){ const db = localDebt(c); if (db){ (r.debts = r.debts || []).push(db); hit = true; } }
+    if (!hit && modOn('money')){ const sv = localSaving(c); if (sv){ (r.savings = r.savings || []).push(sv); hit = true; } } // "отложил 500 на ноутбук": into a savings goal, not spending
     { const xr = localExamResult(c, date); if (xr){ (r.exam_results = r.exam_results || []).push(xr); hit = true; } }
     if (modOn('screentime') && (m = c.match(SCREEN_A) || c.match(SCREEN_B))){ const v = parseDur(m[1]); if (v > 0 && v <= 1440){ r.screen_min = v; hit = true; } }
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
     if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
     if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
-    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework)\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|в зале|зал|workout|worked out|trained|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
+    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|дош[её]л|дошла|пешком|прош[её]лся|прошлась|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,22}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework|revised|revising|reviewed|reviewing|practi[cs]ed|повторял[аи]?|готовил(?:ся|ась|ись)|решал[аи]?|домашк[а-яё]*|домашнее|дз(?![а-яё]))\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
+    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|качал(?:ся|ась|ись)|силов[а-яё]+|в зале|зал|workout|worked out|trained|lifted|lifting|weights|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
     if ((m = c.match(new RegExp('(?:вес(?![а-яё])|вешу|взвесил[аи]?сь|weigh(?:t|ed|ing)?)\\D{0,8}?' + NUM + '\\s*(кг|kg|lbs?|pounds?|фунт[а-яё]*)?', 'i')))){
       let w = toN(m[1]); const ref = refWeight(), lb = m[2] ? /lb|pound|фунт/i.test(m[2]) : ref ? Math.abs(w / LB - ref) < Math.abs(w - ref) : isUS();
       if (lb) w = Math.round(w / LB * 10) / 10;
       if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
     }
-    const mo = localMoney(c) || (r.money.length && !hit ? moneyMore(c) : null);
+    const mo = (r.savings || []).length && hit ? null : localMoney(c) || (r.money.length && !hit ? moneyMore(c) : null);
     if (mo){ r.money.push(mo); hit = true; }
     const future = !/(?:^|\s)(?:ate|had|съел[аи]?|выпил[аи]?|поел[аи]?|перекусил[аи]?)(?![a-zа-яё])/i.test(c) && (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal; "вечером съел…" already happened
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
-    if (!hit && LOCAL_SKIP.test(c)){ left.push(c); continue; }
+    if (!hit && (LOCAL_SKIP.test(c) || pastStart(c))){ left.push(c); continue; } // "went to bed at 1am" happened; it isn't a to-do
     if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; }
     if (!hit){ const ts = weekdayCopies(c).map(x => parseQuick(x)).filter(t => t?.every && t.due); if (ts.length > 1){ ts.forEach(t => r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, every: t.every})); hit = true; } } // "ran 5k yesterday morning" is not a to-do for tomorrow
     if (!hit){
@@ -4814,7 +4848,7 @@ function localTellParse(text, date, opts = {}){
       const range = cq.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? cq.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : cq);
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
-        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c);
+        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
@@ -4847,8 +4881,8 @@ const sameWord = (a, b) => {
 const PREP_WORD_RE = /^(?:вар[её]н(?:ая|ый|ое|ые|ой)$|cooked|boiled|dry|сух|raw|сыр(?:ой|ая|ое|ые)$|approx|ориентир|uncooked)/i; // how a food is prepared isn't its name: vareniki are not boiled chicken
 const RAW_RE = /сыр(?:ой|ая|ое|ые)|сух(?:ой|ая|ие|ое)|raw|dry|uncooked/i, COOKED_RE = /варён|варен|cooked|boiled/i;
 // everyday portions in grams, for "a cup of rice", "горсть орехов", "стакан кефира"
-const PORTIONS = [[/cups?|стакан[а-яё]*|кружк[а-яё]*|mugs?/i, 200], [/glass(?:es)?/i, 250], [/bowls?|тарелк[а-яё]*|миск[а-яё]*/i, 300], [/slices?|ломтик[а-яё]*|кус(?:ок|ка|очек|очка|ки)/i, 30], [/handfuls?|горст[а-яё]*/i, 30], [/tablespoons?|tbsp|столов[а-яё]* ложк[а-яё]*|ложк[а-яё]*/i, 15], [/teaspoons?|tsp|чайн[а-яё]* ложк[а-яё]*/i, 5], [/scoops?|мерн[а-яё]* ложк[а-яё]*/i, 30], [/servings?|portions?|порци[а-яё]*/i, 200]];
-const ALIAS = {burger: 'hamburger', burgers: 'hamburger', cheeseburger: 'hamburger', бургер: 'гамбургер', чизбургер: 'гамбургер', kebab: 'shawarma', doner: 'shawarma', кебаб: 'шаурма', донер: 'шаурма', шаверма: 'шаурма', доширак: 'лапша', ролтон: 'лапша', ramen: 'noodles', toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи', snickers: 'chocolate bar', twix: 'chocolate bar', mars: 'chocolate bar', bounty: 'chocolate bar', kitkat: 'chocolate bar', сникерс: 'батончик', твикс: 'батончик', марс: 'батончик', баунти: 'батончик', кофейку: 'кофе'};
+const PORTIONS = [[/cups?|стакан[а-яё]*|кружк[а-яё]*|mugs?/i, 200], [/glass(?:es)?/i, 250], [/bowls?|тарелк[а-яё]*|миск[а-яё]*/i, 300], [/slices?|ломтик[а-яё]*|кус(?:ок|ка|очек|очка|ки)/i, 30], [/handfuls?|горст[а-яё]*/i, 30], [/tablespoons?|tbsp|столов[а-яё]* ложк[а-яё]*|ложк[а-яё]*/i, 15], [/teaspoons?|tsp|чайн[а-яё]* ложк[а-яё]*/i, 5], [/scoops?|мерн[а-яё]* ложк[а-яё]*/i, 30], [/servings?|portions?|порци[а-яё]*/i, 200], [/cans?|банк[аиу]/i, 330]];
+const ALIAS = {pepperoni: 'pizza', пепперони: 'пицца', bigmac: 'big mac', бигмака: 'бигмак', яиц: 'яйцо', coke: 'cola', кока: 'кола', burger: 'hamburger', burgers: 'hamburger', cheeseburger: 'hamburger', бургер: 'гамбургер', чизбургер: 'гамбургер', kebab: 'shawarma', doner: 'shawarma', кебаб: 'шаурма', донер: 'шаурма', шаверма: 'шаурма', доширак: 'лапша', ролтон: 'лапша', ramen: 'noodles', toast: 'bread', тост: 'хлеб', тосты: 'хлеб', nuts: 'walnuts', орехов: 'орехи', орешки: 'орехи', snickers: 'chocolate bar', twix: 'chocolate bar', mars: 'chocolate bar', bounty: 'chocolate bar', kitkat: 'chocolate bar', сникерс: 'батончик', твикс: 'батончик', марс: 'батончик', баунти: 'батончик', кофейку: 'кофе'};
 function portionOf(c){
   for (const [re, gr] of PORTIONS){
     const m = c.match(new RegExp('(?:(\\d{1,2}|a|an|one|two|three|один|одна|одну|два|две|три)\\s+)?(?:' + re.source + ')\\s+(?:of\\s+)?([a-zа-яё]{3,})', 'i'));
@@ -4866,11 +4900,11 @@ function localMeal(c, opts){
   const dn = !g && c.match(/(?:^|\s)(\d{1,2})\s+([a-zа-яё]{3,})/i), wn = !g && !dn && c.match(/(?:^|\s)(a|an|one|two|three|один|одна|одно|одну|два|две|три|трёх|трех)\s+([a-zа-яё]{3,})/i);
   // "съел банан": Russian has no "a", so eating words count as one piece
   const eaten = !g && /(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?)(?![a-zа-яё])/i.test(c);
-  const bare = bareOk && !g && !dn && !wn && !eaten && !por && !/\d/.test(c) && (c.match(/[a-zа-яё]+/gi) || []).length <= 3; // "яблоко", "protein shake": one piece
+  const bare = bareOk && !g && !dn && !wn && !eaten && !por && !/\d/.test(c) && (c.replace(/(?:^|\s)(?:for breakfast|for lunch|for dinner|на завтрак|на обед|на ужин|today|сегодня|вчера|yesterday)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]+/gi) || []).length <= 3; // "today: oatmeal for breakfast" is one food // "яблоко", "protein shake": one piece
   const n = dn ? dn : wn ? [0, WORD_N[wn[1].toLowerCase()]] : eaten || bare ? [0, 1] : null;
   if (!g && !n) return null;
   // with a count, the food is the word right after it: "2 eggs", not "by 25 January"
-  const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and'].includes(w));
+  const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and', 'mediu', 'large', 'small', 'regul', 'big', 'средн', 'больш', 'мален', 'today', 'сегод', 'вчера', 'yeste'].includes(w)); // sizes and days aren't foods: "medium fries", "today: oatmeal"
   if (words.length && !(c.match(/[a-zа-яё]{3,}/gi) || []).some(w => !WATER_WORDS.has(w.toLowerCase()) && !/^(?:drank|drink|had|выпил[аи]?|пил[аи]?|glass(?:es)?|cups?|liters?|litres?|стакан[а-яё]*|литр[а-яё]*|кружк[а-яё]*)$/i.test(w) && !/^\d/.test(w))) return null; // "drank 3 glasses of water" isn't watermelon or oatmeal
   let best = null;
   PRODUCTS.forEach((p, i) => {
@@ -4903,8 +4937,13 @@ function localDone(c, date){
 /* sets for exercises in the plan, today's workout first; returns the text with them taken out */
 function localSets(text, date, out){
   const today = (plan().workouts[workoutFor(date)]?.ex || []), all = [...today, ...Object.values(plan().workouts).flatMap(w => w.ex)];
-  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too
+  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.filter(e => e.id !== 'dips' || /брус|dip/i.test(name)).find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too; plain "отжимания" are push-ups, not dips
   const kg = (n, u) => { const v = toN(n); return (u ? /lb|фунт/i.test(u) : isUS()) ? Math.round(v / LB * 10) / 10 : v; };
+  text = text.replace(/(\d)\s*(?:sets?|подход(?:а|ов)?)\s*(?:of|по)\s*(\d{1,3})\s*(?:reps?\s*(?:of\s*)?|раз\s*)?([a-zа-яё][a-zа-яё'-]{2,30}(?:\s+[a-zа-яё][a-zа-яё'-]{2,30})?)(?:\s+(?:at|with|с|по)?\s*(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*))?/gi, (m, n, rp, name, w, u) => {
+    const ex = findEx(name); if (!ex) return m;
+    for (let i = 0; i < Math.min(+n, 10); i++) out.push({ex: ex.id, w: w ? kg(w, u) : 0, r: +rp});
+    return ' ';
+  });
   return text.replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*)?\s*(?:for|на|по)\s*(\d{1,2}(?:(?:\s*(?:,|and|и|\/)\s*|\s+)\d{1,2}(?![\d.,]|\s*(?:подход|sets?\b|раз)))*)/gi, (m, name, w, u, reps) => {
     const ex = findEx(name); if (!ex) return m;
     reps.split(/\s*(?:,|and|и|\/)\s*|\s+/).filter(Boolean).forEach(rp => out.push({ex: ex.id, w: kg(w, u), r: +rp}));
@@ -4941,11 +4980,12 @@ function tellLocal(text, date0){
 /* ---- "What can I write?": examples by topic; a tap adds one to the message. Without AI, only what the phone understands, plus a few marked as needing AI ---- */
 const TELL_HELP = [
   [tr('Тело'), [tr('Спал 7 часов'), tr('Лёг в 23, встал в 7'), tr('9 000 шагов'), tr('Вес 72,5')]],
-  [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Пробежал 5 км за 30 минут'), tr('Учился 2 часа'), tr('Присед 40 на 10, 10 и 8')]],
+  [tr('Движение и учёба'), [tr('Гулял 40 минут'), tr('Пробежал 5 км за 30 минут'), tr('Учился 2 часа'), tr('Делал домашку с 18 до 20'), tr('Присед 40 на 10, 10 и 8')]],
   [tr('Еда'), [tr('200 г гречки и 2 яйца'), tr('Стакан кефира')]],
-  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Получил 50 от мамы'), tr('Аренда 400 каждый месяц')]],
-  [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку'), tr('Выносить мусор по понедельникам')]],
+  [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Получил 50 от мамы'), tr('Стипендия 300'), tr('Аренда 400 каждый месяц')]],
+  [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку'), tr('Эссе до пятницы'), tr('Выносить мусор по понедельникам')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4'), tr('Вчера гулял час')]],
+  [tr('Вопросы'), [tr('Сколько я потратил на этой неделе?'), tr('Сколько осталось денег?'), tr('Когда следующий экзамен?')]],
 ];
 const TELL_HELP_AI = [tr('Перенеси тренировку с пятницы на субботу'), tr('Стоматолога отменили'), tr('На обед суп и салат')];
 function tellHelpHTML(){
@@ -5305,8 +5345,11 @@ function focusMinutes(now = Date.now()){
 }
 function focusStart(min, label, task, exam){
   const now = Date.now();
+  if (TRACK) trackStop();
   FOCUS = {start: now, end: now + min * 60000, min, away: 0, hiddenAt: null, leaves: 0, label: label || tr('Учёба'), task: task || null, exam: exam || null};
+  if (meta().focusBlock && stReady()){ FOCUS.blocked = true; ST().block().catch(() => { if (FOCUS){ FOCUS.blocked = false; focusSave(); } toast(tr('Не получилось заблокировать приложения')); }); }
   focusSave(); focusRun(); syncReminders(); haptic('medium');
+  noiseStart();
 }
 function focusRun(){
   clearInterval(FOCUS_IV); if (!FOCUS) return;
@@ -5319,19 +5362,21 @@ function focusTick(){
   const bar = $('#focusBar'); if (!bar) return;
   const left = Math.ceil((FOCUS.end - now) / 1000);
   bar.hidden = false;
+  if (barTick(bar, FOCUS.label + '|' + FOCUS.leaves, left)) return;
   bar.innerHTML = `<div class="rb-in"><span class="ic" aria-hidden="true">${ic('target')}</span><div style="flex:1;min-width:0"><div class="rb-t">${Math.floor(left / 60)}:${pad(left % 60)}</div><div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tr('Фокус')} · ${esc(FOCUS.label)}${FOCUS.leaves ? ' · ' + FOCUS.leaves + ' ' + plural(FOCUS.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')) : ''}</div></div><button class="btn ghost" data-act="focusEnd">${tr('Завершить')}</button></div>`;
 }
 function focusFinish(complete){
   const f = FOCUS; if (!f) return;
   const now = Date.now(), mins = focusMinutes(now), awayMin = Math.round(focusAway(f, now) / 60000);
   const leaves = f.leaves + (f.hiddenAt && now - f.hiddenAt >= 3000 ? 1 : 0);
-  FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing');
+  FOCUS = null; focusSave(); clearInterval(FOCUS_IV); FOCUS_IV = 0; document.body.classList.remove('focusing'); noiseStop();
+  if (f.blocked && ST()) ST().unblock().catch(() => {});
   const bar = $('#focusBar'); if (bar) bar.hidden = true;
   try { FOCUS_WAKE?.release(); } catch {} FOCUS_WAKE = null;
   const hhmm = (t => pad(t.getHours()) + ':' + pad(t.getMinutes()))(new Date(f.start));
   mutDay(iso(f.start), d => {
     if (mins > 0) d.timeExtra = {...(d.timeExtra || {}), study: (d.timeExtra?.study || 0) + mins};
-    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves, l: String(f.label || '').slice(0, 60)}].slice(-20);
+    d.focus = [...(d.focus || []), {at: hhmm, min: mins, of: f.min, leaves, l: String(f.label || '').slice(0, 60), ...(f.blocked ? {blocked: true, gaveUp: !!f.gaveUp} : {})}].slice(-20);
   });
   const task = f.task && smartTasks().find(t => t.id === f.task);
   if (task && mins > 0){
@@ -5344,7 +5389,7 @@ function focusFinish(complete){
   if (complete){ haptic('success'); sound('badge'); }
   const said = leaves ? trf('Фокус: {m} из {t} мин · {n} {w}, {a} мин вне приложения', {m: mins, t: f.min, n: leaves, w: plural(leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений')), a: awayMin})
     : complete ? trf('Фокус: {m} мин без единого отвлечения', {m: mins}) : trf('Фокус: {m} мин', {m: mins});
-  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : complete && mins >= 20 ? {action: {label: tr('Перерыв 5 мин'), act: 'focusBreak'}} : {})});
+  toast(said, {icon: 'target', tone: mins ? 'good' : '', ms: 8000, ...(FOCUS_TASK ? {action: {label: tr('Отметить сделанным'), act: 'focusTaskDone'}} : complete && mins >= 20 ? {action: focusBreakAction()} : {})});
   scheduleRender();
 }
 let FOCUS_TASK = null;
@@ -5384,6 +5429,8 @@ A.focusSheet = el => {
     : `${(w => w.n ? `<div class="note">${trf('За 7 дней: {n} {s}, {t} фокуса, {d} {w}', {n: w.n, s: plural(w.n, tr('сессия'), tr('сессии'), tr('сессий')), t: w.min >= 60 ? num(w.min / 60, 1) + ' ' + tr('ч') : w.min + ' ' + tr('мин'), d: w.leaves, w: plural(w.leaves, tr('отвлечение'), tr('отвлечения'), tr('отвлечений'))})}${w.by.length > 1 ? `<br>${w.by.slice(0, 4).map(([l, m]) => `${esc(l)} ${fmtMin(m)}`).join(' · ')}` : ''}</div>` : '')(focusWeek())}<div class="hint">${tr('Время без отвлечений. Можно не выходить из KAI или убрать телефон: если выйдешь в другое приложение, KAI посчитает время вне его и, если напоминания включены, позовёт вернуться. В учёбу дня засчитаются только минуты фокуса.')}</div>
     <div class="field"><label>${tr('Сколько')}</label><div class="seg" role="group">${[25, 45, 60].map(m => `<button class="${(SH.fm || 25) === m ? 'on' : ''}" aria-pressed="${(SH.fm || 25) === m}" data-act="focusMin" data-v="${m}">${m} ${tr('мин')}</button>`).join('')}</div></div>
     <div class="field"><label for="fcL">${tr('Над чем')}</label><input class="in" id="fcL" value="${esc(SH.fl ?? (el?.dataset?.l || tr('Учёба')))}"></div>
+    ${noiseField()}
+    ${blockField()}
     <button class="btn block" data-act="focusGo">${ic('target')}${tr('Начать')}</button>`);
   SH.ftask = task; SH.fexam = exam; // read when Start is tapped
 };
@@ -5681,7 +5728,7 @@ const badgesShown = () => BADGES.filter(b => !BADGE_MODULE[b.k] || modOn(BADGE_M
 const budgetBillsHint = () => `<div class="hint">${bills().some(b => b.type !== 'in') ? trf('Регулярные платежи ({s} в месяц) уже учтены: бюджет откладывает то, что ещё не оплачено.', {s: money(bills().filter(b => b.type !== 'in').reduce((a, b) => a + (+b.amount || 0), 0))}) : tr('Аренду, телефон и подписки удобно добавить как регулярные платежи: бюджет будет откладывать их заранее.')}</div><button class="btn ghost block" data-act="billNew">${ic('repeat')}${tr('Регулярный платёж')}</button>`;
 
 /* ============ reminders, grouped so the list reads at a glance ============ */
-const REMIND_GROUPS = [['Учёба и планы', ['exams', 'classes', 'events', 'tasks', 'warnings']], ['Ритм дня', ['morning', 'gym', 'evening', 'bed', 'challenges']]];
+const REMIND_GROUPS = [['Учёба и планы', ['exams', 'classes', 'events', 'tasks', 'mit', 'warnings']], ['Ритм дня', ['morning', 'gym', 'evening', 'bed', 'challenges']]];
 function remindGroups(){
   const kinds = REMIND_KINDS.filter(([k]) => k !== 'bills' || modOn('money')), used = new Set(REMIND_GROUPS.flatMap(g => g[1]));
   const groups = [...REMIND_GROUPS.map(([h, ks]) => [tr(h), ks.map(k => kinds.find(x => x[0] === k)).filter(Boolean)]), [tr('Остальное'), kinds.filter(([k]) => !used.has(k))]].filter(g => g[1].length);
@@ -5689,7 +5736,7 @@ function remindGroups(){
 }
 
 /* ============ Tell KAI on the phone: running, cycling, swimming and yoga; a weight's unit ============ */
-const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]|football|soccer|basketball|tennis|volleyball|badminton|hockey|boxing|climbing|hiked|hiking|danced|dancing|stretch(?:ed|ing)?|pilates|skated|skating|rowing|футбол[а-яё]*|баскетбол[а-яё]*|теннис[а-яё]*|волейбол[а-яё]*|бадминтон[а-яё]*|хокке[йяю]|бокс[а-яё]*|скалодром[а-яё]*|танц[а-яё]*|растяжк[а-яё]*|пилатес[а-яё]*|кататься на коньках|на коньках|гребл[а-яё]*';
+const CARDIO = 'ran|jogged|went (?:for a )?run|went running|went jogging|cycled|cycling|biked|biking|swam|swimming|yoga|пробежал[аи]?|пробежк[а-яё]*|(?:^|\\s)(?:по)?бегал[аи]?|(?:по)?плавал[аи]?|бассейн[а-яё]*|велосипед[а-яё]*|велик[а-яё]*|йог[аеиуо]|football|soccer|basketball|tennis|volleyball|badminton|hockey|boxing|climbing|hiked|hiking|danced|dancing|stretch(?:ed|ing)?|pilates|skated|skating|rowing|футбол[а-яё]*|баскетбол[а-яё]*|теннис[а-яё]*|волейбол[а-яё]*|бадминтон[а-яё]*|хокке[йяю]|бокс[а-яё]*|скалодром[а-яё]*|танц[а-яё]*|растяжк[а-яё]*|пилатес[а-яё]*|кататься на коньках|на коньках|гребл[а-яё]*|плавани[еяю]';
 const DIST = '(?:\\s*\\d+(?:[.,]\\d+)?\\s*(?:km|км|mi|miles?|k)(?![a-zа-яё]))?'; // "ran 5 km in 30 minutes"
 /* the last weight logged, or the profile's: tells "вес 70" in kilograms from "weight 154" in pounds */
 function refWeight(){ const k = dayKeys().reverse().find(x => toNum(S.docs['days/' + x]?.weight) > 0); return k ? toNum(S.docs['days/' + k].weight) : toNum(profile().weight) || 0; }
@@ -5871,6 +5918,7 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
+  if ((lp.savings || []).length && !out.savings){ out.savings = lp.savings; const sum = lp.savings.reduce((a, x) => a + x.amount, 0); out.money = out.money.filter(m => !(m.type !== 'in' && Math.abs(+m.amount - sum) < 0.01)); } // the AI may read it as spending
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
   return out;
 }
@@ -5940,16 +5988,15 @@ const nextTopic = examId => planTasks(examId).filter(t => !t.done).sort((a, b) =
 
 /* ============ what's new: once, for people who used an earlier version ============ */
 // never over another sheet, never during onboarding; new installs mark it seen when they finish onboarding
-const WHATS_NEW_ID = '2026-11';
+const WHATS_NEW_ID = '2026-11c';
 const WHATS_NEW = () => [
+  ['zap', tr('Звуки и вибрация'), tr('Короткие звуки теперь включены: они тихие, не прерывают музыку и молчат в беззвучном режиме. Выключить: Ещё → Отклик.')],
   ['snow', tr('Заморозки серии'), tr('Один пропущенный день больше не сжигает серию: заморозка спасёт её сама. Каждые 7 дней подряд дают новую.')],
   ['target', tr('Вызовы недели'), tr('Три цели на неделю, чуть выше прошлой. За каждую +50 XP, а у уровней теперь есть названия.')],
-  ['repeat', tr('Регулярные платежи'), tr('Аренда, телефон и подписки: бюджет откладывает их заранее, а в день платежа KAI напомнит.')],
-  ['list', tr('Повторяющиеся задачи'), tr('«Выносить мусор по понедельникам», «платить за интернет каждый месяц»: следующая появится сама.')],
-  ['target', tr('Фокус'), tr('Сессии на 25–60 минут для учёбы, задач и экзаменов. В зачёт идут только минуты без отвлечений.')],
-  ['swap', tr('Долги и неделя вперёд'), tr('Кто кому должен, с напоминанием через две недели. И все дела, пары и платежи на 7 дней в одном окне.')],
-  ['trophy', tr('Результаты экзаменов'), tr('После экзамена KAI спросит, как прошло, и сохранит оценку.')],
-  ['flame', tr('Серия для каждой привычки'), tr('Под ежедневными задачами видно, сколько дней подряд они выполнены.')],
+  ['day', tr('План недели'), tr('В воскресенье вечером KAI спросит, что важного на следующей неделе, и разложит ответ по дням.')],
+  ['cash', tr('Цели накоплений'), tr('«Ноутбук: 320 из 1000»: откладывай понемногу, а KAI отметит каждую четверть пути.')],
+  ['spark', tr('Вопросы к KAI'), tr('«Сколько я потратил на этой неделе?», «когда следующий экзамен?»: ответ считается прямо на телефоне.')],
+  ['activity', tr('Что помогает твоим дням'), tr('KAI сравнивает твои дни: например, сколько задач ты успеваешь после 7 часов сна и после короткого.')],
   ['mic', tr('KAI понимает больше без ИИ'), tr('Бег и плавание, сон «с часу до 9», еду без граммов, «через 2 недели», экранное время.')],
 ];
 function whatsNewSoon(){
@@ -6315,9 +6362,10 @@ function challengeTick(){
   const w = weekChallenges(); if (!w || !w.list.length) return;
   const all = meta().challenges || {};
   const newly = w.list.filter(c => !w.done.includes(c.id) && challengeProgress(c, w.mon) >= c.goal).map(c => c.id);
-  if (!w.fresh && !newly.length) return;
+  const lost = w.done.filter(id => { const c = w.list.find(x => x.id === id); return c && challengeProgress(c, w.mon) < c.goal; }); // an Undo took it back below the goal: so does the XP
+  if (!w.fresh && !newly.length && !lost.length) return;
   const keep = Object.fromEntries(Object.entries(all).filter(([k]) => k >= addDays(w.mon, -366))); // a year of weeks, for the XP
-  const done = [...w.done, ...newly];
+  const done = [...w.done.filter(id => !lost.includes(id)), ...newly];
   setMeta({challenges: {...keep, [w.mon]: {list: w.list, done, ...(w.swapped ? {swapped: true} : {})}}});
   if (!newly.length) return;
   const allDone = done.length === w.list.length;
@@ -6470,6 +6518,660 @@ A.levelInfo = () => {
     <div class="hint">${tr('XP не сгорают: пропущенный день не отнимает уровень.')}</div>`);
 };
 
+/* ============ feel: native haptic types, error feedback, an audio session that respects the silent switch ============ */
+// the iPhone's own patterns: selection ticks, impacts, and success / warning / error notifications
+function nativeHaptic(nh, kind){
+  try {
+    const done = p => p?.catch?.(() => {});
+    if (kind === 'success' || kind === 'error' || kind === 'warning') return done(nh.notification({type: kind.toUpperCase()}));
+    if (kind === 'selection' && nh.selectionChanged){ done(nh.selectionStart?.()); done(nh.selectionChanged()); return done(nh.selectionEnd?.()); }
+    done(nh.impact({style: kind === 'medium' ? 'MEDIUM' : kind === 'heavy' ? 'HEAVY' : 'LIGHT'}));
+  } catch {}
+}
+// short sounds mix with music instead of stopping it, and stay quiet on silent (Safari 16.4+, the iPhone app's web view)
+try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch {}
+// messages that mean "that didn't work" or "something is missing" get the error haptic, in either language
+const ERR_TOAST_RE = /^(?:Впиши|Выбери|Укажи|Не удал|Не получ|Нет связи|Сначала|Ошибк)/;
+let ERR_TOASTS = null;
+function isErrToast(msg){
+  if (!ERR_TOASTS){ ERR_TOASTS = new Set(); Object.keys(window.I18N_EN || {}).forEach(k => { if (ERR_TOAST_RE.test(k)) ERR_TOASTS.add(tr(k)); }); }
+  return ERR_TOASTS.has(String(msg));
+}
+{ const toast0 = toast; toast = (msg, o = {}) => { if (isErrToast(msg)) haptic('error'); return toast0(msg, o); }; }
+
+/* ============ timer bars: after the first draw only the numbers change, so buttons stay put under a finger and VoiceOver keeps its place ============ */
+function barTick(bar, key, left, pct){
+  const t = bar.querySelector('.rb-t');
+  if (!t || bar.dataset.k !== String(key)){ bar.dataset.k = String(key); return false; } // the caller draws it this time
+  const v = Math.floor(left / 60) + ':' + pad(left % 60);
+  if (t.textContent !== v) t.textContent = v;
+  const i = pct != null && bar.querySelector('.bar > i'); if (i) i.style.width = pct + '%';
+  return true;
+}
+
+/* ============ no "eat less" advice while logged food is far below the target ============ */
+function loggedFarBelow(t){
+  const ks = [...Array(14)].map((_, i) => addDays(todayISO(), -i - 1)).filter(k => S.docs['days/' + k]?.meals?.length);
+  if (!ks.length) return 0;
+  const avg = Math.round(ks.reduce((a, k) => a + eaten(S.docs['days/' + k]).kcal, 0) / ks.length);
+  return avg < t.kcal * 0.7 ? avg : 0;
+}
+
+/* ============ Tell KAI: clock words, "1h30", pomodoros, activity time ranges, and past actions that aren't to-dos ============ */
+function clockWords(t){
+  return t
+    .replace(/(^|\s)в\s+час(?=\s+(?:ночи|дня)(?![а-яё])|\s*$|\s*[,.;])/gi, '$1в 1') // "лёг в час ночи" is one o'clock, not an hour
+    .replace(/(^|[^\d:])(\d{1,2})\s*(?:h|ч)\s*(\d{1,2})\s*(?:m|min|мин[а-яё]*)?(?![\da-zа-яё])/gi, (m0, a, h, mm) => a + (+h * 60 + +mm) + ' мин') // "1h30", "1ч 30мин"
+    .replace(/(\d{1,2})\s*(?:pomodoros?|помодоро|помидор(?:а|ов|ки|ок)?)(?![a-zа-яё])/gi, (m0, n) => (+n * 25) + ' мин'); // a pomodoro is 25 minutes
+}
+const ACTIVITY_RE = /учил|позанимал|занимал|studied|study|homework|revis|review|practi|повторял|готовил|решал|домашк|домашнее|(?:^|\s)дз(?![а-яё])|гулял|walked|walk|тренировал|workout|trained|gym|(?:^|\s)зал(?![а-яё])|качал/i;
+function activityRange(c){
+  if (!ACTIVITY_RE.test(c) || /\d+\s*(?:мин|min|h\b|hrs?|hours?|ч\b|час)/i.test(c)) return c;
+  const r = c.match(/(?:from\s+|с\s+)(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2})(?::(\d\d))?\s*(am|pm)?/i);
+  if (!r) return c;
+  const at = (h, mm, ap) => ((ap ? +h % 12 + (/pm/i.test(ap) ? 12 : 0) : +h) * 60 + +(mm || 0));
+  const end = at(r[4], r[5], r[6] || r[3]), d1 = (end - at(r[1], r[2], r[3] || r[6]) + 1440) % 1440, d2 = (end - at(r[1], r[2], r[3]) + 1440) % 1440;
+  const d = d1 >= 10 && d1 <= 600 ? d1 : d2; // "from 6 to 8 pm": the pm is for both
+  return d >= 10 && d <= 600 ? c.replace(r[0], ' ' + d + ' мин ') : c;
+}
+// a clause that starts with a verb in the past tense tells what happened; if nothing in it could be logged, it's left for the AI rather than made into a plan
+const PAST_EN = new Set(['went', 'had', 'did', 'ate', 'drank', 'slept', 'woke', 'got', 'ran', 'swam', 'made', 'took', 'saw', 'met', 'came', 'left', 'gave', 'sent', 'wrote', 'spoke', 'told', 'felt', 'fell', 'forgot', 'brought', 'caught', 'taught', 'thought', 'found', 'lost', 'won', 'began']);
+const NOT_PAST_EN = new Set(['need', 'feed', 'seed', 'breed', 'speed', 'proceed', 'exceed', 'succeed', 'embed', 'shed', 'bed', 'red', 'weed']);
+const NOT_PAST_RU = new Set(['зал', 'финал', 'канал', 'сериал', 'материал', 'стол', 'футбол', 'волейбол', 'баскетбол', 'пол', 'бал', 'вокзал', 'журнал', 'сигнал', 'капитал', 'персонал', 'ритуал', 'гол', 'пенал', 'идеал', 'интеграл', 'минерал', 'генерал', 'кинозал', 'спортзал', 'мангал', 'скандал', 'штурвал', 'подвал', 'карнавал', 'металл', 'бокал', 'коктейль', 'актив', 'профиль', 'автомобиль', 'апрель', 'бассейн']);
+function pastStart(c){
+  const w = (String(c).trim().toLowerCase().replace(/^(?:i|я|мы|we)\s+/, '').match(/^[a-zа-яё]+/) || [''])[0];
+  if (!w) return false;
+  if (/[a-z]/.test(w)) return PAST_EN.has(w) || (w.length >= 5 && /ed$/.test(w) && !NOT_PAST_EN.has(w));
+  if (NOT_PAST_RU.has(w)) return false;
+  return /^(?:лёг|лег|легла|легли|пош[её]л|пошла|ш[её]л|шла|съел|съела|ел|ела)$/.test(w) || (w.length >= 4 && /(?:ал|ял|ил|ел|ёл|ыл|ул|ол)(?:а|о|и|ся|ась|ось|ись)?$/.test(w));
+}
+
+/* ============ the week ahead, planned on Sunday evening (or Monday morning): one line, read like Tell KAI and shown before it's saved ============ */
+function weekPlanKey(date, hr){
+  const d = dow(date);
+  if (d === 7 && hr >= 16) return 'wp_' + addDays(date, 1);
+  if (d === 1 && hr >= 6 && hr < 12) return 'wp_' + date;
+  return null;
+}
+function weekPlanQ(date, hr){
+  if (!modOn('tasks')) return null;
+  const k = weekPlanKey(date, hr); if (!k || meta().weekPlan === k || (meta().startedOn || date) === date) return null; // not on the very first day
+  return {k, type: 'week', text: dow(date) === 7 ? tr('Что важного на следующей неделе?') : tr('Что важного на этой неделе?')};
+}
+const weekPlanBody = c => `<div class="hint">${tr('Экзамены, дедлайны, дела: через запятую. Например: «контрольная в четверг в 10, эссе до пятницы, зал по понедельникам и пятницам».')}</div>
+  <div class="qadd"><input class="in" id="ciWeek" placeholder="${tr('Планы на неделю')}" aria-label="${tr('Планы на неделю')}" autocomplete="off"><button class="btn" data-act="ciWeek" data-k="${esc(c.k)}" aria-label="${tr('Разобрать')}">${ic('plus')}</button></div>
+  <div class="btnrow"><button class="btn ghost" data-act="ciAns" data-k="${esc(c.k)}" data-a="no">${tr('Ничего особенного')}</button></div>`;
+A.ciWeek = el => {
+  const raw = ($('#ciWeek')?.value || '').trim(); if (!raw) return toast(tr('Впиши хотя бы одно дело'));
+  setMeta({weekPlan: el.dataset.k});
+  A.tell(); SH.tellText = raw; drawSheet();
+  if (!aiStatus().ok) tellLocal(raw, todayISO()); // with an AI, the person sends it as usual
+};
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target?.id === 'ciWeek'){ e.preventDefault(); const b = $('[data-act="ciWeek"]'); if (b) A.ciWeek(b); } });
+
+/* ============ Focus: every fourth full session today earns a longer break, as in the Pomodoro method ============ */
+function focusBreakAction(){
+  const full = (getDay(todayISO()).focus || []).filter(f => f.min >= 20 && f.min >= (f.of || 0) - 1).length;
+  return full && full % 4 === 0 ? {label: tr('Перерыв 15 мин'), act: 'focusBreakLong'} : {label: tr('Перерыв 5 мин'), act: 'focusBreak'};
+}
+A.focusBreakLong = () => { hideToast(); haptic('light'); startRest(900, tr('Длинный перерыв')); };
+
+/* ============ savings goals: "Laptop: $320 of $1,000". Kept apart from spending, like debts; a quarter, half, three quarters and the goal get a small celebration ============ */
+const savingsDoc = () => S.docs['app/savings'] || {list: []};
+const savings = () => (savingsDoc().list || []).filter(g => !g.hidden);
+const savePct = g => g.target > 0 ? Math.min(100, Math.round(g.saved / g.target * 100)) : 0;
+function savingsCard(m){
+  if (m !== curMonth()) return '';
+  const list = savings();
+  if (!list.length) return `<button class="link debt-add" data-act="saveNew">${ic('target', 'link-ic')}${tr('Цель накопления')}</button>`;
+  const row = g => {
+    const p = savePct(g), done = g.saved >= g.target;
+    return `<div class="sv ${done ? 'done' : ''}"><div class="sv-h"><span>${done ? ic('checkc') : ''}${esc(g.title)}</span><b>${money(g.saved)} / ${money(g.target)}</b></div>
+      <div class="bar" role="progressbar" aria-label="${esc(g.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><i style="width:${p}%;background:var(--${done ? 'good' : 'c3'})"></i></div>
+      <div class="sv-f"><span class="hint">${done ? tr('Цель достигнута') : trf('{p}% · осталось {s}', {p, s: money(g.target - g.saved)})}</span>${done ? `<button class="link" data-act="saveHide" data-id="${esc(g.id)}">${tr('Убрать')}</button>` : `<button class="btn ghost sm" data-act="saveAdd" data-id="${esc(g.id)}" aria-label="${esc(trf('Отложить на «{t}»', {t: g.title}))}">${ic('plus')}${tr('Отложить')}</button>`}</div></div>`;
+  };
+  return `<div class="sec-h"><h2>${tr('Накопления')}</h2><button class="link" data-act="saveNew">${tr('+ Цель')}</button></div><section class="card svs">${list.map(row).join('')}<div class="hint">${tr('Накопления не считаются расходами: это отдельная копилка.')}</div></section>`;
+}
+A.saveNew = () => { SH = null; openSheet(tr('Цель накопления'), () => `<div class="field"><label for="svT">${tr('На что копишь')}</label><input class="in" id="svT" maxlength="60" placeholder="${tr('Например, ноутбук или поездка')}"></div>
+  <div class="fgrid"><div class="field"><label for="svG">${tr('Сколько нужно')}</label><input class="in" id="svG" inputmode="decimal"></div><div class="field"><label for="svS">${tr('Уже есть')}</label><input class="in" id="svS" inputmode="decimal" placeholder="0"></div></div>
+  <button class="btn block" data-act="saveCreate">${tr('Сохранить')}</button>`); };
+A.saveCreate = () => {
+  const title = val('svT').trim(), target = Math.abs(toNum(val('svG'))), saved = Math.max(0, Math.abs(toNum(val('svS')) || 0));
+  if (!title) return toast(tr('Впиши, на что копишь')); if (!target) return toast(tr('Введи сумму'));
+  const doc = savingsDoc();
+  save('app/savings', {...doc, list: [...(doc.list || []), {id: uid(), title: title.slice(0, 60), target, saved: Math.min(saved, target * 10), created: todayISO(), log: saved ? [{d: todayISO(), a: saved}] : []}]});
+  closeSheet(); haptic('success'); toast(tr('Цель сохранена'));
+};
+A.saveAdd = el => { const g = savings().find(x => x.id === el.dataset.id); if (!g) return; SH = null;
+  const step = n => Math.max(1, Math.round(g.target * n / (g.target >= 1000 ? 100 : 10)) * (g.target >= 1000 ? 100 : 10) / 1);
+  const chips = [...new Set([step(.05), step(.1), step(.25)])].filter(x => x > 0);
+  openSheet(g.title, () => `<div class="hint">${trf('Накоплено {a} из {b}', {a: money(g.saved), b: money(g.target)})}</div>
+    <div class="field"><label for="svA">${tr('Сумма')}</label><input class="in" id="svA" inputmode="decimal"></div>
+    <div class="btnrow">${chips.map(c => `<button class="btn ghost" data-act="saveChip" data-v="${c}">${money(c)}</button>`).join('')}</div>
+    <div class="btnrow"><button class="btn" data-act="saveMove" data-id="${esc(g.id)}" data-dir="1">${ic('plus')}${tr('Отложить')}</button><button class="btn ghost" data-act="saveMove" data-id="${esc(g.id)}" data-dir="-1">${tr('Взять из копилки')}</button></div>
+    <button class="link" data-act="saveHide" data-id="${esc(g.id)}" style="align-self:center">${tr('Удалить цель')}</button>`); };
+A.saveChip = el => { const i = $('#svA'); if (i){ i.value = el.dataset.v; i.focus(); } };
+A.saveMove = el => {
+  const a = Math.abs(toNum(val('svA'))); if (!a) return toast(tr('Введи сумму'));
+  const doc = savingsDoc(), g = (doc.list || []).find(x => x.id === el.dataset.id); if (!g) return closeSheet();
+  const sign = +el.dataset.dir < 0 ? -1 : 1, before = savePct(g), saved = Math.max(0, Math.round((g.saved + sign * a) * 100) / 100);
+  withUndo(['app/savings'], () => save('app/savings', {...doc, list: doc.list.map(x => x.id !== g.id ? x : {...x, saved, log: [...(x.log || []), {d: todayISO(), a: sign * a}].slice(-200), ...(saved >= x.target && !x.doneAt ? {doneAt: todayISO()} : {})})}), sign > 0 ? trf('Отложено: {s}', {s: money(a)}) : trf('Взято: {s}', {s: money(a)}));
+  closeSheet();
+  if (sign > 0) saveMilestone(g.title, before, savePct({...g, saved}));
+};
+function saveMilestone(title, before, after){
+  if (after >= 100 && before < 100){ setTimeout(() => { haptic('success'); sound('badge'); confetti({n: 140, y: innerHeight * .45}); toast(trf('Цель достигнута: {t}!', {t: title}), {icon: 'trophy', tone: 'gold', ms: 4500}); }, 600); return; }
+  const m = [75, 50, 25].find(x => before < x && after >= x);
+  if (m) setTimeout(() => { haptic('success'); sound('success'); confetti({n: 60, y: innerHeight * .5}); toast(trf('«{t}»: {p}% пути', {t: title, p: m}), {icon: 'target', tone: 'good', ms: 3500}); }, 600);
+}
+A.saveHide = el => { const doc = savingsDoc(); closeSheet(); withUndo(['app/savings'], () => save('app/savings', {...doc, list: (doc.list || []).map(x => x.id === el.dataset.id ? {...x, hidden: true} : x)}), tr('Цель убрана')); };
+
+/* ============ Tell KAI: money put into a savings goal ============ */
+function localSaving(c){
+  const list = savings().filter(g => g.saved < g.target); if (!list.length) return null;
+  const m = c.match(new RegExp('(?:отложил[аи]?|положил[аи]?|накопил[аи]?|закинул[аи]?|перев[её]л[аи]?|перевела|saved|put|added|set aside|moved)\\s+(?:aside\\s+)?' + AMT + '\\s+(?:на|в|для|for|to|towards|toward|into|in)\\s+(?:the\\s+|my\\s+)?(.{2,60})$', 'i'));
+  if (!m) return null;
+  const amount = amountOf(m[1], m[2]), what = m[3], ws = wordsOf(what);
+  let g = list.find(x => wordsOf(x.title + ' ' + otherLang(x.title)).some(a => ws.some(b => sameWord(a, b))));
+  if (!g && /копилк|накоплени|сбережени|savings|piggy/i.test(what) && list.length === 1) g = list[0];
+  return g && amount > 0 ? {id: g.id, amount} : null;
+}
+function savingsAddMany(items, date = todayISO()){
+  const doc = savingsDoc(); let list = doc.list || []; const moments = [];
+  items.forEach(x => { list = list.map(g => { if (g.id !== x.id) return g; const before = savePct(g), saved = Math.round((g.saved + Math.abs(+x.amount || 0)) * 100) / 100; moments.push([g.title, before, savePct({...g, saved})]); return {...g, saved, log: [...(g.log || []), {d: date, a: Math.abs(+x.amount || 0)}].slice(-200), ...(saved >= g.target && !g.doneAt ? {doneAt: date} : {})}; }); });
+  save('app/savings', {...doc, list});
+  moments.forEach(([t, a, b]) => saveMilestone(t, a, b));
+}
+
+/* ============ the days as a spreadsheet: one row a day, in the person's units ============ */
+function daysCSV(){
+  const q = v => { const x = String(v ?? ''); return /[",;\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  const head = [tr('Дата'), tr('Задач сделано'), tr('Задач всего'), tr('День засчитан'), tr('Болезнь'), trf('Сон, {u}', {u: tr('ч')}), tr('Шаги'), trf('Вес, {u}', {u: kgU()}), tr('Ккал'), trf('Белки, {u}', {u: tr('г')}), trf('Прогулки, {u}', {u: tr('мин')}), trf('Учёба, {u}', {u: tr('мин')}), trf('Тренировка, {u}', {u: tr('мин')}), trf('Экран, {u}', {u: tr('мин')}), tr('Оценка дня'), tr('Заметка')];
+  const rows = dayKeys().map(k => {
+    const d = S.docs['days/' + k], t = timeOn(k), e = eaten(d), tasks = d.tasks || [], w = toNum(d.weight);
+    return [k, tasks.filter(x => x.done).length, tasks.length, daySecured(d) && d.status !== 'sick' ? 1 : 0, d.status === 'sick' ? 1 : 0, toNum(d.sleep) ?? '', d.steps ?? '', w ? W(w) : '', d.meals?.length ? Math.round(e.kcal) : '', d.meals?.length ? Math.round(e.p) : '', Math.round(t.walk) || '', Math.round(t.study) || '', Math.round(t.gym) || '', d.screen?.total ?? '', d.rating ?? '', d.note || ''];
+  });
+  return [head, ...rows].map(r => r.map(q).join(',')).join('\r\n');
+}
+A.daysCsv = async () => {
+  if (!dayKeys().length) return toast(tr('Дней пока нет'));
+  const ok = await shareOrDownload(`kai-days-${todayISO()}.csv`, new Blob(['﻿' + daysCSV()], {type: 'text/csv'}));
+  if (ok) toast(tr('Таблица готова'));
+};
+
+/* ============ insights from the person's own days: what tends to go with a good day. Shown only with enough days on both sides and a clear difference ============ */
+function insights(){
+  return memo('insights', () => {
+    const today = todayISO(), t = targets();
+    const days = dayKeys().filter(k => k < today && k >= addDays(today, -90)).map(k => S.docs['days/' + k] && {...S.docs['days/' + k], date: k}).filter(d => d && d.status !== 'sick' && (d.tasks || []).length);
+    const pct = arr => Math.round(arr.reduce((a, d) => a + (dayScore(d) || 0), 0) / arr.length * 100);
+    const out = [], split = (yes, no, text) => { if (yes.length >= 5 && no.length >= 5){ const a = pct(yes), b = pct(no); if (Math.abs(a - b) >= 10) out.push({a, b, text, gap: Math.abs(a - b)}); } };
+    const slept = days.filter(d => toNum(d.sleep) > 0);
+    split(slept.filter(d => toNum(d.sleep) >= 7), slept.filter(d => toNum(d.sleep) < 7), 'После ночей от 7 часов ты выполняешь {a}% задач, после более короткого сна — {b}%.');
+    const stepped = days.filter(d => +d.steps > 0), goal = t.steps || 8000;
+    split(stepped.filter(d => +d.steps >= goal), stepped.filter(d => +d.steps < goal), 'В дни, когда шагов больше нормы, — {a}% задач, в остальные — {b}%.');
+    const screened = days.filter(d => d.screen?.total > 0);
+    split(screened.filter(d => d.screen.total < 180), screened.filter(d => d.screen.total >= 180), 'В дни, когда в телефоне меньше 3 часов, — {a}% задач, при большем — {b}%.');
+    if (days.some(d => (d.focus || []).length)) split(days.filter(d => (d.focus || []).some(f => f.min > 0)), days.filter(d => !(d.focus || []).some(f => f.min > 0)), 'В дни с фокус-сессией — {a}% задач, без неё — {b}%.');
+    // the day's own rating, 1 to 5: a difference of half a point or more
+    const avgR = arr => arr.reduce((a, d) => a + +d.rating, 0) / arr.length, fmtR = v => num(Math.round(v * 10) / 10, 1);
+    const rateSplit = (yes, no, text) => { if (yes.length >= 5 && no.length >= 5){ const a = avgR(yes), b = avgR(no); if (Math.abs(a - b) >= 0.5) out.push({a: fmtR(a), b: fmtR(b), text, gap: Math.abs(a - b) * 20}); } };
+    const rated = days.filter(d => +d.rating >= 1);
+    rateSplit(rated.filter(d => toNum(d.sleep) >= 7), rated.filter(d => toNum(d.sleep) > 0 && toNum(d.sleep) < 7), 'После 7+ часов сна ты оцениваешь день в среднем на {a}, после более короткого сна — на {b}.');
+    rateSplit(rated.filter(d => d.tasks.some(t => t.id === 'gym' && t.done) || timeOn(d.date).gym > 0), rated.filter(d => !(d.tasks.some(t => t.id === 'gym' && t.done) || timeOn(d.date).gym > 0)), 'В дни с тренировкой ты оцениваешь день в среднем на {a}, без неё — на {b}.');
+    // the best and the hardest day of the week, from at least three of each
+    const byDow = {}; days.forEach(d => { const w = dow(d.date); (byDow[w] = byDow[w] || []).push(d); });
+    const ranked = Object.entries(byDow).filter(([, a]) => a.length >= 3).map(([w, a]) => [+w, pct(a)]).sort((x, y) => y[1] - x[1]);
+    if (ranked.length >= 4 && ranked[0][1] - ranked[ranked.length - 1][1] >= 20){ const [hi, lo] = [ranked[0], ranked[ranked.length - 1]]; out.push({a: hi[1], b: lo[1], text: 'Лучший день недели — {d1}: {a}% задач; самый трудный — {d2}: {b}%.', d1: DOW_FULL[hi[0]], d2: DOW_FULL[lo[0]], gap: (hi[1] - lo[1]) * 0.8}); }
+    return out.sort((x, y) => y.gap - x.gap).slice(0, 3);
+  }).slice();
+}
+function insightsCard(){
+  const list = insights(); if (!list.length) return '';
+  return `<div class="sec-h"><h2>${tr('Что помогает твоим дням')}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:10px">${list.map(x => `<div class="ins"><span class="ins-ic" aria-hidden="true">${ic(x.a > x.b ? 'zap' : 'alert')}</span><div>${esc(trf(x.text, {a: x.a, b: x.b, d1: x.d1 || '', d2: x.d2 || ''}))}</div></div>`).join('')}<div class="hint">${tr('Это то, что показывают твои дни за последние 3 месяца, а не правило.')}</div></section>`;
+}
+
+/* ============ when something breaks: the screen says so instead of going blank, and a small log stays on the phone (never sent) for a bug report ============ */
+const ERR_KEY = 'kai_errlog';
+function errLog(){ try { return JSON.parse(localStorage.getItem(ERR_KEY) || '[]'); } catch { return []; } }
+function errNote(kind, e){
+  try {
+    const msg = String(e?.message || e || '').slice(0, 300), at = String(e?.stack || '').split('\n').slice(0, 3).join(' | ').slice(0, 400);
+    const log = errLog(); if (log.length && log[log.length - 1].m === msg) return; // the same error again and again is one entry
+    log.push({t: new Date().toISOString(), k: kind, m: msg, s: at, v: typeof VERSION_TAG === 'string' ? VERSION_TAG : '', tab: S?.tab || ''});
+    localStorage.setItem(ERR_KEY, JSON.stringify(log.slice(-20)));
+  } catch {}
+}
+function safeView(fn){
+  try { return fn(); }
+  catch (e){
+    errNote('render', e);
+    return `<section class="card" role="alert" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Этот экран не открылся')}</b><div class="hint">${tr('Данные на месте. Попробуй перезапустить приложение; если повторится, скопируй журнал ошибок в «Ещё → Данные и копия» и отправь разработчику.')}</div><button class="btn" data-act="appReload">${tr('Перезапустить')}</button></section>`;
+  }
+}
+const ownError = e => /app\.js|i18n-en\.js|config\.js/.test(String(e?.filename || e?.reason?.stack || e?.error?.stack || '')); // not browser extensions
+addEventListener('error', e => { if (ownError(e)) errNote('error', e.error || e.message); });
+addEventListener('unhandledrejection', e => { if (ownError(e)) errNote('promise', e.reason); });
+A.errCopy = async () => {
+  const text = errLog().map(x => `${x.t} [${x.k}${x.tab ? ' · ' + x.tab : ''}] ${x.m}${x.s ? '\n  ' + x.s : ''}`).join('\n');
+  try { await navigator.clipboard.writeText(text); toast(tr('Журнал скопирован')); } catch { toast(tr('Не удалось скопировать')); }
+};
+
+/* ============ the hero's "4 more tasks" goes straight to the daily list ============ */
+A.toDaily = () => { const h = $('#dailyH'); if (!h) return; h.scrollIntoView({behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start'}); setTimeout(() => h.querySelector('h2')?.focus({preventScroll: true}), 350); };
+
+/* ============ the same to-do or event told twice is added once ============ */
+const sameTitle = (a, b) => String(a || '').trim().toLowerCase().replace(/ё/g, 'е') === String(b || '').trim().toLowerCase().replace(/ё/g, 'е');
+function dupTask(t){
+  return smartTasks().some(x => !x.done && sameTitle(x.title, t.title) && (x.due === t.due || (t.every && x.every === t.every && x.due && t.due && dow(x.due) === dow(t.due) && (x.n || 1) === (t.n || 1))));
+}
+
+/* ============ Tell KAI answers simple questions about the person's own data, on the phone: spending, sleep, study, steps, streak, budget, next exam ============ */
+const ASK_RE = /\?\s*$|^(?:сколько|какой|какая|какое|когда|how much|how many|how long|what'?s|what is|when)\b/i;
+function askPeriod(t){
+  const today = todayISO(), mon = addDays(today, 1 - dow(today));
+  if (/вчера|yesterday/i.test(t)) return {from: addDays(today, -1), to: addDays(today, -1), label: tr('вчера')};
+  if (/сегодня|today/i.test(t)) return {from: today, to: today, label: tr('сегодня')};
+  if (/прошл(?:ой|ую) недел|last week/i.test(t)) return {from: addDays(mon, -7), to: addDays(mon, -1), label: tr('на прошлой неделе')};
+  if (/прошл(?:ом|ый) месяц|last month/i.test(t)){ const pm = prevMonth(today.slice(0, 7)); return {from: pm + '-01', to: addDays(today.slice(0, 7) + '-01', -1), label: tr('в прошлом месяце')}; }
+  if (/месяц|month/i.test(t)) return {from: today.slice(0, 7) + '-01', to: today, label: tr('в этом месяце')};
+  if (/7 дн|семь дн|7 days|seven days/i.test(t)) return {from: addDays(today, -6), to: today, label: tr('за 7 дней')};
+  return {from: mon, to: today, label: tr('на этой неделе')}; // "this week" unless said otherwise
+}
+const daysIn = (from, to) => { const out = []; for (let k = from; k <= to && out.length < 400; k = addDays(k, 1)) out.push(k); return out; };
+function localAnswer(text){
+  const t = String(text).trim(); if (!ASK_RE.test(t) || t.length > 140) return null;
+  const p = askPeriod(t), ks = daysIn(p.from, p.to);
+  if (/калори|ккал|calori|kcal|белк|protein|(?:^|\s)(?:съел[аи]?|ел[аи]?|eat|ate|eaten)(?![a-zа-яё])/i.test(t) && !/потратил|spent|spend/i.test(t)){
+    const tg = targets(), e = ks.reduce((a, k) => { const x = eaten(S.docs['days/' + k] || {}); return {kcal: a.kcal + x.kcal, p: a.p + x.p, n: a.n + (S.docs['days/' + k]?.meals?.length ? 1 : 0)}; }, {kcal: 0, p: 0, n: 0});
+    if (!e.n) return trf('Еда {p} не записана.', {p: p.label});
+    if (ks.length === 1) return tg.ok ? trf('Еда {p}: {k} из {K} ккал, белок {b} из {B} г.', {p: p.label, k: num(e.kcal), K: num(tg.kcal), b: num(e.p), B: num(tg.p)}) : trf('Еда {p}: {k} ккал, белок {b} г.', {p: p.label, k: num(e.kcal), b: num(e.p)});
+    return trf('Еда {p}: в среднем {k} ккал и {b} г белка в день (записано дней: {n}).', {p: p.label, k: num(Math.round(e.kcal / e.n)), b: num(Math.round(e.p / e.n)), n: e.n});
+  }
+  if (/(?:^|\s)(?:вес|вешу|weight|weigh)(?![a-zа-яё])/i.test(t)){
+    const ws = dayKeys().filter(k => toNum(S.docs['days/' + k]?.weight) > 0); if (!ws.length) return tr('Вес пока не записан.');
+    const last = ws[ws.length - 1], w = toNum(S.docs['days/' + last].weight), back = ws.filter(k => k <= addDays(last, -14)).pop();
+    const d = back ? Math.round((w - toNum(S.docs['days/' + back].weight)) * 10) / 10 : null;
+    return trf('Вес: {w} {u} ({d}).', {w: num(W(w), 1), u: kgU(), d: fmtShort(last)}) + (d != null ? ' ' + trf('За 2 недели: {c} {u}.', {c: (d > 0 ? '+' : d < 0 ? '−' : '') + num(Math.abs(W(d)), 1), u: kgU()}) : '');
+  }
+  if (/потратил|потратила|трат|расход|spend|spent/i.test(t) && modOn('money')){
+    const food = /(?:^|\s)(?:food|eating|еду|еда|питание)(?![a-zа-яё])/i.test(t); // groceries and cafes together
+    const cat = !food && MONEY_CAT.find(([re]) => re.test(t.replace(/потратил[аи]?|spend|spent|сколько|how much|did i|я/gi, '')));
+    const cats = food ? ['Супермаркеты', 'Кафе и рестораны'] : cat ? [cat[1]] : null;
+    const tx = [...new Set(ks.map(k => k.slice(0, 7)))].flatMap(m => monthTx(m)).filter(x => x.type === 'out' && x.status !== 'fail' && x.date >= p.from && x.date <= p.to && (!cats || cats.includes(x.cat)));
+    const sum = tx.reduce((a, x) => a + +x.amount, 0);
+    return trf(cats ? 'Расходы на «{c}» {p}: {s} ({n} {w}).' : 'Расходы {p}: {s} ({n} {w}).', {c: food ? tr('еду') : tr(cat?.[1] || ''), p: p.label, s: money(sum), n: tx.length, w: plural(tx.length, tr('операция'), tr('операции'), tr('операций'))});
+  }
+  if (/осталось|остаток|left/i.test(t) && /бюджет|денег|budget|money/i.test(t) && modOn('money')){
+    const b = S.docs['app/budget']?.monthly; if (!b) return tr('Бюджет на месяц не задан: его можно задать во вкладке «Деньги».');
+    const m = todayISO().slice(0, 7), spent = monthTx(m).filter(x => x.type === 'out' && x.status !== 'fail').reduce((a, x) => a + +x.amount, 0), left = b - spent - billsPending();
+    const dl = new Date(+m.slice(0, 4), +m.slice(5), 0).getDate() - new Date().getDate() + 1;
+    return left >= 0 ? trf('До конца месяца осталось {s}: примерно {d} в день.', {s: money(left), d: money(Math.floor(left / Math.max(1, dl)))}) : trf('Бюджет месяца превышен на {s}.', {s: money(-left)});
+  }
+  if (/спал|сон|sleep|slept/i.test(t)){
+    const v = ks.map(k => toNum(S.docs['days/' + k]?.sleep)).filter(x => x > 0);
+    if (!v.length) return trf('Сон {p} не записан.', {p: p.label});
+    return v.length === 1 ? trf('Сон {p}: {h} ч.', {p: p.label, h: num(v[0], 1)}) : trf('Сон {p}: в среднем {h} ч за ночь (записано ночей: {n}).', {p: p.label, h: num(v.reduce((a, b) => a + b, 0) / v.length, 1), n: v.length});
+  }
+  if (/учил|учёб|учеб|занимал|stud/i.test(t)){ const m = ks.reduce((a, k) => a + timeOn(k).study, 0); return trf('Учёба {p}: {t}.', {p: p.label, t: fmtMin(m)}); }
+  if (/шаг|steps/i.test(t)){ const v = ks.map(k => +S.docs['days/' + k]?.steps || 0).filter(Boolean); return v.length ? trf('Шаги {p}: {s} всего, в среднем {a} в день.', {p: p.label, s: num(v.reduce((a, b) => a + b, 0)), a: num(Math.round(v.reduce((a, b) => a + b, 0) / v.length))}) : trf('Шаги {p} не записаны.', {p: p.label}); }
+  if (/гулял|прогул|walk/i.test(t)){ const m = ks.reduce((a, k) => a + timeOn(k).walk, 0); return trf('Прогулки {p}: {t}.', {p: p.label, t: fmtMin(m)}); }
+  if (/серия|streak/i.test(t)){ const st = streak(); return trf('Серия: {n} {d} подряд, рекорд {b}. Заморозок: {f}.', {n: st, d: plural(st, tr('день'), tr('дня'), tr('дней')), b: Math.max(st, bestStreak()), f: freezeDoc().n}); }
+  if (/экзамен|зач[её]т|контрольн|exam|test\b|deadline|дедлайн/i.test(t)){
+    const e = allEvents().filter(x => (x.kind === 'exam' || x.kind === 'deadline') && x.date >= todayISO()).sort((a, b) => (a.date + (a.from || '')).localeCompare(b.date + (b.from || '')))[0];
+    if (!e) return tr('Впереди нет экзаменов и дедлайнов.');
+    const n = dayDiff(todayISO(), e.date);
+    return trf('Ближайшее: «{t}», {d}{h} — {w}.', {t: e.title, d: fmtShort(e.date), h: e.from ? tr(' в ') + e.from : '', w: n === 0 ? tr('сегодня') : n === 1 ? tr('завтра') : trf('через {n} {u}', {n, u: plural(n, tr('день'), tr('дня'), tr('дней'))})});
+  }
+  return null;
+}
+const answerCard = a => `<section class="card" role="status" style="display:flex;flex-direction:column;gap:8px"><div class="ai-out">${esc(a)}</div><div class="hint">${tr('Посчитано на телефоне по твоим записям.')}</div></section>`;
+
+/* ============ care: more of the ways people say they're in crisis, and plans to eat dangerously little ============ */
+// said in many ways; these are common ones from crisis-line guidance, in both languages
+const CRISIS_MORE = /don.?t want to (?:be here|be alive|exist|wake up)(?: anymore)?|no (?:point|reason) (?:in |to )?(?:living|live|being alive|go(?:ing)? on(?=\s*$|\s*[.,!?]|\s+(?:anymore|any more|like this|with (?:my )?life)))|nothing (?:left )?to live for|better off (?:dead|without me)|end it all(?!\s+for\s+(?:today|now|tonight|the day))|can.?t go on (?:anymore|any more|like this)|wish (?:i|I) (?:was|were) dead|не вижу смысла (?:жить|дальше жить|в жизни)|нет смысла жить|не (?:хочу|хочется) (?:больше |дальше )?жить|жить не хочется|лучше бы меня не было|покончить со всем|уйти из жизни|не хочу просыпаться|не хочу больше существовать/i;
+// "only 500 calories a day", "есть 600 ккал в день": a plan far below any safe floor
+function tinyIntake(s){
+  const m = String(s).match(/(?:eat|eating|have|having|есть|ем|съедать|потреблять|питаться)\s+(?:only\s+|just\s+|только\s+|не больше\s+|максимум\s+)?(\d{2,3})\s*(?:calories|kcal|cals?|калори[а-яё]*|ккал)\s*(?:a|per|в|за)\s*(?:day|день|сутки)/i);
+  return !!m && +m[1] < 800;
+}
+
+const careNote2 = kind => kind === 'crisis' ? tr('С этим не нужно справляться в одиночку. Поговори с человеком, которому доверяешь, или позвони на линию помощи; если есть риск навредить себе, звони в экстренную службу.') : tr('Это важнее любых цифр. Поговори с врачом или человеком, которому доверяешь: такое лечится, и помощь работает.');
+
+/* ============ Focus: an optional soft background noise, made on the phone (nothing downloaded), stopped when the session ends ============ */
+const NOISES = [['off', 'Тишина'], ['brown', 'Мягкий шум'], ['rain', 'Дождь']];
+const noiseKind = () => meta().focusNoise || 'off';
+const noiseField = () => `<div class="field"><label id="fnL">${tr('Фон')}</label><div class="seg" role="group" aria-labelledby="fnL">${NOISES.map(([k, l]) => `<button class="${noiseKind() === k ? 'on' : ''}" aria-pressed="${noiseKind() === k}" data-act="focusNoise" data-v="${k}">${tr(l)}</button>`).join('')}</div></div>`;
+A.focusNoise = el => { SH.fl = val('fcL'); setMeta({focusNoise: el.dataset.v}); haptic('selection'); if (FOCUS) { noiseStop(); noiseStart(); } drawSheet(); };
+let NOISE = null;
+function noiseStart(){
+  const kind = noiseKind(); if (kind === 'off' || NOISE) return;
+  try {
+    if (!AUDIO) AUDIO = new (window.AudioContext || window.webkitAudioContext)();
+    if (AUDIO.state === 'suspended') AUDIO.resume();
+    const len = AUDIO.sampleRate * 4, buf = AUDIO.createBuffer(1, len, AUDIO.sampleRate), d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++){ const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } // brown noise: soft, low
+    const src = AUDIO.createBufferSource(); src.buffer = buf; src.loop = true;
+    const g = AUDIO.createGain(); g.gain.setValueAtTime(0.0001, AUDIO.currentTime); g.gain.exponentialRampToValueAtTime(kind === 'rain' ? 0.12 : 0.18, AUDIO.currentTime + 1.5);
+    let out = src;
+    if (kind === 'rain'){ const f = AUDIO.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 900; const f2 = AUDIO.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = 6000; src.connect(f).connect(f2); out = f2; } // rain: the brighter part of the same noise
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {} // chosen background sound plays like music, also on silent
+    out.connect(g).connect(AUDIO.destination); src.start();
+    NOISE = {src, g};
+  } catch { NOISE = null; }
+}
+function noiseStop(){
+  if (!NOISE) return;
+  const {src, g} = NOISE; NOISE = null;
+  try { g.gain.cancelScheduledValues(AUDIO.currentTime); g.gain.setValueAtTime(g.gain.value || 0.1, AUDIO.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, AUDIO.currentTime + 0.8); src.stop(AUDIO.currentTime + 0.9); } catch {}
+  setTimeout(() => { try { if (!NOISE && navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch {} }, 1000); // back to short sounds that respect silent mode
+}
+
+/* ============ v9: time tracked in one tap, Tell KAI by voice, a weekly coach, and apps blocked during Focus ============ */
+
+/* ---- one-tap timers: start an activity, stop it, and the minutes go on record. Study, workouts and walks also count where they always did ---- */
+const ACTS = [
+  ['study', tr('Учёба'), 'cap', 'study'], ['work', tr('Работа'), 'laptop', ''], ['read', tr('Чтение'), 'book', ''],
+  ['gym', tr('Тренировка'), 'gym', 'gym'], ['walk', tr('Прогулка'), 'steps', 'walk'], ['project', tr('Проект'), 'target', ''],
+];
+const TRACK_KEY = 'kai_track', TRACK_MAX = 16 * 60; // a timer left running overnight doesn't become a 20-hour day
+let TRACK = (() => { try { return JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch { return null; } })(), TRACK_IV = 0, TRACK_LAST = null;
+const trackSave = () => { try { if (TRACK) localStorage.setItem(TRACK_KEY, JSON.stringify(TRACK)); else localStorage.removeItem(TRACK_KEY); } catch {} };
+function actOf(id){
+  const a = ACTS.find(x => x[0] === id); if (a) return {id, name: a[1], icon: a[2], kind: a[3]};
+  const c = (meta().acts || []).find(x => x.id === id);
+  return {id, name: c ? c.name : String(id), icon: 'star', kind: ''};
+}
+const allActs = () => [...ACTS.map(a => a[0]), ...(meta().acts || []).filter(x => !x.off).map(x => x.id)];
+/* the activities used most in the last 30 days come first, so the usual one is one tap away */
+function actsByUse(){
+  const n = {};
+  for (let i = 0; i < 30; i++) (S.docs['days/' + addDays(todayISO(), -i)]?.track || []).forEach(x => { n[x.a] = (n[x.a] || 0) + 1; });
+  return allActs().sort((a, b) => (n[b] || 0) - (n[a] || 0));
+}
+const clockOf = ms => { const t = new Date(ms); return pad(t.getHours()) + ':' + pad(t.getMinutes()); };
+function trackAdd(date, a, min, at){
+  const kind = actOf(a).kind, id = uid();
+  mutDay(date, d => {
+    d.track = [...(d.track || []), {id, a, min, at: at || ''}];
+    if (kind === 'walk') d.walkExtra = (d.walkExtra || 0) + min;
+    else if (kind) d.timeExtra = {...(d.timeExtra || {}), [kind]: (d.timeExtra?.[kind] || 0) + min};
+  });
+  TRACK_LAST = {date, id};
+  return id;
+}
+function trackDel(date, id){
+  mutDay(date, d => {
+    const x = (d.track || []).find(e => e.id === id); if (!x) return;
+    d.track = d.track.filter(e => e !== x);
+    const kind = actOf(x.a).kind;
+    if (kind === 'walk') d.walkExtra = Math.max(0, (d.walkExtra || 0) - x.min);
+    else if (kind) d.timeExtra = {...(d.timeExtra || {}), [kind]: Math.max(0, (d.timeExtra?.[kind] || 0) - x.min)};
+  });
+}
+/* minutes per activity: study, workouts and walks from everything that feeds them (classes, Focus, timers, Tell KAI); the rest from timers */
+function actMinutes(dates){
+  const by = {study: 0, gym: 0, walk: 0};
+  dates.forEach(k => {
+    const t = timeOn(k); by.study += t.study; by.gym += t.gym; by.walk += t.walk;
+    (S.docs['days/' + k]?.track || []).forEach(x => { if (!actOf(x.a).kind) by[x.a] = (by[x.a] || 0) + x.min; });
+  });
+  return by;
+}
+const trackOther = k => (S.docs['days/' + k]?.track || []).reduce((a, x) => a + (actOf(x.a).kind ? 0 : x.min), 0);
+const sumMin = by => Object.values(by).reduce((a, b) => a + b, 0);
+
+function trackStart(a){
+  if (FOCUS) return toast(tr('Сначала закончи фокус'));
+  if (TRACK) trackStop();
+  TRACK = {a, start: Date.now()}; trackSave(); trackRun(); haptic('medium'); syncReminders(); scheduleRender();
+}
+function trackRun(){
+  clearInterval(TRACK_IV); if (!TRACK) return;
+  document.body.classList.add('tracking'); TRACK_IV = setInterval(trackTick, 1000); trackTick();
+}
+function trackTick(){
+  const bar = $('#trackBar'); if (!TRACK || !bar) return;
+  const s = Math.max(0, Math.floor((Date.now() - TRACK.start) / 1000)), v = `${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+  bar.hidden = false;
+  const t = bar.querySelector('.rb-t');
+  if (t && bar.dataset.k === TRACK.a + TRACK.start){ if (t.textContent !== v) t.textContent = v; return; } // only the numbers change, so the button stays under a finger
+  bar.dataset.k = TRACK.a + TRACK.start;
+  const a = actOf(TRACK.a);
+  bar.innerHTML = `<div class="rb-in"><span class="ic" aria-hidden="true">${ic(a.icon)}</span><div style="flex:1;min-width:0"><div class="rb-t" role="timer">${v}</div><div class="hint">${esc(a.name)}</div></div><button class="btn" data-act="trackStop">${tr('Стоп')}</button></div>`;
+}
+function trackStop(){
+  const t = TRACK; if (!t) return;
+  TRACK = null; trackSave(); clearInterval(TRACK_IV); TRACK_IV = 0; document.body.classList.remove('tracking');
+  const bar = $('#trackBar'); if (bar){ bar.hidden = true; bar.dataset.k = ''; }
+  syncReminders();
+  const min = Math.min(TRACK_MAX, Math.floor((Date.now() - t.start) / 60000)), a = actOf(t.a);
+  if (min < 1){ toast(tr('Меньше минуты: не записано')); scheduleRender(); return; }
+  trackAdd(iso(t.start), t.a, min, clockOf(t.start));
+  haptic('success');
+  toast(trf('{a}: {t} записано', {a: a.name, t: fmtMin(min)}), {icon: a.icon, tone: 'good', action: {label: tr('Вернуть'), act: 'trackUndo'}});
+}
+A.trackGo = el => trackStart(el.dataset.v);
+A.trackStop = () => trackStop();
+A.trackUndo = () => { hideToast(); const l = TRACK_LAST; TRACK_LAST = null; if (l) trackDel(l.date, l.id); };
+
+function trackCard(){
+  const run = TRACK && actOf(TRACK.a), tot = sumMin(actMinutes([todayISO()]));
+  return `<section class="card trackc"><div class="tc-h"><b>${tr('Учёт времени')}</b><button class="link" data-act="timeSheet">${tot ? trf('Сегодня {t}', {t: fmtMin(tot)}) : tr('Статистика')}</button></div>
+    ${run ? `<div class="hint">${trf('Идёт: {a}. Время видно внизу экрана.', {a: esc(run.name)})}</div><button class="btn block" data-act="trackStop">${ic('check')}${tr('Стоп и записать')}</button>`
+      : `<div class="pills tchips">${actsByUse().slice(0, 6).map(id => { const a = actOf(id); return `<button class="pill" data-act="trackGo" data-v="${esc(id)}">${ic(a.icon)}${esc(a.name)}</button>`; }).join('')}</div>
+      <div class="hint">${tr('Нажми, когда начинаешь, и «Стоп», когда закончил.')}</div>`}</section>`;
+}
+
+/* ---- Your time: where the hours went, against the period before ---- */
+const PERIODS = [['week', tr('Неделя'), 7], ['month', tr('30 дней'), 30], ['year', tr('Год'), 365]];
+function timeStats(len, end = todayISO()){
+  const days = [...Array(len)].map((_, i) => addDays(end, i - len + 1)), prev = days.map(k => addDays(k, -len));
+  const cur = actMinutes(days), was = actMinutes(prev);
+  let best = null;
+  days.forEach(k => { const m = sumMin(actMinutes([k])); if (m > 0 && (!best || m > best[1])) best = [k, m]; });
+  return {days, cur, was, total: sumMin(cur), wasTotal: sumMin(was), best, active: days.filter(k => sumMin(actMinutes([k])) > 0).length};
+}
+const hoursOf = m => { if (m < 60) return Math.round(m) + ' ' + tr('мин'); const h = Math.round(m / 6) / 10; return num(h, Number.isInteger(h) ? 0 : 1) + ' ' + tr('ч'); };
+function timeBody(){
+  const per = PERIODS.find(p => p[0] === (SH.tper || 'week')) || PERIODS[0], st = timeStats(per[2]);
+  const rows = Object.entries(st.cur).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]), max = rows[0]?.[1] || 1;
+  const diff = st.total - st.wasTotal;
+  const today = getDay(todayISO()).track || [];
+  return `<div class="seg" role="group">${PERIODS.map(([id, l]) => `<button class="${per[0] === id ? 'on' : ''}" aria-pressed="${per[0] === id}" data-act="tPer" data-v="${id}">${l}</button>`).join('')}</div>
+    <section class="card"><div class="hero-num">${hoursOf(st.total)}</div><div class="hint">${st.wasTotal && diff ? trf('{d} к периоду до этого', {d: (diff > 0 ? '+' : '−') + hoursOf(Math.abs(diff))}) : tr('на дела за этот период')}${st.active ? ' · ' + trf('активных дней: {n}', {n: st.active}) : ''}</div>
+      ${st.best ? `<div class="hint">${trf('Лучший день: {d}, {t}', {d: fmtShort(st.best[0]), t: hoursOf(st.best[1])})}</div>` : ''}</section>
+    ${rows.length ? `<section class="card" style="display:flex;flex-direction:column;gap:12px">${rows.map(([id, m]) => { const a = actOf(id), w = st.was[id] || 0; return `<div><div class="tr-row"><span>${ic(a.icon)} ${esc(a.name)}</span><b>${hoursOf(m)}</b></div><div class="bar"><i style="width:${Math.max(3, m / max * 100)}%;background:var(--accent)"></i></div>${w && Math.abs(m - w) >= 10 ? `<div class="hint">${trf('{d} к периоду до этого', {d: (m > w ? '+' : '−') + hoursOf(Math.abs(m - w))})}</div>` : ''}</div>`; }).join('')}</section>`
+      : emptyState('target', tr('Пока пусто. Запусти таймер на экране «День» или расскажи KAI, чем занимался.'))}
+    <div class="sec-h"><h2>${tr('Сегодня')}</h2></div>
+    <section class="card" style="padding:4px 16px"><div class="list">${today.map(x => { const a = actOf(x.a); return `<div class="row"><span class="ic">${ic(a.icon)}</span><div class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(x.at || '')} · ${fmtMin(x.min)}</div></div><button class="iconbtn" data-act="trackDelOne" data-id="${esc(x.id)}" aria-label="${tr('Удалить')} ${esc(a.name)}">${ic('x')}</button></div>`; }).join('') || `<div class="empty">${tr('Записей с таймера сегодня нет.')}</div>`}</div></section>
+    <div class="field"><label for="tmA">${tr('Забыл включить таймер? Добавь время')}</label><div style="display:flex;gap:8px"><select class="in" id="tmA">${allActs().map(id => `<option value="${esc(id)}">${esc(actOf(id).name)}</option>`).join('')}</select><input class="in" id="tmM" inputmode="numeric" placeholder="${tr('мин')}" style="width:90px" aria-label="${tr('Минуты')}"><button class="btn" data-act="trackAddManual" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
+    <div class="field"><label for="tmN">${tr('Своё занятие')}</label><div style="display:flex;gap:8px"><input class="in" id="tmN" placeholder="${tr('например, гитара или английский')}"><button class="btn" data-act="actAdd" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
+    <button class="btn ghost block" data-act="weekReview">${ic('spark')}${tr('Разбор недели')}</button>`;
+}
+A.timeSheet = () => openSheet(tr('Твоё время'), timeBody);
+A.tPer = el => { SH.tper = el.dataset.v; haptic('selection'); drawSheet(); };
+A.trackDelOne = el => { trackDel(todayISO(), el.dataset.id); drawSheet(); };
+A.trackAddManual = () => {
+  const a = val('tmA'), m = Math.round(toNum(val('tmM')) || 0);
+  if (!a || m < 1 || m > TRACK_MAX) return toast(tr('Впиши минуты, от 1 до 960'));
+  trackAdd(todayISO(), a, m, ''); haptic('light'); drawSheet(); toast(trf('{a}: {t} записано', {a: actOf(a).name, t: fmtMin(m)}), {icon: actOf(a).icon, tone: 'good'});
+};
+A.actAdd = () => {
+  const name = val('tmN').slice(0, 30); if (!name) return toast(tr('Напиши, чем занимаешься'));
+  const acts = meta().acts || [];
+  if ([...ACTS.map(a => a[1]), ...acts.map(x => x.name)].some(n => n.toLowerCase() === name.toLowerCase())) return toast(tr('Такое занятие уже есть'));
+  setMeta({acts: [...acts, {id: 'a_' + uid(), name}]}); drawSheet(); toast(trf('Добавлено: {a}', {a: name}));
+};
+
+/* ---- Tell KAI by voice: the iPhone's own speech recognition, or the browser's where it has one. What was heard is shown before anything changes ---- */
+const WebSR = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceOK = () => !!((isNative() && plug('Speech')) || WebSR());
+let VOICE = null;
+function drawMic(){
+  const b = $('#micB'); if (!b) return;
+  b.classList.toggle('on', !!VOICE);
+  b.innerHTML = `${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}`;
+}
+async function voiceStart(){
+  if (!$('#tellT') || VOICE) return;
+  const base = (val('tellT') || '').trim(), lang = LANG === 'ru' ? 'ru-RU' : (/^en-/.test(navigator.language || '') ? navigator.language : 'en-US');
+  const put = t => { const b = $('#tellT'); if (b) b.value = (base ? base + ' ' : '') + String(t || '').trim(); };
+  const done = () => { VOICE = null; drawMic(); setMeta({voiceUsed: true}); if (SH && $('#tellT') && val('tellT') && val('tellT') !== base) A.tellGo(); };
+  const sp = isNative() && plug('Speech');
+  if (sp){
+    let ok = false; try { ok = (await sp.authorize()).granted; } catch {}
+    if (!ok) return toast(tr('Разреши микрофон и распознавание речи для KAI в Настройках iPhone'), {ms: 5000});
+    let h1, h2;
+    const off = () => { try { h1?.remove?.(); h2?.remove?.(); } catch {} };
+    h1 = await sp.addListener('partial', d => put(d?.text));
+    h2 = await sp.addListener('end', () => { off(); done(); });
+    try { await sp.start({language: lang}); } catch { off(); return toast(tr('Не получилось включить микрофон')); }
+    VOICE = {stop: () => sp.stop().catch(() => {})};
+  } else {
+    const R = WebSR(); if (!R) return;
+    const r = new R(); r.lang = lang; r.interimResults = true; r.continuous = true;
+    r.onresult = e => put([...e.results].map(x => x[0].transcript).join(' '));
+    r.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast(tr('Разреши доступ к микрофону')); };
+    r.onend = done;
+    try { r.start(); } catch { return; }
+    VOICE = {stop: () => { try { r.stop(); } catch {} }};
+  }
+  haptic('light'); drawMic();
+}
+A.voice = () => { if (VOICE) VOICE.stop(); else voiceStart(); };
+/* once someone has used their voice, the mic button starts listening straight away */
+const tellPlain = A.tell;
+A.tell = (...a) => { tellPlain(...a); if (voiceOK() && meta().voiceUsed && a[0]?.dataset?.voice) setTimeout(voiceStart, 250); };
+
+/* ---- the weekly coach: this week against the last, numbers first, then a few honest words. Works without AI ---- */
+function weekNumbers(end = todayISO()){
+  const span = ds => {
+    const by = actMinutes(ds), f = ds.flatMap(k => S.docs['days/' + k]?.focus || []).filter(x => x.min > 0), s = timeSum(ds);
+    const tasks = ds.reduce((a, k) => a + (S.docs['days/' + k]?.tasks || []).filter(t => t.done).length, 0) + smartTasks().filter(t => t.done && ds.includes(t.doneAt)).length;
+    return {by, total: sumMin(by), active: ds.filter(k => sumMin(actMinutes([k])) > 0 || (S.docs['days/' + k] && dayScore(S.docs['days/' + k]) >= .7)).length, sleep: s.sleepN ? s.sleepSum / s.sleepN : null, focusN: f.length, focusMin: f.reduce((a, x) => a + x.min, 0), leaves: f.reduce((a, x) => a + (x.leaves || 0), 0), tasks};
+  };
+  const days = [...Array(7)].map((_, i) => addDays(end, i - 6));
+  const st = timeStats(7, end);
+  return {days, cur: span(days), was: span(days.map(k => addDays(k, -7))), best: st.best, streak: streak()};
+}
+function coachLocal(n){
+  const {cur, was} = n, top = Object.entries(cur.by).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]);
+  if (!cur.total && !cur.tasks) return {headline: tr('Неделя без записей. Это нормально: начни завтра с одного таймера.'), wins: [], watch: '', next: [tr('Завтра нажми таймер, когда сядешь за главное дело дня.')]};
+  const diff = cur.total - was.total;
+  const headline = was.total && diff >= 30 ? trf('{t} на дела: на {d} больше, чем неделей раньше', {t: hoursOf(cur.total), d: hoursOf(diff)})
+    : trf('{t} на дела за неделю', {t: hoursOf(cur.total)});
+  const wins = [];
+  if (top[0]) wins.push(trf('Больше всего времени: {a}, {t}', {a: actOf(top[0][0]).name, t: hoursOf(top[0][1])}));
+  if (cur.active) wins.push(trf('Активных дней: {n} из 7', {n: cur.active}));
+  if (cur.focusN) wins.push(trf('Фокус: {n} {s}, {t}', {n: cur.focusN, s: plural(cur.focusN, tr('сессия'), tr('сессии'), tr('сессий')), t: hoursOf(cur.focusMin)}));
+  if (n.best) wins.push(trf('Лучший день: {d}, {t}', {d: fmtShort(n.best[0]), t: hoursOf(n.best[1])}));
+  if (cur.tasks) wins.push(trf('Сделано задач: {n}', {n: cur.tasks}));
+  if (n.streak >= 3) wins.push(trf('Серия: {n} {d} подряд', {n: n.streak, d: plural(n.streak, tr('день'), tr('дня'), tr('дней'))}));
+  const watch = was.total && diff <= -60 ? trf('На {t} меньше, чем неделей раньше. Без самокритики: один хороший день завтра уже меняет картину.', {t: hoursOf(-diff)})
+    : cur.sleep && cur.sleep < 7 ? trf('Сон в среднем {h} ч. Меньше 7 часов съедает силы на всё остальное.', {h: num(cur.sleep, 1)})
+    : cur.focusN >= 2 && cur.leaves > cur.focusN * 2 ? trf('В фокусе {n} отвлечений за неделю. Попробуй убрать телефон в другую комнату.', {n: cur.leaves}) : '';
+  const next = [];
+  if (top[0]) next.push(trf('{a}: попробуй {t} за следующую неделю', {a: actOf(top[0][0]).name, t: hoursOf(Math.max(30, Math.round(top[0][1] * 1.1 / 30) * 30))}));
+  if (cur.active < 7) next.push(trf('Цель: {n} активных дней', {n: Math.min(7, cur.active + 1)}));
+  return {headline, wins: wins.slice(0, 4), watch, next: next.slice(0, 3)};
+}
+const cleanCoach = r => r && typeof r.headline === 'string' ? {headline: r.headline.slice(0, 160), wins: (Array.isArray(r.wins) ? r.wins : []).filter(x => typeof x === 'string').slice(0, 4).map(x => x.slice(0, 200)), watch: typeof r.watch === 'string' ? r.watch.slice(0, 240) : '', next: (Array.isArray(r.next) ? r.next : []).filter(x => typeof x === 'string').slice(0, 3).map(x => x.slice(0, 200))} : null;
+function coachHTML(c, n){
+  const nums = n ? `<div class="kv"><div><span>${tr('На дела')}</span><b>${hoursOf(n.cur.total)}</b></div><div><span>${tr('Активных дней')}</span><b>${n.cur.active}/7</b></div><div><span>${tr('Фокус')}</span><b>${hoursOf(n.cur.focusMin)}</b></div><div><span>${tr('Серия')}</span><b>${n.streak}</b></div></div>` : '';
+  return `<section class="card coach" style="display:flex;flex-direction:column;gap:12px"><div class="coach-h">${esc(c.headline)}</div>${nums}
+    ${c.wins.length ? `<div><b>${tr('Что получилось')}</b><ul class="ai-list">${c.wins.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+    ${c.watch ? `<div class="note">${esc(c.watch)}</div>` : ''}
+    ${c.next.length ? `<div><b>${tr('На следующую неделю')}</b><ul class="ai-list">${c.next.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}</section>`;
+}
+function coachPrompt(n){
+  const p = profile(), name = a => actOf(a).name, by = o => Object.fromEntries(Object.entries(o).filter(([, m]) => m > 0).map(([k, m]) => [name(k), m]));
+  const data = {name: p.name || '', goals: season().goals || [], this_week: {...n.cur, by: by(n.cur.by)}, last_week: {...n.was, by: by(n.was.by)}, best_day: n.best ? {date: n.best[0], minutes: n.best[1]} : null, streak_days: n.streak};
+  return `Ты — личный коуч в приложении, где человек отмечает, сколько времени потратил на учёбу, работу, тренировки и другие дела. Ниже его цифры за эту и прошлую неделю (время в минутах).
+${JSON.stringify(data)}
+Напиши разбор недели, который мотивирует продолжать. Пиши тепло, честно и коротко, на «ты». Используй только цифры из данных и ничего не выдумывай; минуты переводи в часы, где их больше 60. Хвали за реальные усилия. Если неделя слабее прошлой, без стыда: признай и дай один простой шаг. Не давай советов о еде, весе и лекарствах.
+Верни ТОЛЬКО JSON: {"headline":"одно предложение до 12 слов","wins":["2–4 конкретные победы с цифрами"],"watch":"одна вещь, которая мешала, с цифрой, или пустая строка","next":["2–3 конкретных шага на следующую неделю с числами"]}`;
+}
+A.weekReview = () => {
+  const n = weekNumbers();
+  openSheet(tr('Разбор недели'), () => `${coachHTML(coachLocal(n), n)}
+    ${aiStatus().ok ? `<button class="btn ghost block" data-act="coachAI">${ic('spark')}${tr('Подробнее от ИИ')}</button>` : `<div class="hint">${tr('Это разбор по твоим записям, без ИИ. С подключённым ИИ можно получить более подробный.')}</div>`}
+    <div id="rvOut"></div>`);
+};
+A.coachAI = async () => {
+  const id = await submitJob('review', {prompt: coachPrompt(weekNumbers()), label: tr('Разбор недели · ') + fmtShort(todayISO())});
+  if (id) queueNow(id, 'rvOut');
+};
+
+/* ---- Focus with apps blocked (iPhone): the chosen apps are shut for the session, and stopping early takes some effort on purpose ---- */
+const ST = () => isNative() && plug('ScreenTime');
+let ST_STATE = null;
+async function stRefresh(){ const p = ST(); if (!p) return null; try { ST_STATE = await p.status(); } catch { ST_STATE = null; } return ST_STATE; }
+const stPicked = s => !!s && ((s.apps || 0) + (s.categories || 0) + (s.sites || 0)) > 0;
+const stReady = () => !!(ST_STATE?.supported && ST_STATE.authorized && stPicked(ST_STATE));
+function blockField(){
+  if (!ST()) return '';
+  const s = ST_STATE, on = !!meta().focusBlock;
+  if (s && !s.supported) return `<div class="hint">${tr('Блокировка приложений работает с iOS 16.')}</div>`;
+  const chosen = stPicked(s) ? trf('Выбрано приложений и категорий: {n}', {n: (s.apps || 0) + (s.categories || 0) + (s.sites || 0)}) : tr('Приложения ещё не выбраны');
+  return `<label class="row" style="padding:6px 0"><div class="mid"><div class="t">${tr('Блокировать отвлекающие приложения')}</div><div class="s">${s?.authorized ? esc(chosen) : tr('Нужно разрешение Экранного времени')}</div></div><input type="checkbox" switch class="sw" data-ch="focusBlock" aria-label="${tr('Блокировать отвлекающие приложения')}" ${on ? 'checked' : ''}></label>
+    ${on ? `<button class="btn ghost" data-act="stPick">${ic('shield')}${stPicked(s) ? tr('Изменить список') : tr('Выбрать приложения')}</button>` : ''}`;
+}
+CH.focusBlock = async el => {
+  if (!el.checked){ setMeta({focusBlock: false}); return drawSheet(); }
+  const p = ST(); if (!p) return;
+  if (!ST_STATE?.authorized){
+    try { await p.authorize(); } catch {}
+    await stRefresh();
+    if (!ST_STATE?.authorized){ el.checked = false; return toast(tr('Без разрешения Экранного времени блокировать приложения нельзя'), {ms: 5000}); }
+  }
+  setMeta({focusBlock: true}); drawSheet();
+  if (!stPicked(ST_STATE)) A.stPick();
+};
+A.stPick = async () => {
+  const p = ST(); if (!p) return;
+  try { await p.pickApps(); } catch {}
+  await stRefresh(); drawSheet();
+};
+const focusSheetPlain = A.focusSheet;
+A.focusSheet = el => { focusSheetPlain(el); if (ST()) stRefresh().then(() => { if (SH && !FOCUS) drawSheet(); }); };
+/* stopping early while apps are blocked: a short wait and a sentence to type, so giving up is a choice rather than a reflex */
+const UNLOCK_WAIT = 30;
+const unlockPhrase = () => tr('Я выбираю отвлечься вместо учёбы');
+const normPhrase = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function unlockBody(){
+  SH.unlockAt = SH.unlockAt || Date.now() + UNLOCK_WAIT * 1000; // set on the first draw, so the wait is shown from the start
+  const left = Math.max(0, Math.ceil((SH.unlockAt - Date.now()) / 1000)), mins = FOCUS ? Math.max(1, Math.ceil((FOCUS.end - Date.now()) / 60000)) : 0;
+  return `<div class="hint">${trf('До конца фокуса {m} мин. Ты уже начал, осталось немного.', {m: mins})}</div>
+    <button class="btn block" data-act="unlockBack">${ic('target')}${tr('Вернуться к фокусу')}</button>
+    <div class="note" id="ulS">${left ? trf('Подожди {s} сек, прежде чем закончить.', {s: left}) : tr('Можно закончить.')}</div>
+    <div class="field"><label for="ulP">${trf('Чтобы закончить, напиши: «{p}»', {p: esc(unlockPhrase())})}</label><input class="in" id="ulP" autocomplete="off" autocapitalize="off"></div>
+    <button class="btn ghost block danger" data-act="unlockGo">${tr('Закончить и открыть приложения')}</button>`;
+}
+A.unlockSheet = () => {
+  openSheet(tr('Закончить раньше?'), unlockBody);
+  const iv = setInterval(() => {
+    const el = $('#ulS'); if (!el || !SH?.unlockAt || !FOCUS){ clearInterval(iv); return; }
+    const left = Math.max(0, Math.ceil((SH.unlockAt - Date.now()) / 1000));
+    el.textContent = left ? trf('Подожди {s} сек, прежде чем закончить.', {s: left}) : tr('Можно закончить.');
+    if (!left) clearInterval(iv);
+  }, 500);
+};
+A.unlockBack = () => { closeSheet(); haptic('success'); toast(tr('Так держать'), {icon: 'target', tone: 'good'}); };
+A.unlockGo = () => unlockTry(val('ulP'));
+function unlockTry(typed){
+  if (!FOCUS) return closeSheet();
+  if (Date.now() < SH.unlockAt) return toast(tr('Ещё немного подожди'));
+  if (normPhrase(typed) !== normPhrase(unlockPhrase())) return toast(tr('Напиши фразу точно, как в подсказке'));
+  FOCUS.gaveUp = true; focusSave(); closeSheet(); focusFinish(false);
+}
+const focusEndPlain = A.focusEnd;
+A.focusEnd = () => { if (FOCUS?.blocked) return A.unlockSheet(); focusEndPlain(); };
+/* a shield must never outlive its session: with no Focus running, opening KAI lifts it */
+function stSafety(){ const p = ST(); if (p && !FOCUS) p.unblock().catch(() => {}); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ stSafety(); if (TRACK) trackTick(); } });
+
 /* ============ init ============ */
 async function init(){
   render();
@@ -6493,6 +7195,8 @@ async function init(){
   render();
   openFromLink();
   focusResume(); // a focus session from before the app was closed
+  if (TRACK) trackRun(); // a timer keeps counting while the app is closed
+  stSafety();
   whatsNewSoon();
 }
 init();

@@ -1042,14 +1042,15 @@ test('switches inside a card change the card, not the tab', () => {
 });
 
 test('"What can I write?" examples all work without AI, in both languages; the AI ones are marked', () => {
+  run(`globalThis.meta85 = clone(meta()); setMeta({modules: {...(meta().modules || {}), money: true}})`);
   const en = JSON.parse(run(`JSON.stringify(TELL_HELP.flatMap(([, xs]) => xs))`));
   const ruSrc = readFileSync(new URL('../kai/app.js', import.meta.url), 'utf8').match(/const TELL_HELP = \[([\s\S]*?)\n\];/)[1];
   const ru = [...ruSrc.matchAll(/tr\('([^']+)'\)/g)].map(m => m[1]).filter(x => /\d|Заболел/.test(x));
   assert.ok(ru.length >= 14);
-  for (const t of [...en, ...ru]) assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0`), t);
+  for (const t of [...en, ...ru]) assert.ok(run(`tellLines(localTellParse(${JSON.stringify(t)}, todayISO()).r, todayISO()).length > 0 || localAnswer(${JSON.stringify(t)}) !== null`), t); // questions are answered instead
   run(`SH = {}`);
   assert.match(run(`tellHelpHTML()`), /needs AI/);
-  run(`SH = null`);
+  run(`SH = null; save('app/meta', meta85)`);
 });
 
 test('in the iPhone app with KAI\'s own AI, "paste your own key" is hidden unless the owner allows it; the web keeps it', () => {
@@ -1398,9 +1399,9 @@ test('the weekly summary leads with something real, never "0 min", and leaves ou
   assert.deepEqual(a.tiles.map(t => t[1]), ['active days', 'days in a row'], 'no zero-minute tiles, and the tasks are not shown twice');
   const b = plan({...base, total: 130, walk: 90, gym: 40});
   assert.equal(b.head, '2.2 h'); assert.equal(b.headLabel, 'invested this week');
-  assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'days in a row']);
+  assert.deepEqual(b.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'days in a row', 'tasks done']);
   const c = plan({...base, total: 130, walk: 90, gym: 40, focus: 3});
-  assert.deepEqual(c.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'tasks done', 'focus sessions', 'days in a row'], 'focus sessions when there were any');
+  assert.deepEqual(c.tiles.map(t => t[1]), ['walking', 'gym', 'active days', 'days in a row', 'tasks done', 'focus sessions'], 'focus sessions when there were any; the streak comes before them');
   assert.equal(plan({...base, total: 200, walk: 50, gym: 50, study: 100, focus: 2}).tiles.length, 6, 'never more than six tiles');
 });
 
@@ -1471,7 +1472,7 @@ test('Tell KAI explains what works without AI the first time, then keeps it to o
 
 test('on a weight-loss goal, rising weight is called rising, not "too slow", and the advice stays a small, floored cut', () => {
   setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'lose', activity: 1.45, units: 'metric'});
-  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'r${i}', name: 'Soup', kcal: 600, p: 30, f: 20, c: 60}]; })`);
+  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'r${i}', name: 'Soup', kcal: 2000, p: 120, f: 60, c: 240}]; })`);
   run(`globalThis.wt1 = weightTrend`);
   try {
     run(`weightTrend = () => ({rate: 0.45, perWeek: 0.35})`);
@@ -2755,9 +2756,9 @@ test('weekly challenges: fixed on Monday from last week, done once, worth XP', (
     assert.ok(/This week|Вызовы недели/.test(run(`challengeCard()`)));
     run(`challengeTick()`);
     assert.ok(run(`!!meta().challenges[weekChallenges().mon]`), 'saved for the week');
-    const xp0 = run(`totalXP()`);
     // make the first challenge reachable and tick
     run(`save('app/meta', {...meta(), challenges: {[weekChallenges().mon]: {list: [{id: 'todos', goal: 1}], done: []}}}); globalThis.tasks45 = clone(smartTasks()); saveTasks([...smartTasks(), {id: 'c45', title: 'x', done: true, doneAt: todayISO(), pri: 2}])`);
+    const xp0 = run(`totalXP() - challengeXP()`); // measured after the old challenges are replaced, so a Sunday with challenges already won does not count twice
     run(`challengeTick()`);
     assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), ['todos']);
     assert.equal(run(`challengeXP()`), 150, 'one of one: the challenge and the bonus');
@@ -2896,4 +2897,429 @@ test('the level sheet explains how XP is earned and the next title', () => {
   const h = run(`document.querySelector('.sheet')?.innerHTML || SH?.html || ''`);
   assert.ok(run(`levelRow()`).includes('data-act="levelInfo"'));
   run(`closeSheet()`);
+});
+
+test('sound is on by default, and a choice in settings is kept', () => {
+  run(`globalThis.meta52 = clone(meta())`);
+  try {
+    run(`const m = clone(meta()); delete m.fx; save('app/meta', m)`);
+    assert.equal(run(`FX().sound`), true);
+    run(`setMeta({fx: {sound: false}})`);
+    assert.equal(run(`FX().sound`), false);
+  } finally { run(`save('app/meta', meta52)`); }
+});
+
+test('haptics: native types for outcomes, the error pattern for "that did not work"', () => {
+  const calls = JSON.parse(run(`(() => { const c = []; const nh = {notification: o => (c.push('n:' + o.type), Promise.resolve()), impact: o => (c.push('i:' + o.style), Promise.resolve()), selectionStart: () => Promise.resolve(), selectionChanged: () => (c.push('s'), Promise.resolve()), selectionEnd: () => Promise.resolve()}; ['success', 'error', 'warning', 'selection', 'medium', 'light'].forEach(k => nativeHaptic(nh, k)); return JSON.stringify(c); })()`));
+  assert.deepEqual(calls, ['n:SUCCESS', 'n:ERROR', 'n:WARNING', 's', 'i:MEDIUM', 'i:LIGHT']);
+  assert.equal(run(`isErrToast(tr('Впиши, что сделать'))`), true);
+  assert.equal(run(`isErrToast(tr('День оценён'))`), false);
+  assert.equal(run(`hapDefault('undoApply')`), 'medium');
+});
+
+test('cached answers follow the data: day lists, posts and XP update after a save', () => {
+  const n0 = run(`dayKeys().length`), xp0 = run(`totalXP()`);
+  const k = '2031-01-01';
+  run(`save('days/${k}', {...buildDay('${k}'), tasks: buildDay('${k}').tasks.map(t => ({...t, done: true}))})`);
+  try {
+    assert.equal(run(`dayKeys().length`), n0 + 1);
+    assert.ok(run(`totalXP()`) > xp0, 'XP counts the new day');
+    run(`dayKeys().reverse()`); assert.equal(run(`dayKeys()[0] <= dayKeys()[dayKeys().length - 1]`), true, 'a caller reversing the list does not change the cache');
+  } finally { run(`remove('days/${k}')`); }
+  assert.equal(run(`dayKeys().length`), n0);
+  assert.equal(run(`hm('07:30')`), 450); assert.equal(run(`hm('07:30')`), 450);
+});
+
+test('no advice to eat less while logged food is far below the target', () => {
+  setProfile({age: 30, height: 178, weight: 80, sex: 'm', goal: 'lose', activity: 1.45, units: 'metric'});
+  for (let i = 0; i < 10; i++) run(`mutDay(addDays(todayISO(), -${i}), d => { d.meals = [{id: 'lw${i}', name: 'Soup', kcal: 600, p: 30, f: 20, c: 60}]; })`);
+  run(`globalThis.wt2 = weightTrend`);
+  try {
+    run(`weightTrend = () => ({rate: 0.45, perWeek: 0.35})`);
+    const a = JSON.parse(run(`JSON.stringify(adaptiveAdvice())`));
+    assert.equal(a.kcal, undefined, 'no button to lower the target');
+    assert.equal(a.state, 'log');
+    assert.match(a.text, /far below|намного ниже/);
+  } finally { run(`weightTrend = wt2`); }
+});
+
+test('Tell KAI: what already happened is not a to-do; pomodoros, "1h30", study ranges and sets of reps are read', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  for (const t of ['went to bed at 1am', 'проснулся в 6:30', 'поспал днём 30 минут', 'called mom at 5']) assert.equal(p(t).new_tasks.length, 0, t);
+  assert.equal(p('call mom at 5').new_tasks.length, 1, 'a plan is still a plan');
+  assert.equal(p('feed the cat at 6').new_tasks.length, 1, '"feed" is not a past tense');
+  assert.deepEqual(p('studied for 3 pomodoros').time_log, [{kind: 'study', min: 75}]);
+  assert.deepEqual(p('revised biology 1h30').time_log, [{kind: 'study', min: 90}]);
+  assert.deepEqual(p('делал домашку с 18 до 20').time_log, [{kind: 'study', min: 120}]);
+  assert.deepEqual(p('качался час').time_log, [{kind: 'gym', min: 60}]);
+  assert.deepEqual(p('плавание 45 минут').time_log, [{kind: 'gym', min: 45}]);
+  assert.deepEqual(p('дошёл до универа за 25 минут').time_log, [{kind: 'walk', min: 25}]);
+  assert.equal(p('did 3 sets of 10 pushups').sets.length, 3);
+  assert.ok(!p('отжимания 3х15').sets.some(s => s.ex === 'dips'), 'push-ups are not dips');
+  assert.deepEqual(p('drank coffee 3.50').money.map(m => m.amount), [3.5]);
+  assert.ok(!/60 мин/.test(run(`JSON.stringify(localTellParse('лёг в час ночи', todayISO()).left)`)), 'в час ночи is one o clock');
+});
+
+test('the week ahead is asked on Sunday evening or Monday morning, once', () => {
+  run(`globalThis.meta53 = clone(meta())`);
+  try {
+    run(`setMeta({startedOn: '2030-01-01', weekPlan: null})`);
+    const sun = '2030-03-10', mon = '2030-03-11';
+    assert.equal(run(`dow('${sun}')`), 7);
+    assert.equal(run(`weekPlanQ('${sun}', 18)?.k`), 'wp_' + mon);
+    assert.equal(run(`weekPlanQ('${sun}', 11)`), null, 'not on Sunday morning');
+    assert.equal(run(`weekPlanQ('${mon}', 9)?.k`), 'wp_' + mon, 'Monday morning, if Sunday was missed');
+    assert.equal(run(`weekPlanQ('2030-03-12', 9)`), null);
+    run(`setMeta({weekPlan: 'wp_${mon}'})`);
+    assert.equal(run(`weekPlanQ('${mon}', 9)`), null, 'answered once for the week');
+    assert.ok(/data-act="ciWeek"/.test(run(`weekPlanBody({k: 'wp_x'})`)));
+  } finally { run(`save('app/meta', meta53)`); }
+  const ev = JSON.parse(run(`JSON.stringify(localTellParse('essay by friday', todayISO()).r.events)`));
+  assert.equal(ev[0]?.kind, 'deadline');
+  assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('buy milk by friday', todayISO()).r.new_tasks)`)).length, 1);
+});
+
+test('Focus: the fourth full session of the day offers a 15-minute break', () => {
+  run(`globalThis.day54 = clone(getDay(todayISO()))`);
+  try {
+    run(`mutDay(todayISO(), d => { d.focus = [1, 2, 3].map(() => ({at: '09:00', min: 25, of: 25, leaves: 0})); })`);
+    assert.equal(run(`focusBreakAction().act`), 'focusBreak');
+    run(`mutDay(todayISO(), d => { d.focus.push({at: '11:00', min: 25, of: 25, leaves: 0}); })`);
+    assert.equal(run(`focusBreakAction().act`), 'focusBreakLong');
+    run(`mutDay(todayISO(), d => { d.focus.push({at: '12:00', min: 5, of: 25, leaves: 0}); })`);
+    assert.equal(run(`focusBreakAction().act`), 'focusBreakLong', 'a cut-short session does not count');
+  } finally { run(`save('days/' + todayISO(), day54)`); }
+});
+
+test('savings goals: saved apart from spending, with Undo and a celebration at the goal', () => {
+  run(`globalThis.sv55 = S.docs['app/savings'] ? clone(S.docs['app/savings']) : null; globalThis.toast55 = toast; globalThis.t55 = []; toast = (m, o) => t55.push(m)`);
+  try {
+    run(`save('app/savings', {list: []})`);
+    assert.ok(/data-act="saveNew"/.test(run(`savingsCard(curMonth())`)));
+    run(`globalThis.FORM = {'#svT': 'Laptop', '#svG': '1000', '#svS': '200'}; A.saveCreate(); delete globalThis.FORM`);
+    const g = JSON.parse(run(`JSON.stringify(savings()[0])`));
+    assert.deepEqual([g.title, g.target, g.saved], ['Laptop', 1000, 200]);
+    const tx0 = run(`monthTx(curMonth()).length`);
+    run(`globalThis.FORM = {'#svA': '800'}; A.saveMove({dataset: {id: '${g.id}', dir: '1'}}); delete globalThis.FORM`);
+    assert.equal(run(`savings()[0].saved`), 1000);
+    assert.equal(run(`monthTx(curMonth()).length`), tx0, 'not a spending entry');
+    assert.ok(run(`!!savings()[0].doneAt`));
+    run(`A.undoApply()`);
+    assert.equal(run(`savings()[0].saved`), 200, 'Undo takes it back');
+    assert.equal(run(`saveMilestone('x', 40, 55); 1`), 1);
+  } finally { run(`toast = toast55; sv55 ? save('app/savings', sv55) : remove('app/savings')`); }
+});
+
+test('Tell KAI puts "saved 50 for the laptop" into the savings goal, not spending', () => {
+  run(`globalThis.meta56 = clone(meta()); setMeta({modules: {...(meta().modules || {}), money: true}})`);
+  run(`globalThis.sv56 = S.docs['app/savings'] ? clone(S.docs['app/savings']) : null; save('app/savings', {list: [{id: 'g1', title: 'Laptop', target: 1000, saved: 100, created: todayISO(), log: []}]})`);
+  try {
+    for (const t of ['saved 50 for the laptop', 'put 50 into savings', 'отложил 50 в копилку']){
+      const r = JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+      assert.deepEqual(r.savings, [{id: 'g1', amount: 50}], t);
+      assert.equal(r.money.length, 0, t + ': not spending');
+    }
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('saved 50 for a trip', todayISO()).r.savings || [])`)).length, 0, 'no goal by that name');
+    run(`savingsAddMany([{id: 'g1', amount: 50}])`);
+    assert.equal(run(`savings()[0].saved`), 150);
+    const lines = run(`tellLines({savings: [{id: 'g1', amount: 50}], time_log: [], money: [], new_tasks: [], events: []}, todayISO()).join('|')`);
+    assert.ok(/Laptop/.test(lines));
+  } finally { run(`sv56 ? save('app/savings', sv56) : remove('app/savings'); save('app/meta', meta56)`); }
+});
+
+test('days export as a spreadsheet, one row a day', () => {
+  const k = '2031-02-02';
+  run(`save('days/${k}', {...buildDay('${k}'), sleep: 7.5, steps: 9000, weight: 70, meals: [{name: 'x', kcal: 500, p: 30, f: 10, c: 50}], note: 'Good, "busy" day'})`);
+  try {
+    const csv = run(`daysCSV()`).split('\r\n');
+    assert.ok(csv.length >= 2);
+    const row = csv.find(r => r.startsWith(k));
+    assert.ok(row, 'the day is there');
+    assert.ok(row.includes('9000') && row.includes('500') && row.includes('"Good, ""busy"" day"'));
+    const cols = line => { let n = 1, inQ = false; for (const ch of line){ if (ch === '"') inQ = !inQ; else if (ch === ',' && !inQ) n++; } return n; };
+    assert.equal(cols(row), cols(csv[0]), 'as many columns as the header');
+  } finally { run(`remove('days/${k}')`); }
+});
+
+test('insights compare the person’s own days, only with enough days and a clear gap', () => {
+  run(`globalThis.days57 = Object.fromEntries(dayKeys().filter(k => k >= addDays(todayISO(), -95)).map(k => [k, clone(S.docs['days/' + k])])); Object.keys(days57).forEach(k => remove('days/' + k))`);
+  try {
+    for (let i = 0; i < 12; i++) run(`(() => { const k = addDays(todayISO(), -${i + 1}); save('days/' + k, {...buildDay(k), status: 'ok', sleep: ${i % 2 ? 8 : 5}, tasks: buildDay(k).tasks.map((t, j) => ({...t, done: ${i % 2 ? 'true' : 'j % 2 === 0'}}))}); })()`);
+    const list = JSON.parse(run(`JSON.stringify(insights())`));
+    const sl = list.find(x => /7/.test(x.text));
+    assert.ok(sl && sl.a > sl.b, 'better days after longer sleep');
+    assert.ok(run(`insightsCard()`).includes(String(sl.a)));
+    for (let i = 0; i < 12; i++) run(`remove('days/' + addDays(todayISO(), -${i + 1}))`);
+    for (let i = 0; i < 4; i++) run(`(() => { const k = addDays(todayISO(), -${i + 1}); save('days/' + k, {...buildDay(k), sleep: ${i % 2 ? 8 : 5}}); })()`);
+    assert.equal(run(`insights().length`), 0, 'not with a handful of days');
+  } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days57).forEach(([k, v]) => save('days/' + k, v))`); }
+});
+
+test('a screen that throws shows a message with Reload, and the error goes to a local log', () => {
+  run(`localStorage.removeItem('kai_errlog')`);
+  const h = run(`safeView(() => { throw new Error('boom'); })`);
+  assert.ok(/data-act="appReload"/.test(h) && /role="alert"/.test(h));
+  const log = JSON.parse(run(`JSON.stringify(errLog())`));
+  assert.equal(log.length, 1); assert.equal(log[0].m, 'boom'); assert.equal(log[0].k, 'render');
+  run(`safeView(() => { throw new Error('boom'); })`);
+  assert.equal(run(`errLog().length`), 1, 'the same error twice is one entry');
+  assert.equal(run(`safeView(() => 'ok')`), 'ok');
+  run(`localStorage.removeItem('kai_errlog')`);
+});
+
+test('insights also compare the day rating after long and short sleep', () => {
+  run(`globalThis.days58 = Object.fromEntries(dayKeys().filter(k => k >= addDays(todayISO(), -95)).map(k => [k, clone(S.docs['days/' + k])])); Object.keys(days58).forEach(k => remove('days/' + k))`);
+  try {
+    for (let i = 0; i < 12; i++) run(`(() => { const k = addDays(todayISO(), -${i + 1}); save('days/' + k, {...buildDay(k), status: 'ok', sleep: ${i % 2 ? 8 : 5.5}, rating: ${i % 2 ? 4 : 3}, tasks: buildDay(k).tasks.map(t => ({...t, done: true}))}); })()`);
+    const r = JSON.parse(run(`JSON.stringify(insights())`)).find(x => /оцениваешь/.test(x.text) && /7\+/.test(x.text));
+    assert.ok(r, 'a rating insight');
+    assert.equal(r.a, run(`num(4, 1)`)); assert.equal(r.b, run(`num(3, 1)`));
+  } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days58).forEach(([k, v]) => save('days/' + k, v))`); }
+});
+
+test('telling KAI the same to-do or event twice adds it once', () => {
+  run(`globalThis.tasks59 = clone(smartTasks()); globalThis.plan59 = clone(plan())`);
+  try {
+    const apply = t => run(`(() => { const {r} = localTellParse(${JSON.stringify(t)}, todayISO()); const id = uid(); save('inbox/' + id, {id, kind: 'tell', result: r, meta: {date: todayISO(), text: ${JSON.stringify(t)}, local: true}, done: false}); A.tellApply({dataset: {id}}); })()`);
+    const n0 = run(`smartTasks().filter(t => !t.done).length`);
+    apply('gym every monday and friday'); apply('gym every monday and friday');
+    assert.equal(run(`smartTasks().filter(t => !t.done).length`), n0 + 2, 'two weekly to-dos, not four');
+    apply('call the bank tomorrow at 10'); apply('call the bank tomorrow at 10');
+    assert.equal(run(`smartTasks().filter(t => !t.done && /bank/i.test(t.title)).length`), 1);
+    const e0 = run(`allEvents().length`);
+    run(`tellPlanApply({events: [{title: 'Physics exam', date: addDays(todayISO(), 9), kind: 'exam', from: '10:00'}]}); tellPlanApply({events: [{title: 'physics exam', date: addDays(todayISO(), 9), kind: 'exam', from: '10:00'}]})`);
+    assert.equal(run(`allEvents().length`), e0 + 1);
+  } finally { run(`saveTasks(tasks59); save('app/plan', plan59)`); }
+});
+
+test('the preview says when a told to-do is already in the plans', () => {
+  run(`globalThis.tasks60 = clone(smartTasks())`);
+  try {
+    run(`saveTasks([...smartTasks(), {id: 'dup1', title: 'Call the bank', due: addDays(todayISO(), 1), time: '10:00', done: false, pri: 2}])`);
+    const lines = run(`tellLines(localTellParse('call the bank tomorrow at 10', todayISO()).r, todayISO()).join('|')`);
+    assert.ok(/Already in your plans: Call the bank|Уже в планах: Call the bank/.test(lines), lines);
+    assert.ok(!/\+ (?:задача|to-do)/i.test(lines));
+  } finally { run(`saveTasks(tasks60)`); }
+});
+
+test('Tell KAI answers simple questions from the records, on the phone', () => {
+  run(`globalThis.meta61 = clone(meta()); setMeta({modules: {...(meta().modules || {}), money: true}})`);
+  const m = run(`todayISO().slice(0, 7)`), today = run(`todayISO()`);
+  run(`globalThis.money61 = S.docs['money/${m}'] ? clone(S.docs['money/${m}']) : null; globalThis.day61 = clone(getDay(todayISO()))`);
+  try {
+    run(`addTx([{id: 'a61', date: todayISO(), type: 'out', amount: 12, cat: 'Кафе и рестораны', note: 'lunch'}, {id: 'b61', date: todayISO(), type: 'out', amount: 8, cat: 'Транспорт', note: 'taxi'}])`);
+    const want = run(`money(monthTx(todayISO().slice(0, 7)).filter(x => x.type === 'out' && x.status !== 'fail' && x.date === todayISO()).reduce((s, x) => s + +x.amount, 0))`);
+    const a = run(`localAnswer('how much did I spend today?')`);
+    assert.ok(a && a.includes(want), a + ' / ' + want);
+    const wantTaxi = run(`money(monthTx(todayISO().slice(0, 7)).filter(x => x.type === 'out' && x.date === todayISO() && x.cat === 'Транспорт').reduce((s, x) => s + +x.amount, 0))`);
+    const b = run(`localAnswer('how much did I spend on taxi today?')`);
+    assert.ok(b && b.includes(wantTaxi) && /taxi|такси|Transport|Транспорт/i.test(b), b);
+    run(`mutDay(todayISO(), d => { d.sleep = 7.5; })`);
+    assert.ok(/7[.,]5/.test(run(`localAnswer('how much did I sleep today?')`)));
+    assert.ok(/\d/.test(run(`localAnswer('what is my streak?')`)));
+    assert.equal(run(`localAnswer('slept 7 hours')`), null, 'a statement is not a question');
+    assert.equal(run(`localAnswer('what is the capital of France?')`), null, 'not about the records');
+  } finally { run(`money61 ? save('money/${m}', money61) : remove('money/${m}'); save('days/' + todayISO(), day61); save('app/meta', meta61)`); }
+});
+
+test('food without AI: pepperoni pizza is pizza, a can of cola, a Big Mac with medium fries, an omelette of three eggs', () => {
+  const m = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.meals || [])`));
+  const pz = m('two slices of pepperoni pizza and a can of coke')[0];
+  assert.ok(/pizza|пицца/i.test(pz.name) && !/pepper(?!oni)|перец/i.test(pz.name), pz.name);
+  assert.ok(pz.kcal >= 600 && pz.kcal <= 1000, String(pz.kcal));
+  const bm = m('ate a big mac and medium fries')[0];
+  assert.ok(bm.kcal >= 750 && bm.kcal <= 1200, String(bm.kcal));
+  assert.ok(m('съел омлет из трёх яиц').length, 'eggs are counted');
+  assert.equal(m('had oatmeal').length, 0, 'a dish without an amount still needs one');
+});
+
+test('care: more ways of saying "I am in crisis", and plans to eat dangerously little, get the support card first', () => {
+  for (const t of ["everything feels pointless, I don't want to be here anymore", 'не вижу смысла жить дальше', 'не хочу больше жить', "there's no reason to go on", 'I just want to end it all', 'I see no point in living anymore']) assert.equal(run(`careSignal(${JSON.stringify(t)})`), 'crisis', t);
+  for (const t of ['I only want to eat 500 calories a day until the exam', 'буду есть 600 ккал в день']) assert.equal(run(`careSignal(${JSON.stringify(t)})`), 'eating', t);
+  for (const t of ['ate 500 kcal for lunch', 'no point in going to the gym today', 'there is no reason to go on monday', 'не вижу смысла идти на пару', 'end it all for today and sleep', 'eat 1800 calories a day']) assert.equal(run(`careSignal(${JSON.stringify(t)})`), null, t);
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('I only want to eat 500 calories a day, plan it for tomorrow', todayISO()).r)`));
+  assert.equal(r.care, 'eating'); assert.equal(r.new_tasks.length + r.events.length + (r.meals || []).length, 0, 'nothing is planned');
+  assert.ok(/doctor|врач/i.test(run(`previewWarnings({care: 'eating'})[0].text`)));
+});
+
+test('Tell KAI answers food and weight questions too', () => {
+  run(`globalThis.day62 = clone(getDay(todayISO()))`);
+  try {
+    run(`mutDay(todayISO(), d => { d.meals = [{name: 'x', kcal: 640, p: 41, f: 20, c: 70}]; d.weight = 70.4; })`);
+    const a = run(`localAnswer('how many calories did I eat today?')`);
+    assert.ok(/640/.test(a) && /41/.test(a), a);
+    assert.ok(/70[.,]4|155[.,]2/.test(run(`localAnswer("what's my weight?")`)));
+  } finally { run(`save('days/' + todayISO(), day62)`); }
+});
+
+test('Focus offers an optional background noise, off by default', () => {
+  run(`globalThis.meta63 = clone(meta())`);
+  try {
+    assert.equal(run(`noiseKind()`), 'off');
+    assert.equal((run(`noiseField()`).match(/data-act="focusNoise"/g) || []).length, 3);
+    run(`SH = {}; A.focusNoise({dataset: {v: 'rain'}}); SH = null`);
+    assert.equal(run(`noiseKind()`), 'rain');
+    run(`noiseStart(); noiseStop()`); // no audio in tests: must not throw
+  } finally { run(`save('app/meta', meta63)`); }
+});
+
+test('a reminder at 17:00 for an open main task of the day', () => {
+  run(`globalThis.tasks64 = clone(smartTasks())`);
+  try {
+    run(`saveTasks([...smartTasks(), {id: 'm64', title: 'Essay', due: todayISO(), done: false, pri: 2, mit: todayISO()}])`);
+    const r = JSON.parse(run(`JSON.stringify(buildReminders(0).find(x => x.key === 'mit' + todayISO()) || null)`));
+    assert.ok(r && /Essay/.test(r.title));
+    run(`A.tkDone({dataset: {id: 'm64'}})`);
+    assert.ok(!run(`buildReminders(0).some(x => x.key === 'mit' + todayISO())`), 'gone once it is done');
+  } finally { run(`saveTasks(tasks64)`); }
+});
+
+test('a weekly challenge taken back below its goal by Undo loses its XP', () => {
+  run(`globalThis.meta65 = clone(meta()); globalThis.tasks65 = clone(smartTasks()); globalThis.toast65 = toast; toast = () => {}`);
+  try {
+    const mon = run(`addDays(todayISO(), 1 - dow(todayISO()))`);
+    const before = run(`smartTasks().filter(t => t.done && t.doneAt >= '${mon}' && t.doneAt <= todayISO()).length`);
+    run(`save('app/meta', {...meta(), challenges: {'${mon}': {list: [{id: 'todos', goal: ${before + 1}}], done: []}}}); saveTasks([...smartTasks(), {id: 'c65', title: 'x', due: todayISO(), done: false, pri: 2}])`);
+    run(`A.tkDone({dataset: {id: 'c65'}}); challengeTick()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), ['todos']);
+    run(`A.undoApply(); challengeTick()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(weekChallenges().done)`)), [], 'undone');
+  } finally { run(`toast = toast65; saveTasks(tasks65); save('app/meta', meta65)`); }
+});
+
+test('insights name the best and the hardest day of the week', () => {
+  run(`globalThis.days66 = Object.fromEntries(dayKeys().filter(k => k >= addDays(todayISO(), -95)).map(k => [k, clone(S.docs['days/' + k])])); Object.keys(days66).forEach(k => remove('days/' + k))`);
+  try {
+    for (let i = 1; i <= 35; i++) run(`(() => { const k = addDays(todayISO(), -${i}); const w = dow(k); save('days/' + k, {...buildDay(k), status: 'ok', tasks: buildDay(k).tasks.map((t, j) => ({...t, done: w === 2 ? true : w === 6 ? false : j > 0}))}); })()`);
+    const x = JSON.parse(run(`JSON.stringify(insights())`)).find(i => i.d1);
+    assert.ok(x, 'a weekday insight');
+    assert.equal(x.d1, run(`DOW_FULL[2]`)); assert.equal(x.d2, run(`DOW_FULL[6]`));
+    assert.ok(run(`insightsCard()`).includes(run(`DOW_FULL[2]`)));
+  } finally { run(`dayKeys().filter(k => k >= addDays(todayISO(), -95)).forEach(k => remove('days/' + k)); Object.entries(days66).forEach(([k, v]) => save('days/' + k, v))`); }
+});
+
+/* ---- v9: timers, the weekly coach, Focus with blocked apps ---- */
+test('timers: one tap starts, Stop saves the minutes, Undo takes them back', () => {
+  const T0 = Date.UTC(2030, 0, 9, 9, 0);
+  run(`globalThis.now9 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toasts9 = []; globalThis.toast9 = toast; toast = m => toasts9.push(m)`);
+  const day = run(`iso(${T0})`), study0 = run(`getDay('${day}').timeExtra?.study || 0`);
+  try {
+    run(`trackStart('read'); T += 42 * 60000`);
+    assert.ok(run(`JSON.parse(localStorage.getItem('kai_track')).start`) > 0, 'kept if the app closes');
+    run(`trackStop()`);
+    const t = JSON.parse(run(`JSON.stringify(getDay('${day}').track)`)).at(-1);
+    assert.deepEqual([t.a, t.min], ['read', 42]);
+    assert.equal(run(`getDay('${day}').timeExtra?.study || 0`), study0, 'reading is not study');
+    assert.match(run(`toasts9.join('|')`), /Reading: 42 min saved/);
+    run(`trackStart('study'); T += 90 * 60000; trackStop()`);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - study0, 90, 'study timers count as study everywhere');
+    run(`A.trackUndo()`);
+    assert.equal(run(`getDay('${day}').timeExtra.study`) - study0, 0, 'undo takes both back');
+    assert.equal(run(`getDay('${day}').track.some(x => x.a === 'study')`), false);
+    run(`trackStart('work'); T += 30000; trackStop()`);
+    assert.equal(run(`getDay('${day}').track.some(x => x.a === 'work')`), false, 'under a minute is not saved');
+    run(`trackStart('work'); T += 30 * 3600000; trackStop()`);
+    assert.equal(run(`getDay('${day}').track.find(x => x.a === 'work').min`), 960, 'a forgotten timer stops counting at 16 hours');
+    run(`trackStart('walk'); focusStart(25, 'x')`);
+    assert.equal(run(`TRACK`), null, 'Focus stops a running timer');
+    run(`FOCUS = null; focusSave()`);
+  } finally { run(`Date.now = now9; toast = toast9; TRACK = null; trackSave(); FOCUS = null; focusSave(); mutDay('${day}', d => { d.track = []; })`); }
+});
+
+test('timers: a running timer is reminded after 3 hours, and is shown at the top of the Day tab', () => {
+  run(`TRACK = {a: 'read', start: Date.now()}`);
+  try {
+    assert.ok(run(`buildReminders().some(r => r.key === 'track_long')`));
+    assert.match(run(`viewDay()`), /trackStop/);
+  } finally { run(`TRACK = null; trackSave()`); }
+  assert.match(run(`viewDay()`), /data-act="trackGo" data-v="study"/);
+  assert.equal(run(`buildReminders().some(r => r.key === 'track_long')`), false);
+});
+
+test('your time: activities against the period before, own activities, and time added by hand', () => {
+  const today = run(`todayISO()`), wk = run(`addDays(todayISO(), -7)`);
+  run(`globalThis.meta9 = clone(meta()); [${JSON.stringify(today)}, ${JSON.stringify(wk)}].forEach(k => mutDay(k, d => { d.track = []; }))`);
+  try {
+    run(`trackAdd('${today}', 'read', 120, '20:00'); trackAdd('${wk}', 'read', 60, '20:00')`);
+    const st = JSON.parse(run(`JSON.stringify(timeStats(7))`));
+    assert.equal(st.cur.read, 120);
+    assert.equal(st.was.read, 60);
+    run(`SH = {}`);
+    assert.match(run(`timeBody()`), /Reading/);
+    run(`setMeta({acts: [{id: 'a_g', name: 'Guitar'}]})`);
+    assert.equal(run(`actOf('a_g').name`), 'Guitar');
+    run(`trackAdd('${today}', 'a_g', 25, '')`);
+    assert.equal(run(`actsByUse().indexOf('a_g') < actsByUse().indexOf('project')`), true, 'used activities come first');
+    const xp0 = run(`totalXP()`);
+    run(`trackAdd('${today}', 'a_g', 40, '')`);
+    assert.ok(run(`totalXP()`) > xp0, 'any tracked effort earns XP');
+    assert.equal(run(`timeSum([todayISO()]).active`), 1);
+  } finally { run(`SH = null; save('app/meta', meta9); [${JSON.stringify(today)}, ${JSON.stringify(wk)}].forEach(k => mutDay(k, d => { d.track = []; }))`); }
+});
+
+test('the weekly coach works without AI, is kind on a weak week, and only shows checked AI text', () => {
+  const n = (cur, was) => JSON.stringify({cur: {by: {}, total: 0, active: 0, sleep: null, focusN: 0, focusMin: 0, leaves: 0, tasks: 0, ...cur}, was: {by: {}, total: 0, active: 0, focusN: 0, focusMin: 0, leaves: 0, tasks: 0, ...was}, best: null, streak: 0});
+  const empty = JSON.parse(run(`JSON.stringify(coachLocal(${n({}, {})}))`));
+  assert.match(empty.headline, /no records/);
+  const good = JSON.parse(run(`JSON.stringify(coachLocal(${n({by: {study: 600, read: 120}, total: 720, active: 6, focusN: 4, focusMin: 150}, {by: {study: 400}, total: 400})}))`));
+  assert.match(good.headline, /12 h of real work: 5\.3 h more/);
+  assert.ok(good.wins.some(w => /Most time: Study, 10 h/.test(w)), good.wins.join(' | '));
+  assert.ok(good.next.some(w => /Study: try for 11 h/.test(w)), good.next.join(' | '));
+  const weak = JSON.parse(run(`JSON.stringify(coachLocal(${n({by: {study: 60}, total: 60, active: 2}, {by: {study: 400}, total: 400})}))`));
+  assert.match(weak.watch, /No need to be hard on yourself/);
+  assert.equal(run(`cleanCoach({headline: 5})`), null);
+  const c = JSON.parse(run(`JSON.stringify(cleanCoach({headline: 'Great week', wins: ['a', 3, 'b', 'c', 'd', 'e'], watch: null, next: ['x']}))`));
+  assert.deepEqual([c.wins.length, c.watch, c.next.length], [4, '', 1]);
+  assert.doesNotMatch(run(`coachHTML(cleanCoach({headline: '<img src=x onerror=alert(1)>', wins: [], next: []}))`), /<img/);
+  assert.match(run(`jobView({kind: 'review', provider: 'kai', result: {headline: 'Strong week', wins: ['10 h of study'], watch: '', next: []}})`), /Strong week/);
+  assert.match(run(`jobView({kind: 'review', provider: 'kai', result: {text: 'old plain review'}})`), /old plain review/);
+  assert.match(run(`coachPrompt(weekNumbers())`), /"this_week"/);
+});
+
+test('Focus with blocked apps: blocks at the start, unblocks at the end, and stopping early takes a wait and a typed sentence', async () => {
+  const T0 = Date.UTC(2030, 0, 11, 9, 0);
+  run(`globalThis.now10 = Date.now; globalThis.T = ${T0}; Date.now = () => T; globalThis.toast10 = toast; toast = () => {}; globalThis.meta10 = clone(meta());     globalThis.stCalls = []; window.Capacitor = {isNativePlatform: () => true, Plugins: {ScreenTime: {status: async () => ({supported: true, authorized: true, apps: 3, categories: 1, sites: 0}), block: async () => { stCalls.push('block'); }, unblock: async () => { stCalls.push('unblock'); }}}}`);
+  const day = run(`iso(${T0})`);
+  try {
+    run(`setMeta({focusBlock: true}); ST_STATE = {supported: true, authorized: true, apps: 3, categories: 1, sites: 0}`);
+    run(`focusStart(25, 'Physics')`);
+    assert.equal(run(`FOCUS.blocked`), true);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['block']);
+    run(`FOCUS_SAVE = FOCUS; FOCUS = null; SH = {}`);
+    assert.match(run(`blockField()`), /Block distracting apps.*Apps and categories chosen: 4/, 'the Focus sheet offers the switch on an iPhone');
+    run(`FOCUS = FOCUS_SAVE; SH = null`);
+    assert.match(run(`buildReminders(T).find(r => r.key === 'focus_end').body`), /unblock your apps/);
+    run(`T += 10 * 60000; A.focusEnd()`);
+    assert.ok(run(`!!FOCUS`), 'End now opens the unlock step instead of ending');
+    assert.match(run(`unlockBody()`), /I choose distraction over my work/);
+    run(`unlockTry('I choose distraction over my work')`);
+    assert.ok(run(`!!FOCUS`), 'not before the wait');
+    run(`T += 31000; unlockTry('whatever')`);
+    assert.ok(run(`!!FOCUS`), 'not with the wrong sentence');
+    run(`unlockTry('i choose DISTRACTION over my work!')`);
+    assert.equal(run(`FOCUS`), null);
+    await new Promise(r => setTimeout(r, 5));
+    assert.equal(run(`stCalls.at(-1)`), 'unblock');
+    const f = JSON.parse(run(`JSON.stringify(getDay('${day}').focus.at(-1))`));
+    assert.deepEqual([f.blocked, f.gaveUp, f.min], [true, true, 10]);
+    run(`stCalls.length = 0; focusStart(25, 'x'); T += 26 * 60000; focusTick()`);
+    await new Promise(r => setTimeout(r, 5));
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['block', 'unblock'], 'a full session unblocks by itself');
+    run(`stCalls.length = 0; setMeta({focusBlock: false}); focusStart(25, 'y')`);
+    assert.equal(run(`FOCUS.blocked || false`), false, 'nothing is blocked when the setting is off');
+    run(`A.focusEnd()`);
+    assert.equal(run(`FOCUS`), null, 'and ending early is one tap, as before');
+    run(`stCalls.length = 0; stSafety()`);
+    await new Promise(r => setTimeout(r, 5));
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['unblock'], 'opening KAI lifts any shield left without a session');
+  } finally { run(`Date.now = now10; toast = toast10; FOCUS = null; focusSave(); delete window.Capacitor; ST_STATE = null; save('app/meta', meta10)`); }
+});
+
+test('voice: offered only where speech recognition exists, and the mic on the Day tab can start it', () => {
+  assert.equal(run(`voiceOK()`), false);
+  run(`window.webkitSpeechRecognition = function(){}`);
+  try {
+    assert.equal(run(`voiceOK()`), true);
+    assert.match(run(`viewDay()`), /data-act="tell" data-voice="1"/);
+  } finally { run(`delete window.webkitSpeechRecognition`); }
 });

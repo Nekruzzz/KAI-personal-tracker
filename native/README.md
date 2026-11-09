@@ -2,7 +2,7 @@
 
 This wraps the `kai/` folder as a real iPhone app with [Capacitor](https://capacitorjs.com). There is no second copy of the app: `npx cap sync ios` copies `kai/` in, and the native features sit in the `v8` section of `kai/app.js`.
 
-It adds reminders that fire while the app is closed, Apple Health (read only), Sign in with Apple, native vibration and file sharing.
+It adds reminders that fire while the app is closed, Apple Health (read only), Sign in with Apple, native vibration and file sharing. KAI's own plugin in `plugins/kai-native` adds speech to text for Tell KAI and app blocking during Focus (see `docs/screen-time-blocking.md`).
 
 ## What works without a Mac
 
@@ -26,7 +26,7 @@ The account costs $99 a year.
 
 1. Change `appId` in `capacitor.config.json` and `PRODUCT_BUNDLE_IDENTIFIER` in the Xcode project to an ID you own, such as `com.yourname.kai`. The current `app.kaitracker.ios` is a placeholder, and an ID can't be changed in App Store Connect once an app is registered under it.
 2. Run `npx cap open ios` and pick your team under Signing & Capabilities in Xcode.
-3. Check that **Sign in with Apple** and **HealthKit** appear under Capabilities. `App/App.entitlements` already asks for both.
+3. Check that **Sign in with Apple** and **HealthKit** appear under Capabilities. `App/App.entitlements` already asks for both. Add **Family Controls** there too, for app blocking during Focus; App Store builds need Apple to approve it first.
 4. Run it on your phone and try the list below.
 5. Choose Product → Archive and send it to TestFlight.
 
@@ -38,6 +38,8 @@ None of this has run on an iPhone yet, so these are the first things to check:
 
 - Add an exam, turn on reminders under More, and check one arrives with the app closed. Set the exam about 2 hours and 5 minutes ahead to see one soon.
 - Connect Apple Health and check that steps, sleep and a workout show up, and that your own typed entries didn't change.
+- In Tell KAI, tap "Say it out loud", speak a sentence in English and one in Russian, and check the text and what KAI understood.
+- Start a 25-minute Focus with app blocking on: the chosen apps should be blocked, "Finish now" should make you wait and type, and the apps should open again after the session.
 - Sign in with Apple. This also needs Apple enabled in Supabase, with the bundle ID above as the client ID.
 - Take a food photo, export a backup, and share the weekly recap.
 - Check the top and bottom of the screen on a phone with a notch, and that the keyboard doesn't cover text fields.

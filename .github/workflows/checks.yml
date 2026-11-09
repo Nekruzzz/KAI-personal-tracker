@@ -16,6 +16,10 @@ jobs:
           node-version: 24
       - name: App tests
         run: node --test tests/app.test.mjs
+      - name: English for every interface text
+        run: |
+          npm install --prefix "$RUNNER_TEMP/i18n" --no-audit --no-fund acorn@8.15.0 acorn-walk@8.3.4
+          NODE_PATH="$RUNNER_TEMP/i18n/node_modules" node tools/check-i18n.js kai
       - name: Server tests
         working-directory: server
         run: |

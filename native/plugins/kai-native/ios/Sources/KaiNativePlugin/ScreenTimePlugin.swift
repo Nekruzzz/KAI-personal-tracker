@@ -96,8 +96,12 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
+    // Clears the three shields set in block(). store.clearAllSettings() would be shorter,
+    // but it needs iOS 16 and the app still supports iOS 15.
     @objc func unblock(_ call: CAPPluginCall) {
-        store.clearAllSettings()
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
         call.resolve()
     }
 }

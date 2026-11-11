@@ -3323,3 +3323,17 @@ test('voice: offered only where speech recognition exists, and the mic on the Da
     assert.match(run(`viewDay()`), /data-act="tell" data-voice="1"/);
   } finally { run(`delete window.webkitSpeechRecognition`); }
 });
+
+test('v9 fixes: own activities show and can be removed, the coach never pushes more training or work, a day holds 24 hours', () => {
+  run(`globalThis.meta70 = clone(meta()); globalThis.toast70 = toast; toast = () => {}`);
+  try {
+    run(`setMeta({acts: [{id: 'a_new', name: 'Guitar'}]})`);
+    assert.ok(run(`actsByUse().slice(0, 6).includes('a_new')`), 'a new activity is among the six buttons');
+    run(`SH = {}; A.actOff({dataset: {id: 'a_new'}}); SH = null`);
+    assert.equal(run(`allActs().includes('a_new')`), false);
+    assert.equal(run(`actOf('a_new').name`), 'Guitar', 'its records keep the name');
+    const n = by => JSON.stringify({cur: {by, total: Object.values(by).reduce((a, b) => a + b, 0), active: 5, sleep: null, focusN: 0, focusMin: 0, leaves: 0, tasks: 0}, was: {by: {}, total: 0, active: 0, focusN: 0, focusMin: 0, leaves: 0, tasks: 0}, best: null, streak: 0});
+    assert.ok(!JSON.parse(run(`JSON.stringify(coachLocal(${n({gym: 600, work: 900})}).next)`)).some(x => /Workout:|Work:/.test(x)));
+    assert.ok(JSON.parse(run(`JSON.stringify(coachLocal(${n({study: 5000})}).next)`)).some(x => /rest day/.test(x)), 'a huge week gets rest advice');
+  } finally { run(`toast = toast70; save('app/meta', meta70)`); }
+});

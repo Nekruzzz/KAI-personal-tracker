@@ -2456,5 +2456,9 @@ window.I18N_EN = {
 "Не получилось заблокировать приложения":"Couldn't block the apps",
 "Открой KAI, чтобы засчитать время и снять блокировку приложений.":"Open KAI to count the time and unblock your apps.",
 "Таймер всё ещё идёт":"The timer is still running",
-"{a}: 3 часа. Если уже закончил, останови таймер.":"{a}: 3 hours. If you've finished, stop the timer."
+"{a}: 3 часа. Если уже закончил, останови таймер.":"{a}: 3 hours. If you've finished, stop the timer.",
+"В сутках 24 часа: за сегодня уже записано слишком много":"A day has 24 hours: too much is already logged for today",
+"Нагрузка уже большая. На следующей неделе важнее сон и один день отдыха, чем новые часы.":"That's already a heavy load. Next week, sleep and one rest day matter more than extra hours.",
+"Твои занятия":"Your activities",
+"Занятие убрано. Записанное время осталось.":"Activity removed. The time you logged stays.",
 };

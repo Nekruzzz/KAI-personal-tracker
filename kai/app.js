@@ -1886,7 +1886,7 @@ function weekCard(){
   return `<div class="sec-h"><h2>${tr("Итоги 7 дней")}</h2></div><section class="card" style="display:flex;flex-direction:column;gap:12px">
     <div class="kv kv-ic">${cells.map(([l,v,c,i])=>`<div><span>${ic(i)}${l}</span><b class="${c?'t-'+c:''}">${v}</b></div>`).join('')}</div>
     ${w.fedDays < 5 ? `<div class="hint">${tr("Еда записана только за")} ${w.fedDays} ${plural(w.fedDays,tr('день'),tr('дня'),tr('дней'))} ${tr("из 7 — средние по питанию неточные.")}</div>` : ''}
-    <button class="btn ghost" data-act="weekReview">${ic('spark')}${tr("Разбор недели от ИИ")}</button></section>`;
+    <button class="btn ghost" data-act="weekReview">${ic('spark')}${tr("Разбор недели")}</button></section>`;
 }
 function weekReportText(){
   const days = [...Array(7)].map((_,i)=>addDays(todayISO(), i-6));
@@ -6888,7 +6888,8 @@ const allActs = () => [...ACTS.map(a => a[0]), ...(meta().acts || []).filter(x =
 function actsByUse(){
   const n = {};
   for (let i = 0; i < 30; i++) (S.docs['days/' + addDays(todayISO(), -i)]?.track || []).forEach(x => { n[x.a] = (n[x.a] || 0) + 1; });
-  return allActs().sort((a, b) => (n[b] || 0) - (n[a] || 0));
+  const own = id => /^a_/.test(id) ? 1 : 0;
+  return allActs().sort((a, b) => (n[b] || 0) - (n[a] || 0) || own(b) - own(a)); // an activity the person added shows before built-in ones never used
 }
 const clockOf = ms => { const t = new Date(ms); return pad(t.getHours()) + ':' + pad(t.getMinutes()); };
 function trackAdd(date, a, min, at){
@@ -6987,15 +6988,16 @@ function timeBody(){
     <div class="sec-h"><h2>${tr('Сегодня')}</h2></div>
     <section class="card" style="padding:4px 16px"><div class="list">${today.map(x => { const a = actOf(x.a); return `<div class="row"><span class="ic">${ic(a.icon)}</span><div class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(x.at || '')} · ${fmtMin(x.min)}</div></div><button class="iconbtn" data-act="trackDelOne" data-id="${esc(x.id)}" aria-label="${tr('Удалить')} ${esc(a.name)}">${ic('x')}</button></div>`; }).join('') || `<div class="empty">${tr('Записей с таймера сегодня нет.')}</div>`}</div></section>
     <div class="field"><label for="tmA">${tr('Забыл включить таймер? Добавь время')}</label><div style="display:flex;gap:8px"><select class="in" id="tmA">${allActs().map(id => `<option value="${esc(id)}">${esc(actOf(id).name)}</option>`).join('')}</select><input class="in" id="tmM" inputmode="numeric" placeholder="${tr('мин')}" style="width:90px" aria-label="${tr('Минуты')}"><button class="btn" data-act="trackAddManual" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
-    <div class="field"><label for="tmN">${tr('Своё занятие')}</label><div style="display:flex;gap:8px"><input class="in" id="tmN" placeholder="${tr('например, гитара или английский')}"><button class="btn" data-act="actAdd" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
+    ${ownActsHTML()}<div class="field"><label for="tmN">${tr('Своё занятие')}</label><div style="display:flex;gap:8px"><input class="in" id="tmN" placeholder="${tr('например, гитара или английский')}"><button class="btn" data-act="actAdd" aria-label="${tr('Добавить')}">${ic('plus')}</button></div></div>
     <button class="btn ghost block" data-act="weekReview">${ic('spark')}${tr('Разбор недели')}</button>`;
 }
 A.timeSheet = () => openSheet(tr('Твоё время'), timeBody);
 A.tPer = el => { SH.tper = el.dataset.v; haptic('selection'); drawSheet(); };
-A.trackDelOne = el => { trackDel(todayISO(), el.dataset.id); drawSheet(); };
+A.trackDelOne = el => withUndo(['days/' + todayISO()], () => { trackDel(todayISO(), el.dataset.id); drawSheet(); });
 A.trackAddManual = () => {
   const a = val('tmA'), m = Math.round(toNum(val('tmM')) || 0);
   if (!a || m < 1 || m > TRACK_MAX) return toast(tr('Впиши минуты, от 1 до 960'));
+  if (trackedToday() + m > 1440) return toast(tr('В сутках 24 часа: за сегодня уже записано слишком много'));
   trackAdd(todayISO(), a, m, ''); haptic('light'); drawSheet(); toast(trf('{a}: {t} записано', {a: actOf(a).name, t: fmtMin(m)}), {icon: actOf(a).icon, tone: 'good'});
 };
 A.actAdd = () => {
@@ -7018,7 +7020,8 @@ async function voiceStart(){
   if (!$('#tellT') || VOICE) return;
   const base = (val('tellT') || '').trim(), lang = LANG === 'ru' ? 'ru-RU' : (/^en-/.test(navigator.language || '') ? navigator.language : 'en-US');
   const put = t => { const b = $('#tellT'); if (b) b.value = (base ? base + ' ' : '') + String(t || '').trim(); };
-  const done = () => { VOICE = null; drawMic(); setMeta({voiceUsed: true}); if (SH && $('#tellT') && val('tellT') && val('tellT') !== base) A.tellGo(); };
+  const done = () => { if (!VOICE && !heardAny()) return; VOICE = null; drawMic(); if (heardAny()){ if (!meta().voiceUsed) setMeta({voiceUsed: true}); if (SH) A.tellGo(); } }; // a refused microphone isn't "used"
+  const heardAny = () => !!(SH && $('#tellT') && val('tellT') && val('tellT').trim() !== base);
   const sp = isNative() && plug('Speech');
   if (sp){
     let ok = false; try { ok = (await sp.authorize()).granted; } catch {}
@@ -7028,7 +7031,7 @@ async function voiceStart(){
     h1 = await sp.addListener('partial', d => put(d?.text));
     h2 = await sp.addListener('end', () => { off(); done(); });
     try { await sp.start({language: lang}); } catch { off(); return toast(tr('Не получилось включить микрофон')); }
-    VOICE = {stop: () => sp.stop().catch(() => {})};
+    VOICE = {stop: () => { sp.stop().catch(() => {}); voiceGuard(done); }};
   } else {
     const R = WebSR(); if (!R) return;
     const r = new R(); r.lang = lang; r.interimResults = true; r.continuous = true;
@@ -7036,7 +7039,7 @@ async function voiceStart(){
     r.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast(tr('Разреши доступ к микрофону')); };
     r.onend = done;
     try { r.start(); } catch { return; }
-    VOICE = {stop: () => { try { r.stop(); } catch {} }};
+    VOICE = {stop: () => { try { r.stop(); } catch {} voiceGuard(done); }};
   }
   haptic('light'); drawMic();
 }
@@ -7073,7 +7076,9 @@ function coachLocal(n){
     : cur.sleep && cur.sleep < 7 ? trf('Сон в среднем {h} ч. Меньше 7 часов съедает силы на всё остальное.', {h: num(cur.sleep, 1)})
     : cur.focusN >= 2 && cur.leaves > cur.focusN * 2 ? trf('В фокусе {n} отвлечений за неделю. Попробуй убрать телефон в другую комнату.', {n: cur.leaves}) : '';
   const next = [];
-  if (top[0]) next.push(trf('{a}: попробуй {t} за следующую неделю', {a: actOf(top[0][0]).name, t: hoursOf(Math.max(30, Math.round(top[0][1] * 1.1 / 30) * 30))}));
+  const grow = top.find(([id, m]) => !['gym', 'work'].includes(id) && m < COACH_CAP); // more training is the program's call, and nobody needs a push to work longer
+  if (cur.total > 70 * 60) next.push(tr('Нагрузка уже большая. На следующей неделе важнее сон и один день отдыха, чем новые часы.'));
+  else if (grow) next.push(trf('{a}: попробуй {t} за следующую неделю', {a: actOf(grow[0]).name, t: hoursOf(Math.min(COACH_CAP, Math.max(30, Math.round(grow[1] * 1.1 / 30) * 30)))}));
   if (cur.active < 7) next.push(trf('Цель: {n} активных дней', {n: Math.min(7, cur.active + 1)}));
   return {headline, wins: wins.slice(0, 4), watch, next: next.slice(0, 3)};
 }
@@ -7171,6 +7176,17 @@ A.focusEnd = () => { if (FOCUS?.blocked) return A.unlockSheet(); focusEndPlain()
 /* a shield must never outlive its session: with no Focus running, opening KAI lifts it */
 function stSafety(){ const p = ST(); if (p && !FOCUS) p.unblock().catch(() => {}); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ stSafety(); if (TRACK) trackTick(); } });
+
+/* ============ v9 fixes: voice that can't get stuck, own activities that can be removed, sane limits ============ */
+const COACH_CAP = 40 * 60; // the coach never suggests more than 40 hours a week of one activity
+function voiceGuard(done){ setTimeout(() => { if (VOICE){ VOICE = null; drawMic(); done(); } }, 3000); } // the recognizer never said "end": stop showing "Listening"
+const trackedToday = () => (getDay(todayISO()).track || []).reduce((a, x) => a + (+x.min || 0), 0);
+function ownActsHTML(){
+  const own = (meta().acts || []).filter(x => !x.off); if (!own.length) return '';
+  return `<div class="field"><label>${tr('Твои занятия')}</label><div class="pills" style="margin:0;padding:0;flex-wrap:wrap">${own.map(x => `<button class="pill" data-act="actOff" data-id="${esc(x.id)}" aria-label="${esc(tr('Убрать') + ': ' + x.name)}">${esc(x.name)} ${ic('x')}</button>`).join('')}</div></div>`;
+}
+A.actOff = el => withUndo(['app/meta'], () => { setMeta({acts: (meta().acts || []).map(x => x.id === el.dataset.id ? {...x, off: true} : x)}); drawSheet(); }, tr('Занятие убрано. Записанное время осталось.'));
+{ const ff0 = focusFinish; focusFinish = (...a) => { const r = ff0(...a); if (SH?.unlockAt) closeSheet(); return r; }; } // the session ended by itself while "Finish early?" was open
 
 /* ============ init ============ */
 async function init(){

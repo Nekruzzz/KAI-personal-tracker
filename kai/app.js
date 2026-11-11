@@ -1160,6 +1160,7 @@ function checkBadges(){
   checkLevel();
   freezeTick();
   challengeTick();
+  goalsTick();
   const have = meta().badges, earned = earnedBadgeIds();
   if (!have){ initBadges(); return; }
   const fresh = earned.filter(id => !have[id]);
@@ -1294,6 +1295,7 @@ function viewDay(){
   // the daily list decides whether the day counts, so it comes before the rest of the day
   h += `<div class="sec-h" id="dailyH"><h2 tabindex="-1">${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
   <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
+  h += goalsCard();
   h += nowCard();
   h += taskCard();
   h += timelineCard();
@@ -2390,7 +2392,7 @@ A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();
   // everything this answer can change, kept so one tap can undo it
-  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts', 'app/savings']);
+  const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts', 'app/savings', 'app/goals']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
@@ -4448,7 +4450,7 @@ function totalXPFresh(){
     const done = (d.tasks || []).filter(t => t.done).length, t = timeOn(k);
     xp += done * 10 + (d.tasks?.length && done === d.tasks.length ? 20 : 0) + Math.round((t.walk + t.gym + t.study + trackOther(k)) / 2);
   });
-  return xp + smartTasks().filter(t => t.done).length * 10 + smartTasks().filter(t => t.done && t.mit && t.mit === t.doneAt).length * MIT_XP + challengeXP();
+  return xp + smartTasks().filter(t => t.done).length * 10 + smartTasks().filter(t => t.done && t.mit && t.mit === t.doneAt).length * MIT_XP + challengeXP() + goalsXP();
 }
 function levelOf(xp){
   let n = 0; while (xp >= xpFor(n + 1)) n++;
@@ -7222,6 +7224,95 @@ function cleanClasses(list, have){
   });
   return out;
 }
+
+/* ============ objectives: a target, a deadline, and progress counted from what is already logged (hours of an activity, days that count) or by hand. Quarter marks are celebrated, the goal gives +100 XP ============ */
+const GOAL_XP = 100;
+const goalsDoc = () => S.docs['app/goals'] || {list: []};
+const goals = () => (goalsDoc().list || []).filter(g => !g.hidden);
+function goalValue(g){
+  const today = todayISO(), end = g.doneAt || today;
+  if (g.kind === 'count') return +g.count || 0;
+  return memo('goal:' + g.id + ':' + end, () => {
+    const days = []; for (let k = g.start; k <= end && days.length < 800; k = addDays(k, 1)) days.push(k);
+    if (g.kind === 'days') return days.filter(k => { const d = S.docs['days/' + k]; return d && d.status !== 'sick' && daySecured(d); }).length;
+    return Math.round((actMinutes(days)[g.act] || 0) / 6) / 10; // hours, one decimal
+  });
+}
+const goalPct = g => g.target > 0 ? Math.min(100, Math.round(goalValue(g) / g.target * 100)) : 0;
+const goalUnit = g => g.kind === 'time' ? tr('ч') : g.kind === 'days' ? plural(g.target, tr('день'), tr('дня'), tr('дней')) : esc(g.unit || '');
+/* with a deadline: what is needed per week from here, and whether the pace so far is enough */
+function goalPace(g){
+  if (!g.due || g.doneAt) return '';
+  const today = todayISO(), v = goalValue(g), left = Math.max(0, g.target - v), dl = dayDiff(today, g.due);
+  if (dl < 0) return trf('Срок прошёл {d}. Осталось {n}.', {d: fmtShort(g.due), n: num(left, left % 1 ? 1 : 0)});
+  const perWeek = left / Math.max(1, dl + 1) * 7, span = Math.max(1, dayDiff(g.start, g.due) + 1), should = g.target * Math.min(1, (dayDiff(g.start, today) + 1) / span);
+  const need = trf('до {d} нужно {n} в неделю', {d: fmtShort(g.due), n: num(perWeek, perWeek < 10 && perWeek % 1 ? 1 : 0)});
+  return (v >= should * 0.95 ? tr('В графике') : tr('Отстаёшь от графика')) + ': ' + need;
+}
+function goalsCard(){
+  const list = goals();
+  if (!list.length) return `<button class="card navrow" data-act="goalNew"><span class="ic">${ic('target')}</span><div class="mid"><div class="t">${tr('Поставить цель')}</div><div class="s">${tr('Часы учёбы, дни подряд, книги: KAI считает прогресс сам')}</div></div>${ic('chevR')}</button>`;
+  const row = g => {
+    const v = goalValue(g), p = goalPct(g), done = !!g.doneAt || v >= g.target, pace = goalPace(g);
+    return `<div class="sv ${done ? 'done' : ''}"><div class="sv-h"><span>${done ? ic('checkc') : ''}${esc(g.title)}</span><b>${num(v, v % 1 ? 1 : 0)} / ${num(g.target)} ${goalUnit(g)}</b></div>
+      <div class="bar" role="progressbar" aria-label="${esc(g.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><i style="width:${p}%;background:var(--${done ? 'good' : 'accent'})"></i></div>
+      <div class="sv-f"><span class="hint">${done ? tr('Цель достигнута') : pace ? esc(pace) : p + '%'}</span><span style="display:flex;gap:8px;align-items:center">${g.kind === 'count' && !done ? `<button class="btn ghost sm" data-act="goalPlus" data-id="${esc(g.id)}" aria-label="${esc(trf('Плюс один: {t}', {t: g.title}))}">${ic('plus')}1</button>` : ''}<button class="link" data-act="goalEdit" data-id="${esc(g.id)}" aria-label="${esc(trf('Изменить цель: {t}', {t: g.title}))}">${tr('Изменить')}</button></span></div></div>`;
+  };
+  return `<div class="sec-h"><h2>${tr('Цели')}</h2><button class="link" data-act="goalNew">${tr('+ Цель')}</button></div><section class="card svs">${list.map(row).join('')}</section>`;
+}
+function goalSheetBody(){
+  if (!SH.g){ SH.g = GOAL_INIT.g; SH.gEdit = GOAL_INIT.edit; }
+  const g = SH.g, kinds = [['time', tr('Часы занятия')], ['days', tr('Засчитанные дни')], ['count', tr('Свой счётчик')]];
+  return `<div class="field"><label for="glT">${tr('Чего хочешь достичь')}</label><input class="in" id="glT" maxlength="60" value="${esc(g.title || '')}" placeholder="${tr('например, 100 часов учёбы до сессии')}"></div>
+    <div class="field"><label id="glKL">${tr('Как считать')}</label><div class="seg" role="group" aria-labelledby="glKL">${kinds.map(([k, l]) => `<button class="${g.kind === k ? 'on' : ''}" aria-pressed="${g.kind === k}" data-act="goalKind" data-v="${k}" ${SH.gEdit ? 'disabled' : ''}>${l}</button>`).join('')}</div></div>
+    ${g.kind === 'time' ? `<div class="field"><label for="glA">${tr('Занятие')}</label><select class="in" id="glA" ${SH.gEdit ? 'disabled' : ''}>${allActs().map(id => `<option value="${esc(id)}" ${g.act === id ? 'selected' : ''}>${esc(actOf(id).name)}</option>`).join('')}</select></div>` : ''}
+    <div class="fgrid"><div class="field"><label for="glN">${g.kind === 'time' ? tr('Сколько часов') : g.kind === 'days' ? tr('Сколько дней') : tr('Сколько')}</label><input class="in" id="glN" inputmode="decimal" value="${esc(g.target || '')}"></div>
+    ${g.kind === 'count' ? `<div class="field"><label for="glU">${tr('Единица')}</label><input class="in" id="glU" maxlength="12" value="${esc(g.unit || '')}" placeholder="${tr('книг, км')}"></div>` : `<div class="field"><label for="glD">${tr('Срок (необязательно)')}</label><input class="in" type="date" id="glD" value="${esc(g.due || '')}"></div>`}</div>
+    ${g.kind === 'count' ? `<div class="field"><label for="glD">${tr('Срок (необязательно)')}</label><input class="in" type="date" id="glD" value="${esc(g.due || '')}"></div>` : ''}
+    <div class="hint">${g.kind === 'time' ? tr('Считается само: таймеры, фокус, пары и то, что ты рассказываешь KAI.') : g.kind === 'days' ? tr('Считаются дни, где выполнено 70% задач, начиная с сегодняшнего.') : tr('Отмечай сам кнопкой «+1» на экране «День».')}</div>
+    <button class="btn block" data-act="goalSave">${tr('Сохранить')}</button>
+    ${SH.gEdit ? `<button class="link" data-act="goalHide" data-id="${esc(g.id)}" style="align-self:center">${tr('Удалить цель')}</button>` : ''}`;
+}
+const goalRead = () => { const g = SH.g; g.title = val('glT'); g.target = val('glN'); if ($('#glA')) g.act = val('glA'); if ($('#glU')) g.unit = val('glU'); if ($('#glD')) g.due = val('glD'); };
+let GOAL_INIT = null; // what the sheet starts from; openSheet draws before anything can be put on SH
+A.goalNew = () => { SH = null; GOAL_INIT = {g: {kind: 'time', act: actsByUse()[0], title: '', target: '', due: ''}, edit: false}; openSheet(tr('Новая цель'), goalSheetBody); };
+A.goalEdit = el => { const g = goals().find(x => x.id === el.dataset.id); if (!g) return; SH = null; GOAL_INIT = {g: {...g}, edit: true}; openSheet(tr('Цель'), goalSheetBody); };
+A.goalKind = el => { if (SH.gEdit) return; goalRead(); SH.g.kind = el.dataset.v; haptic('selection'); drawSheet(); };
+A.goalSave = () => {
+  goalRead(); const g = SH.g, title = String(g.title || '').trim().slice(0, 60), target = Math.abs(toNum(g.target) || 0);
+  if (!title) return toast(tr('Впиши, чего хочешь достичь')); if (!target || target > 100000) return toast(tr('Впиши число'));
+  if (g.kind === 'days' && target > 730) return toast(tr('Впиши число'));
+  const due = DATE_RE.test(g.due || '') && g.due >= todayISO() ? g.due : '';
+  const doc = goalsDoc(), list = doc.list || [];
+  const item = SH.gEdit ? {...list.find(x => x.id === g.id), title, target, due} : {id: uid(), kind: g.kind, title, target, due, start: todayISO(), ...(g.kind === 'time' ? {act: g.act || 'study'} : {}), ...(g.kind === 'count' ? {unit: String(g.unit || '').trim().slice(0, 12), count: 0} : {})};
+  if (item.doneAt && goalValue({...item, doneAt: null}) < target) delete item.doneAt; // the target was raised: the goal is open again
+  save('app/goals', {...doc, list: SH.gEdit ? list.map(x => x.id === item.id ? item : x) : [...list, item]});
+  closeSheet(); haptic('success'); toast(tr('Цель сохранена'));
+};
+A.goalHide = el => { const doc = goalsDoc(); closeSheet(); withUndo(['app/goals'], () => save('app/goals', {...doc, list: (doc.list || []).map(x => x.id === el.dataset.id ? {...x, hidden: true} : x)}), tr('Цель убрана')); };
+A.goalPlus = el => {
+  const doc = goalsDoc(), g = (doc.list || []).find(x => x.id === el.dataset.id); if (!g || g.kind !== 'count') return;
+  burstAt(el); haptic('light'); sound('pop');
+  withUndo(['app/goals'], () => save('app/goals', {...doc, list: doc.list.map(x => x.id === g.id ? {...x, count: (+x.count || 0) + 1} : x)}), trf('{t}: {n}', {t: g.title, n: (+g.count || 0) + 1}));
+};
+/* called with the award check: marks finished goals and celebrates quarter marks once each */
+function goalsTick(){
+  const doc = goalsDoc(), list = doc.list || []; if (!list.length) return;
+  let changed = false; const say = [];
+  const next = list.map(g => {
+    if (g.hidden) return g;
+    const p = goalPct(g), was = g.ms || 0, mark = [100, 75, 50, 25].find(x => p >= x) || 0;
+    let x = g;
+    if (g.doneAt && p < 100){ x = {...x}; delete x.doneAt; x.ms = mark; changed = true; return x; } // an Undo took it back under the target
+    if (mark > was){ x = {...x, ms: mark, ...(mark === 100 ? {doneAt: todayISO()} : {})}; changed = true; say.push([g.title, was, mark]); }
+    else if (mark < was){ x = {...x, ms: mark}; changed = true; }
+    return x;
+  });
+  if (!changed) return;
+  save('app/goals', {...doc, list: next});
+  say.slice(0, 1).forEach(([t, a, b]) => saveMilestone(t, a, b));
+}
+const goalsXP = () => (goalsDoc().list || []).filter(g => g.doneAt).length * GOAL_XP;
 
 /* ============ init ============ */
 async function init(){

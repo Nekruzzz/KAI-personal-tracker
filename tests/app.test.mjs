@@ -3356,3 +3356,25 @@ test('Tell KAI with a photo: a timetable becomes classes, shown first, clash-che
     assert.match(run(`tellPhotoField()`), /tellFileOff/);
   } finally { run(`SH = null; save('app/plan', plan71)`); }
 });
+
+test('objectives: progress from the records, pace against a deadline, a counter with Undo, +100 XP once reached', () => {
+  run(`globalThis.g72 = S.docs['app/goals'] ? clone(S.docs['app/goals']) : null; globalThis.day72 = clone(getDay(todayISO())); globalThis.toast72 = toast; toast = () => {}; globalThis.cf72 = confetti; confetti = () => {}`);
+  try {
+    run(`save('app/goals', {list: [{id: 'g1', kind: 'time', act: 'read', title: 'Read 2 h', target: 2, start: todayISO(), due: addDays(todayISO(), 6)}, {id: 'g2', kind: 'count', title: 'Books', target: 3, unit: 'books', count: 0, start: todayISO()}]}); mutDay(todayISO(), d => { d.track = []; })`);
+    assert.match(run(`goalsCard()`), /Read 2 h/);
+    assert.equal(run(`goalValue(goals()[0])`), 0);
+    run(`trackAdd(todayISO(), 'read', 60, '')`);
+    assert.equal(run(`goalValue(goals()[0])`), 1, 'an hour of reading counts by itself');
+    assert.match(run(`goalPace(goals()[0])`), /On pace|В графике/);
+    const xp0 = run(`totalXP()`);
+    run(`trackAdd(todayISO(), 'read', 60, ''); goalsTick()`);
+    assert.ok(run(`!!goals()[0].doneAt`), 'reached');
+    assert.equal(run(`totalXP()`) - xp0, 30 + 100, '60 minutes of effort, and the goal');
+    run(`goalsTick()`); assert.equal(run(`goalsXP()`), 100, 'once');
+    run(`A.goalPlus({dataset: {id: 'g2'}})`);
+    assert.equal(run(`goals()[1].count`), 1);
+    run(`A.undoApply()`); assert.equal(run(`goals()[1].count`), 0);
+    run(`globalThis.FORM = {'#glT': 'Study 50 h', '#glN': '50', '#glA': 'study', '#glD': ''}; A.goalNew(); A.goalSave(); delete globalThis.FORM`);
+    assert.equal(run(`goals().length`), 3); assert.equal(run(`goals()[2].act`), 'study');
+  } finally { run(`toast = toast72; confetti = cf72; SH = null; g72 ? save('app/goals', g72) : remove('app/goals'); save('days/' + todayISO(), day72)`); }
+});

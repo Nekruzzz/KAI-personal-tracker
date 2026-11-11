@@ -2324,12 +2324,14 @@ A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   ${SH?.tellHelp ? tellHelpHTML() : ''}
   ${connectNudge(true)}
   ${voiceOK() ? `<button class="btn ghost block micb" id="micB" data-act="voice">${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}</button>` : ''}
+  ${tellPhotoField()}
   <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
   ${provPicker(false)}
   <button class="btn block" data-act="tellGo">${ic('send')}${tr("Разобрать")}</button>
   <div id="tellOut" style="display:flex;flex-direction:column;gap:12px"></div>`, b => { if (!SH.jobId) $('#tellT', b).focus(); }); };
 A.tellGo = async () => {
-  const text = val('tellT'); if (!text) return toast(tr('Сначала напиши, что было'));
+  const text = val('tellT'); if (SH.tellFile) return tellPhotoGo(text);
+  if (!text) return toast(tr('Сначала напиши, что было'));
   SH.tellText = text;
   if (carePause(text, 'tellOut', 'tellGo')) return;
   const date = todayISO();
@@ -3962,6 +3964,7 @@ function tellPlan(r){
   (r.update_events || []).forEach(u => { const e = evs.find(x => x.id === u?.id); if (!e) return; if (DATE_RE.test(u.date || '')) e.date = u.date; if (HM_RE.test(u.from || '')){ e.from = u.from; delete e.until; } if (HM_RE.test(u.until || '')) e.until = u.until; if (u.title) e.title = String(u.title).slice(0, 120); });
   evs = evs.concat((r.events || []).map(cleanEv).filter(Boolean).filter(e => !evs.some(x => sameTitle(x.title, e.title) && x.date === e.date))); // the same event told twice is added once
   pl.routine.events = evs;
+  pl.classes = [...(pl.classes || []), ...cleanClasses(r.classes, pl.classes)]; // a timetable read from a photo
   const tasks = (r.new_tasks || []).map(cleanTask).filter(Boolean).filter((t, i, a) => !dupTask(t) && a.findIndex(x => sameTitle(x.title, t.title) && x.due === t.due) === i); // "gym every Monday" told twice is one to-do
   const moves = (r.move_workouts || []).filter(m => DATE_RE.test(m?.from || '') && workoutFor(m.from) && (!m.to || DATE_RE.test(m.to)));
   return {pl, tasks, moves};
@@ -3984,6 +3987,7 @@ function tellPlanLines(r){
   (r.events || []).map(cleanEv).filter(Boolean).forEach(e => lines.push(allEvents().some(x => sameTitle(x.title, e.title) && x.date === e.date) ? trf('Уже в планах: {t}', {t: e.title}) : `+ ${EV_KIND[e.kind][0].toLowerCase()}: ${e.title}, ${fmtShort(e.date)}${e.from ? tr(' в ') + e.from : ''}`));
   (r.update_events || []).filter(u => allEvents().some(e => e.id === u?.id)).forEach(u => lines.push(`${tr("Изменить «")}${name(u.id)}${tr('»')}: ${[u.date && DATE_RE.test(u.date) ? fmtShort(u.date) : '', u.from || ''].filter(Boolean).join(tr(' в '))}`));
   (r.cancel_events || []).filter(id => allEvents().some(e => e.id === id)).forEach(id => lines.push(`${tr("Отменить «")}${name(id)}${tr('»')}`));
+  cleanClasses(r.classes, plan().classes).forEach(c => lines.push(trf('+ пара: {t}, {d} в {h}', {t: c.title, d: DOW_FULL[c.day], h: c.time + (c.end ? '–' + c.end : '')})));
   tasks.forEach(t => lines.push(`${tr("+ задача:")} ${t.title}${t.due ? ', ' + dueLabel(t) : ''}${t.every ? ' · ' + everyText(t) : ''}`));
   [...new Set((r.new_tasks || []).map(cleanTask).filter(t => t && dupTask(t)).map(t => t.title))].forEach(t => lines.push(trf('Уже в планах: {t}', {t})));
   moves.forEach(m => lines.push(m.to ? `${tr("Перенести тренировку:")} ${fmtShort(m.from)} → ${fmtShort(m.to)}` : `${tr("Убрать тренировку")} ${fmtShort(m.from)}`));
@@ -7187,6 +7191,37 @@ function ownActsHTML(){
 }
 A.actOff = el => withUndo(['app/meta'], () => { setMeta({acts: (meta().acts || []).map(x => x.id === el.dataset.id ? {...x, off: true} : x)}); drawSheet(); }, tr('Занятие убрано. Записанное время осталось.'));
 { const ff0 = focusFinish; focusFinish = (...a) => { const r = ff0(...a); if (SH?.unlockAt) closeSheet(); return r; }; } // the session ended by itself while "Finish early?" was open
+
+/* ============ Tell KAI with a photo: a timetable, a notice, a note or a screenshot becomes classes, events and to-dos, shown and checked for clashes before anything changes ============ */
+const tellPhotoField = () => `<label class="btn ghost block">${ic('camera')}${SH?.tellFile ? tr('Другое фото') : tr('Добавить фото: расписание, объявление, записка')}<input type="file" accept="image/*" hidden data-ch="tellFile"></label>
+  ${SH?.tellFile ? `<div class="tell-ph"><img src="${SH.tellUrl}" alt="${tr('Выбранное фото')}"><button class="iconbtn" data-act="tellFileOff" aria-label="${tr('Убрать фото')}">${ic('x')}</button></div>` : ''}`;
+CH.tellFile = el => { const f = el.files?.[0]; if (!f) return; SH.tellText = val('tellT'); SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); haptic('light'); drawSheet(); };
+A.tellFileOff = () => { SH.tellText = val('tellT'); SH.tellFile = null; SH.tellUrl = ''; drawSheet(); };
+function tellPhotoPrompt(text, date){
+  return tellPrompt(text || 'Посмотри фото и внеси то, что на нём.', date) + `
+К сообщению приложено фото: расписание занятий, объявление, записка, чек или снимок экрана. Прочитай его и внеси всё, что на нём есть, по тем же правилам и в том же JSON. Не выдумывай того, чего на фото не видно; неразборчивое пропусти и скажи об этом в reply.
+Если на фото недельное расписание занятий, верни каждое повторяющееся занятие в дополнительном поле "classes": [{"day": 1-7 (1 — понедельник), "time": "ЧЧ:ММ", "end": "ЧЧ:ММ" или null, "title": "предмет, аудитория"}], а не в events. Разовые события с датой (экзамен, дедлайн, встреча) — в events.`;
+}
+async function tellPhotoGo(text){
+  if (!imgCapable()) return toast(tr('Чтобы KAI читал фото, подключи ИИ: Ещё → ИИ'), {ms: 5000});
+  if (carePause(text, 'tellOut', 'tellGo')) return;
+  SH.tellText = text;
+  const date = todayISO(), file = SH.tellFile;
+  const id = await submitJob('tell', {prompt: tellPhotoPrompt(text, date), images: [file], meta: {date, text: text || tr('Фото'), photo: true}, provider: SH.prov || 'auto', label: tr('Фото · ') + fmtShort(date)});
+  if (!id) return;
+  SH.tellFile = null; SH.tellUrl = '';
+  queueNow(id, 'tellOut');
+}
+function cleanClasses(list, have){
+  const key = c => [c.day, c.time, String(c.title).trim().toLowerCase()].join('|'), seen = new Set((have || []).map(key)), out = [];
+  (Array.isArray(list) ? list : []).slice(0, 60).forEach(x => {
+    const day = +x?.day, time = String(x?.time || ''), title = String(x?.title || '').trim().slice(0, 80);
+    if (!(day >= 1 && day <= 7) || !HM_RE.test(time) || !title) return;
+    const c = {day, time, title, ...(HM_RE.test(x.end || '') && x.end > time ? {end: x.end} : {})};
+    if (seen.has(key(c))) return; seen.add(key(c)); out.push(c); // a class already in the timetable isn't added twice
+  });
+  return out;
+}
 
 /* ============ init ============ */
 async function init(){

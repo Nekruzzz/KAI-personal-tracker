@@ -2461,4 +2461,11 @@ window.I18N_EN = {
 "Нагрузка уже большая. На следующей неделе важнее сон и один день отдыха, чем новые часы.":"That's already a heavy load. Next week, sleep and one rest day matter more than extra hours.",
 "Твои занятия":"Your activities",
 "Занятие убрано. Записанное время осталось.":"Activity removed. The time you logged stays.",
+"Другое фото":"Another photo",
+"Добавить фото: расписание, объявление, записка":"Add a photo: timetable, notice, note",
+"Убрать фото":"Remove the photo",
+"Чтобы KAI читал фото, подключи ИИ: Ещё → ИИ":"To let KAI read photos, connect AI: More → AI",
+"Фото":"Photo",
+"Фото ·":"Photo ·",
+"+ пара: {t}, {d} в {h}":"+ class: {t}, {d} at {h}",
 };

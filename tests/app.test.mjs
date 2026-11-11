@@ -3337,3 +3337,22 @@ test('v9 fixes: own activities show and can be removed, the coach never pushes m
     assert.ok(JSON.parse(run(`JSON.stringify(coachLocal(${n({study: 5000})}).next)`)).some(x => /rest day/.test(x)), 'a huge week gets rest advice');
   } finally { run(`toast = toast70; save('app/meta', meta70)`); }
 });
+
+test('Tell KAI with a photo: a timetable becomes classes, shown first, clash-checked, added once', () => {
+  run(`globalThis.plan71 = clone(plan())`);
+  try {
+    const r = {reply: 'ok', classes: [{day: 1, time: '09:00', end: '10:30', title: 'Physics, 204'}, {day: 1, time: '09:00', end: '10:30', title: 'Physics, 204'}, {day: 9, time: '10:00', title: 'bad day'}, {day: 2, time: '25:00', title: 'bad time'}, {day: 3, time: '12:00', title: '<b>Maths</b>'}], events: [{title: 'Dentist', date: run(`nextDow71 = (() => { let k = addDays(todayISO(), 1); while (dow(k) !== 1) k = addDays(k, 1); return k; })()`), from: '09:30', until: '10:00', kind: 'event'}]};
+    const lines = JSON.parse(run(`JSON.stringify(tellLines(${JSON.stringify(r)}, todayISO()))`));
+    assert.equal(lines.filter(l => /class:|пара:/.test(l)).length, 2, lines.join(' | '));
+    const warn = JSON.parse(run(`JSON.stringify(previewWarnings(${JSON.stringify(r)}).map(w => w.text))`));
+    assert.ok(warn.some(w => /Physics/.test(w) && /Dentist/.test(w)), 'the new class clashes with the new event: ' + warn.join(' | '));
+    const n0 = run(`(plan().classes || []).length`);
+    run(`tellPlanApply(${JSON.stringify(r)}, todayISO())`);
+    assert.equal(run(`plan().classes.length`), n0 + 2);
+    run(`tellPlanApply(${JSON.stringify({classes: r.classes})}, todayISO())`);
+    assert.equal(run(`plan().classes.length`), n0 + 2, 'telling it twice adds nothing');
+    assert.match(run(`tellPhotoPrompt('', todayISO())`), /"classes"/);
+    run(`SH = {tellFile: {}, tellUrl: 'blob:x'}`);
+    assert.match(run(`tellPhotoField()`), /tellFileOff/);
+  } finally { run(`SH = null; save('app/plan', plan71)`); }
+});

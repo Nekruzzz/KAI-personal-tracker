@@ -6829,6 +6829,7 @@ function localAnswer(text){
   if (/учил|учёб|учеб|занимал|stud/i.test(t)){ const m = ks.reduce((a, k) => a + timeOn(k).study, 0); return trf('Учёба {p}: {t}.', {p: p.label, t: fmtMin(m)}); }
   if (/шаг|steps/i.test(t)){ const v = ks.map(k => +S.docs['days/' + k]?.steps || 0).filter(Boolean); return v.length ? trf('Шаги {p}: {s} всего, в среднем {a} в день.', {p: p.label, s: num(v.reduce((a, b) => a + b, 0)), a: num(Math.round(v.reduce((a, b) => a + b, 0) / v.length))}) : trf('Шаги {p} не записаны.', {p: p.label}); }
   if (/гулял|прогул|walk/i.test(t)){ const m = ks.reduce((a, k) => a + timeOn(k).walk, 0); return trf('Прогулки {p}: {t}.', {p: p.label, t: fmtMin(m)}); }
+  if (/(?:^|\s)(?:цел[ьияей]+|goals?|objectives?)(?![a-zа-яё])/i.test(t) && goals().length) return goals().map(g => { const v = goalValue(g); return `${g.title}: ${num(v, v % 1 ? 1 : 0)} / ${num(g.target)} (${goalPct(g)}%)`; }).join('. ') + '.';
   if (/серия|streak/i.test(t)){ const st = streak(); return trf('Серия: {n} {d} подряд, рекорд {b}. Заморозок: {f}.', {n: st, d: plural(st, tr('день'), tr('дня'), tr('дней')), b: Math.max(st, bestStreak()), f: freezeDoc().n}); }
   if (/экзамен|зач[её]т|контрольн|exam|test\b|deadline|дедлайн/i.test(t)){
     const e = allEvents().filter(x => (x.kind === 'exam' || x.kind === 'deadline') && x.date >= todayISO()).sort((a, b) => (a.date + (a.from || '')).localeCompare(b.date + (b.from || '')))[0];

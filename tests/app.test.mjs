@@ -3409,3 +3409,9 @@ test('Tell KAI: work, reading, a project and own activities go to the time track
     assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay(todayISO()).track.map(x => [x.a, x.min]))`)), [['work', 180]]);
   } finally { run(`save('app/meta', meta74); save('days/' + todayISO(), day74)`); }
 });
+
+test('Tell KAI answers "how are my goals?"', () => {
+  run(`globalThis.g75 = S.docs['app/goals'] ? clone(S.docs['app/goals']) : null; save('app/goals', {list: [{id: 'q', kind: 'count', title: 'Books', target: 4, count: 1, start: todayISO()}]})`);
+  try { assert.match(run(`localAnswer('how are my goals?')`), /Books: 1 \/ 4 \(25%\)/); }
+  finally { run(`g75 ? save('app/goals', g75) : remove('app/goals')`); }
+});

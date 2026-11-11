@@ -322,5 +322,3 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 22. **The sentence for finishing a blocked Focus early** is "I choose distraction over my work" (Russian: "Я выбираю отвлечься вместо учёбы"), after a 30-second wait. Stricter or gentler is a one-line change: `UNLOCK_WAIT` and `unlockPhrase` in `kai/app.js`.
 23. **Time tracking sits at the top of the Day tab** for everyone. If it feels like too much in the first week, it could appear only after the first Tell KAI message.
 24. **How hard should leaving a blocked Focus be?** Now: a wait of 1 minute that doubles with each early exit in 7 days, up to 10, plus the typed sentence. A mode with no early exit at all is possible, but then a real emergency has no way out except waiting for the session to end, so it was not added. Say if you want it anyway.
-25. **The designated branch on GitHub** still holds the history from before `main` was rewritten. Replacing it needs a force push, which this session was not allowed to do; see the session notes.
-

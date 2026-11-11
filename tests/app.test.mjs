@@ -3294,14 +3294,17 @@ test('Focus with blocked apps: blocks at the start, unblocks at the end, and sto
     assert.match(run(`unlockBody()`), /I choose distraction over my work/);
     run(`unlockTry('I choose distraction over my work')`);
     assert.ok(run(`!!FOCUS`), 'not before the wait');
-    run(`T += 31000; unlockTry('whatever')`);
+    run(`T += 31000; unlockTry('I choose distraction over my work')`);
+    assert.ok(run(`!!FOCUS`), 'half a minute is no longer enough');
+    assert.equal(run(`unlockWait()`), 60);
+    run(`T += 30000; unlockTry('whatever')`);
     assert.ok(run(`!!FOCUS`), 'not with the wrong sentence');
     run(`unlockTry('i choose DISTRACTION over my work!')`);
     assert.equal(run(`FOCUS`), null);
     await new Promise(r => setTimeout(r, 5));
     assert.equal(run(`stCalls.at(-1)`), 'unblock');
     const f = JSON.parse(run(`JSON.stringify(getDay('${day}').focus.at(-1))`));
-    assert.deepEqual([f.blocked, f.gaveUp, f.min], [true, true, 10]);
+    assert.deepEqual([f.blocked, f.gaveUp], [true, true]);
     run(`stCalls.length = 0; focusStart(25, 'x'); T += 26 * 60000; focusTick()`);
     await new Promise(r => setTimeout(r, 5));
     assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['block', 'unblock'], 'a full session unblocks by itself');
@@ -3377,4 +3380,16 @@ test('objectives: progress from the records, pace against a deadline, a counter 
     run(`globalThis.FORM = {'#glT': 'Study 50 h', '#glN': '50', '#glA': 'study', '#glD': ''}; A.goalNew(); A.goalSave(); delete globalThis.FORM`);
     assert.equal(run(`goals().length`), 3); assert.equal(run(`goals()[2].act`), 'study');
   } finally { run(`toast = toast72; confetti = cf72; SH = null; g72 ? save('app/goals', g72) : remove('app/goals'); save('days/' + todayISO(), day72)`); }
+});
+
+test('leaving a blocked Focus early: the wait doubles with each early exit of the week, up to 10 minutes', () => {
+  run(`globalThis.day73 = clone(getDay(todayISO()))`);
+  try {
+    run(`mutDay(todayISO(), d => { d.focus = []; })`); const base = run(`gaveUpWeek()`);
+    const w0 = run(`unlockWait()`);
+    run(`mutDay(todayISO(), d => { d.focus = [{min: 5, gaveUp: true}, {min: 5, gaveUp: true}]; })`);
+    assert.equal(run(`unlockWait()`), Math.min(600, w0 * 4));
+    run(`mutDay(todayISO(), d => { d.focus = Array(12).fill({min: 1, gaveUp: true}); })`);
+    assert.equal(run(`unlockWait()`), 600);
+  } finally { run(`save('days/' + todayISO(), day73)`); }
 });

@@ -7152,9 +7152,9 @@ const UNLOCK_WAIT = 30;
 const unlockPhrase = () => tr('Я выбираю отвлечься вместо учёбы');
 const normPhrase = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 function unlockBody(){
-  SH.unlockAt = SH.unlockAt || Date.now() + UNLOCK_WAIT * 1000; // set on the first draw, so the wait is shown from the start
+  SH.unlockAt = SH.unlockAt || Date.now() + unlockWait() * 1000; // set on the first draw, so the wait is shown from the start
   const left = Math.max(0, Math.ceil((SH.unlockAt - Date.now()) / 1000)), mins = FOCUS ? Math.max(1, Math.ceil((FOCUS.end - Date.now()) / 60000)) : 0;
-  return `<div class="hint">${trf('До конца фокуса {m} мин. Ты уже начал, осталось немного.', {m: mins})}</div>
+  return `<div class="hint">${trf('До конца фокуса {m} мин. Ты уже начал, осталось немного.', {m: mins})}</div>${gaveUpWeek() ? `<div class="note">${trf('За 7 дней ты уже выходил из фокуса раньше: {n}. Поэтому ждать теперь дольше.', {n: gaveUpWeek()})}</div>` : ''}
     <button class="btn block" data-act="unlockBack">${ic('target')}${tr('Вернуться к фокусу')}</button>
     <div class="note" id="ulS">${left ? trf('Подожди {s} сек, прежде чем закончить.', {s: left}) : tr('Можно закончить.')}</div>
     <div class="field"><label for="ulP">${trf('Чтобы закончить, напиши: «{p}»', {p: esc(unlockPhrase())})}</label><input class="in" id="ulP" autocomplete="off" autocapitalize="off"></div>
@@ -7313,6 +7313,10 @@ function goalsTick(){
   say.slice(0, 1).forEach(([t, a, b]) => saveMilestone(t, a, b));
 }
 const goalsXP = () => (goalsDoc().list || []).filter(g => g.doneAt).length * GOAL_XP;
+
+/* ============ leaving a blocked Focus early gets harder each time: the wait doubles with every early exit of the last 7 days ============ */
+const gaveUpWeek = () => { let n = 0; for (let i = 0; i < 7; i++) n += (S.docs['days/' + addDays(todayISO(), -i)]?.focus || []).filter(f => f.gaveUp).length; return n; };
+const unlockWait = () => Math.min(600, 60 * 2 ** gaveUpWeek()); // 1 min, 2, 4, 8, then 10 minutes
 
 /* ============ init ============ */
 async function init(){

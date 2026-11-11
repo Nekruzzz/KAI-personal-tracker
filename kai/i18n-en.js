@@ -2495,4 +2495,5 @@ window.I18N_EN = {
 "Впиши, чего хочешь достичь":"Enter what you want to reach",
 "Впиши число":"Enter a number",
 "{t}: {n}":"{t}: {n}",
+"За 7 дней ты уже выходил из фокуса раньше: {n}. Поэтому ждать теперь дольше.":"Early exits from Focus in the last 7 days: {n}. That's why the wait is longer now.",
 };

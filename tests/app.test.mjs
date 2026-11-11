@@ -3393,3 +3393,19 @@ test('leaving a blocked Focus early: the wait doubles with each early exit of th
     assert.equal(run(`unlockWait()`), 600);
   } finally { run(`save('days/' + todayISO(), day73)`); }
 });
+
+test('Tell KAI: work, reading, a project and own activities go to the time tracker, shown before Apply', () => {
+  run(`globalThis.meta74 = clone(meta()); globalThis.day74 = clone(getDay(todayISO())); setMeta({acts: [{id: 'a_gt', name: 'Guitar'}]})`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+    assert.deepEqual(p('worked 3 hours').track, [{a: 'work', min: 180}]);
+    assert.deepEqual(p('читал 30 минут').track, [{a: 'read', min: 30}]);
+    assert.deepEqual(p('guitar 40 min').track, [{a: 'a_gt', min: 40}]);
+    assert.equal(p('studied 2 hours').track, undefined, 'study stays study');
+    assert.deepEqual(p('studied 2 hours').time_log, [{kind: 'study', min: 120}]);
+    assert.equal(p('read chapter 3').track, undefined, 'no time, no entry');
+    assert.match(run(`tellLines({track: [{a: 'work', min: 180}], time_log: [], money: [], new_tasks: [], events: []}, todayISO()).join('|')`), /Work: 3 h/);
+    run(`mutDay(todayISO(), d => { d.track = []; }); (() => { const {r} = localTellParse('worked 3 hours', todayISO()); const id = uid(); save('inbox/' + id, {id, kind: 'tell', result: r, meta: {date: todayISO(), text: 'x', local: true}, done: false}); globalThis.toast74 = toast; toast = () => {}; A.tellApply({dataset: {id}}); toast = toast74; })()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay(todayISO()).track.map(x => [x.a, x.min]))`)), [['work', 180]]);
+  } finally { run(`save('app/meta', meta74); save('days/' + todayISO(), day74)`); }
+});

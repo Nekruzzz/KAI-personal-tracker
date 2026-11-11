@@ -2379,6 +2379,7 @@ function tellLines0(r, date){
   (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}`));
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
+  cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
   (r.savings || []).forEach(x => { const g = savings().find(y => y.id === x.id); if (g) lines.push(trf('В копилку «{t}»: +{s}', {t: g.title, s: money(x.amount)})); });
   (r.exam_results || []).forEach(x => { const e = allEvents().find(y => y.id === x.id); if (e) lines.push(trf(x.passed ? 'Результат «{e}»: сдан{g}' : 'Результат «{e}»: не сдан{g}', {e: e.title, g: x.grade ? ' · ' + x.grade : ''})); });
@@ -2409,6 +2410,7 @@ A.tellApply = el => {
   tellPlanApply(r, date);
   if ((r.debts || []).length && modOn('money')) debtsAdd(r.debts, date);
   if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
+  cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -4835,6 +4837,7 @@ function localTellParse(text, date, opts = {}){
     if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|дош[её]л|дошла|пешком|прош[её]лся|прошлась|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,22}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
     else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework|revised|revising|reviewed|reviewing|practi[cs]ed|повторял[аи]?|готовил(?:ся|ась|ись)|решал[аи]?|домашк[а-яё]*|домашнее|дз(?![а-яё]))\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
     else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|качал(?:ся|ась|ись)|силов[а-яё]+|в зале|зал|workout|worked out|trained|lifted|lifting|weights|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
+    if (!hit){ const tk = localTrack(c); if (tk){ (r.track = r.track || []).push(tk); hit = true; } } // "worked 3 hours", "читал 30 минут", "guitar 40 min"
     if ((m = c.match(new RegExp('(?:вес(?![а-яё])|вешу|взвесил[аи]?сь|weigh(?:t|ed|ing)?)\\D{0,8}?' + NUM + '\\s*(кг|kg|lbs?|pounds?|фунт[а-яё]*)?', 'i')))){
       let w = toN(m[1]); const ref = refWeight(), lb = m[2] ? /lb|pound|фунт/i.test(m[2]) : ref ? Math.abs(w / LB - ref) < Math.abs(w - ref) : isUS();
       if (lb) w = Math.round(w / LB * 10) / 10;
@@ -5924,6 +5927,7 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
+  if ((lp.track || []).length && !out.track) out.track = lp.track; // the AI's answer has no place for work, reading or the person's own activities
   if ((lp.savings || []).length && !out.savings){ out.savings = lp.savings; const sum = lp.savings.reduce((a, x) => a + x.amount, 0); out.money = out.money.filter(m => !(m.type !== 'in' && Math.abs(+m.amount - sum) < 0.01)); } // the AI may read it as spending
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
   return out;
@@ -7317,6 +7321,18 @@ const goalsXP = () => (goalsDoc().list || []).filter(g => g.doneAt).length * GOA
 /* ============ leaving a blocked Focus early gets harder each time: the wait doubles with every early exit of the last 7 days ============ */
 const gaveUpWeek = () => { let n = 0; for (let i = 0; i < 7; i++) n += (S.docs['days/' + addDays(todayISO(), -i)]?.focus || []).filter(f => f.gaveUp).length; return n; };
 const unlockWait = () => Math.min(600, 60 * 2 ** gaveUpWeek()); // 1 min, 2, 4, 8, then 10 minutes
+
+/* ============ Tell KAI: time on work, reading, a project or the person's own activities goes to the time tracker ============ */
+const TRACK_WORDS = [['work', /работал[аи]?|поработал[аи]?|worked|working|(?:^|\s)work(?![a-z])|на работе/i], ['read', /(?:про|по)?читал[аи]?|чтени[ея]|(?:^|\s)read(?:ing)?(?![a-z])/i], ['project', /проект[а-яё]*|project/i]];
+function localTrack(c){
+  const m = c.match(new RegExp(NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')); if (!m) return null;
+  const min = asMin(m[1], m[2]); if (!(min >= 1 && min <= TRACK_MAX)) return null;
+  const low = c.toLowerCase(), own = (meta().acts || []).filter(x => !x.off).find(x => { const n = x.name.toLowerCase(); return n.length >= 3 && (low.includes(n) || wordsOf(n).some(a => wordsOf(low).some(b => sameWord(a, b)))); });
+  if (own) return {a: own.id, min};
+  const hit = TRACK_WORDS.find(([, re]) => re.test(c));
+  return hit ? {a: hit[0], min} : null;
+}
+const cleanTrack = list => (Array.isArray(list) ? list : []).filter(x => x && allActs().includes(x.a) && +x.min >= 1 && +x.min <= TRACK_MAX && !actOf(x.a).kind).map(x => ({a: x.a, min: Math.round(+x.min)})).slice(0, 8);
 
 /* ============ init ============ */
 async function init(){

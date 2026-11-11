@@ -240,6 +240,19 @@ After the merge into `main`, asked for sound on by default, more haptics where t
 - **Checked again:** axe-core in both themes and languages (no violations), text contrast over the glass (all passes), every button tapped (177, no errors), odd input in every field (no errors), both test suites.
 - **Timer bars that hold still.** The rest and Focus bars were rebuilt twice a second, so "+30 s" or "End" could be replaced right under a finger and VoiceOver lost its place. Now only the numbers and the progress line change.
 
+## Seventh round: track your life, in the owner's words
+
+The owner will be the first user and asked for: anything typed, said or photographed updates the schedule with clash checks; classes, Health data and objectives tracked; engaging and disciplined; app blocking that is hard to undo. Most of this existed; this round filled the gaps and reviewed the sixth round's code.
+
+- **Objectives (new):** a Goals card on the Day tab. A goal is hours of an activity (counted from timers, Focus, classes and Tell KAI), days that count, or a counter of your own with a +1 button. With a deadline it shows what is needed per week and "On pace" or "Behind pace". 25, 50 and 75% are celebrated; reaching it gives +100 XP. Stored in `app/goals`; removing hides, with Undo.
+- **A photo in Tell KAI (new):** "Add a photo: timetable, notice, note". The AI reads it into the same proposal as a typed message; a weekly timetable becomes classes. Everything is listed first, checked for clashes with what is already planned (a new class against a new event too), and a class already in the timetable is not added twice. Needs an AI that reads pictures; without one the app says where to connect it. The existing prompt is unchanged; the photo adds a paragraph to it.
+- **Time by telling KAI:** "worked 3 hours", "читал 30 минут", "guitar 40 min" (an activity of your own) go to the time tracker, read on the phone and added to AI answers.
+- **Blocked Focus is harder to leave:** the wait before the typed sentence starts at 1 minute and doubles with each early exit in the last 7 days (2, 4, 8, then 10 minutes); the screen says how many there were.
+- **Fixes to the sixth round, from a review:** a refused microphone counted as "voice used", after which the main button retried the microphone on every tap; a recognizer that never reports its end left "Listening…" stuck (now reset after 3 seconds); an activity you add didn't appear among the six buttons and couldn't be removed; deleting a timer entry had no Undo; time added by hand could exceed 24 hours a day; the coach suggested 10% more training or work every week (now never for workouts or work, never above 40 hours for one activity, and rest advice after a 70-hour week); the week card still said "review from AI"; a toast covered the timer bar during a rest timer; and the privacy page now says that in a browser the browser's own speech service is used (Google's in Chrome).
+- **What's new** lists goals, photos and time tracking, shown once.
+
+Not verified: reading a real photo with a real AI (the proposal handling is tested with a simulated answer); anything on a real iPhone.
+
 ## Gamification: why these pieces
 
 Asked to think about rewards that keep people using KAI every day. The app already had a streak flame, streak milestones, 25 awards, XP levels, confetti for perfect days and habit milestones. What was missing was mostly about what happens *after a slip* and about goals at the scale of a week, so the additions are:
@@ -264,7 +277,7 @@ The owner's focus: see what you actually did with your time, and stay motivated 
 - **KAI's own iPhone plugin:** `native/plugins/kai-native` (Swift, no outside package), wired in by Capacitor through `native/package.json`. It replaced a community speech plugin that has no Swift Package Manager support and would have broken the iPhone build.
 - **Fixes:** a weekly challenges test failed only on Sundays; it now measures XP after the old challenges are replaced. The working copy now uses the repository's line endings, so commits show only real changes.
 
-Tested: `node --test tests/app.test.mjs` (237 tests, 6 new), server `npm test` (44), `check-i18n` (missing 0). In a phone-sized browser: timers, Your time, the weekly coach, voice with a simulated recognizer, and the blocking flow with a simulated iPhone plugin.
+Tested: `node --test tests/app.test.mjs` (237 tests, 6 new; 242 after the seventh round), server `npm test` (44), `check-i18n` (missing 0). In a phone-sized browser: timers, Your time, the weekly coach, voice with a simulated recognizer, and the blocking flow with a simulated iPhone plugin.
 
 Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build` will be the first check) or run on a real iPhone; real speech recognition; real Screen Time blocking; the AI coach with a real model.
 
@@ -308,3 +321,6 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 21. **The main-task reminder is on by default** (17:00, only on days a main task was chosen and is still open). It seemed safe since the person picks the task themselves; say if it should start off like the evening check-in.
 22. **The sentence for finishing a blocked Focus early** is "I choose distraction over my work" (Russian: "Я выбираю отвлечься вместо учёбы"), after a 30-second wait. Stricter or gentler is a one-line change: `UNLOCK_WAIT` and `unlockPhrase` in `kai/app.js`.
 23. **Time tracking sits at the top of the Day tab** for everyone. If it feels like too much in the first week, it could appear only after the first Tell KAI message.
+24. **How hard should leaving a blocked Focus be?** Now: a wait of 1 minute that doubles with each early exit in 7 days, up to 10, plus the typed sentence. A mode with no early exit at all is possible, but then a real emergency has no way out except waiting for the session to end, so it was not added. Say if you want it anyway.
+25. **The designated branch on GitHub** still holds the history from before `main` was rewritten. Replacing it needs a force push, which this session was not allowed to do; see the session notes.
+

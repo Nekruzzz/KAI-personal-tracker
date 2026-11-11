@@ -2496,4 +2496,8 @@ window.I18N_EN = {
 "Впиши число":"Enter a number",
 "{t}: {n}":"{t}: {n}",
 "За 7 дней ты уже выходил из фокуса раньше: {n}. Поэтому ждать теперь дольше.":"Early exits from Focus in the last 7 days: {n}. That's why the wait is longer now.",
+"Поставь цель с числом и сроком: часы учёбы, засчитанные дни или свой счётчик. KAI считает прогресс сам и говорит, успеваешь ли.":"Set a goal with a number and a deadline: study hours, days that count, or your own counter. KAI tracks the progress and tells you if you're on pace.",
+"Фото в «Скажи KAI»":"Photos in Tell KAI",
+"Сфотографируй расписание, объявление или записку: KAI внесёт пары, события и дела и проверит накладки.":"Take a photo of a timetable, a notice or a note: KAI adds the classes, events and to-dos and checks for clashes.",
+"Таймер в одно касание на экране «День», а «работал 3 часа» или «читал 30 минут» можно просто сказать KAI.":"A one-tap timer on the Day tab, and you can just tell KAI “worked 3 hours” or “read for 30 minutes”.",
 };

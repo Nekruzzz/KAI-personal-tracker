@@ -3470,3 +3470,24 @@ test('a refused Google sign-in says so and leaves a clean address', async () => 
     assert.equal(run(`toasts.length + urls.length`), 0, 'an ordinary visit is left alone');
   } finally { run(`toast = toast0; history.replaceState = rs0; location.search = ''; location.hash = ''; Object.assign(CFG, cfgA); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('a clash in the schedule comes with a button that opens the thing easiest to move', () => {
+  run(`globalThis.plB = clone(plan()); globalThis.tkB = clone(S.docs['app/tasks']); globalThis.mB = clone(meta());
+    globalThis.dB = addDays(todayISO(), 2);
+    { const pl = clone(plan()); pl.classes = [{day: dow(dB), time: '10:00', end: '11:30', title: 'Maths'}]; pl.routine = pl.routine || clone(DEFAULT_ROUTINE); pl.routine.events = [{id: 'evB', date: dB, title: 'Dentist', kind: 'event', from: '10:30', until: '11:00'}]; delete pl.routine.classesStart; save('app/plan', pl); }
+    saveTasks([{id: 'tkB', title: 'Call bank', due: dB, time: '10:15', done: false, pri: 2}]); setMeta({warnOff: {}})`);
+  try {
+    const list = run(`JSON.stringify(warningsFor(dB).filter(w => w.id.startsWith('ov_')))`), ws = JSON.parse(list);
+    const evCls = ws.find(w => /Dentist/.test(w.text) && /Maths/.test(w.text)), tk = ws.find(w => /Call bank/.test(w.text));
+    assert.deepEqual([evCls.fix.act, evCls.fix.data.id, evCls.fix.label], ['warnEv', 'evB', 'Change time'], 'the event moves, not the class');
+    assert.deepEqual([tk.fix.act, tk.fix.data.id], ['warnTask', 'tkB'], 'a to-do is the easiest to move');
+    run(`A.warnEv({dataset: {id: 'evB'}})`);
+    assert.equal(run(`SH.evEdit`), 'evB');
+    run(`closeSheet(); A.warnTask({dataset: {id: 'tkB'}})`);
+    assert.equal(run(`S.open.tk_tkB`), true);
+    run(`{ const pl = clone(plan()); pl.routine.events = []; pl.classes.push({day: dow(dB), time: '11:00', end: '12:00', title: 'Physics'}); save('app/plan', pl); saveTasks([]); }`);
+    const cc = JSON.parse(run(`JSON.stringify(warningsFor(dB).filter(w => w.id.startsWith('ov_')))`));
+    assert.equal(cc[0].fix.act, 'warnCls', 'two classes: open the timetable');
+    assert.match(run(`warnCard()`), /data-act="warnCls"/);
+  } finally { run(`save('app/plan', plB); if (tkB) save('app/tasks', tkB); else saveTasks([]); setMeta({warnOff: mB.warnOff || {}}); delete S.open.tk_tkB; closeSheetQuiet(); S.tab = 'day'`); }
+});

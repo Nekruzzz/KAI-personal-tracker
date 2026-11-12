@@ -2527,4 +2527,6 @@ window.I18N_EN = {
 "Сфотографируй расписание, и KAI добавит все пары сразу. Подойдёт и файл календаря (.ics) от университета. Или добавь их по одной.":"Take a photo of your timetable and KAI adds every class at once. A calendar file (.ics) from your university works too. Or add classes one by one.",
 "Фото расписания":"Photo of the timetable",
 "Это моё расписание пар на неделю. Добавь все пары.":"This is my class timetable for the week. Add every class.",
+"Изменить время":"Change time",
+"Открыть расписание":"Open the timetable",
 };

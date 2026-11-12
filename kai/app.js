@@ -3838,7 +3838,7 @@ function warningsFor(date){
   const moveFix = examDate => { const to = gymFreeDay(examDate); return {act:'gymMove', label: to ? tr('Перенести на ') + fmtShort(to) : tr('Убрать тренировку'), data:{from:date, to:to || ''}}; };
   items.forEach((a, i) => items.slice(i + 1).forEach(b => {
     if (a.k === 'task' && b.k === 'task') return;
-    if (a.s < b.e && b.s < a.e) out.push({id:['ov', date, a.id, b.id].join('_'), date, level:a.k === 'task' || b.k === 'task' ? 'warn' : 'bad', text:`${tr('«')}${a.title}${tr('»')} (${hmStr(a.s)}${tr(") и «")}${b.title}${tr('»')} (${hmStr(b.s)}${tr(") пересекаются по времени.")}`});
+    if (a.s < b.e && b.s < a.e) out.push({id:['ov', date, a.id, b.id].join('_'), date, level:a.k === 'task' || b.k === 'task' ? 'warn' : 'bad', text:`${tr('«')}${a.title}${tr('»')} (${hmStr(a.s)}${tr(") и «")}${b.title}${tr('»')} (${hmStr(b.s)}${tr(") пересекаются по времени.")}`, fix: ovFix(a, b)});
   }));
   if (gym && gymOpen) eventsFor(date).filter(e => e.from && e.kind !== 'exam').forEach(e => { if (hm(e.from) < gym.e && gym.s < evEnd(e)) out.push({id:['gymev', date, e.id].join('_'), date, level:'warn', text:`${tr("Тренировка в")} ${hmStr(gym.s)} ${tr("попадает на «")}${e.title}${tr('»')}.`, fix:moveFix(date)}); });
   if (gym && gymOpen) items.filter(x => x.k === 'cls').forEach(c => { if (c.s < gym.e && gym.s < c.e) out.push({id:['gymcls', date, c.id].join('_'), date, level:'warn', text:`${tr("Тренировка в")} ${hmStr(gym.s)} ${tr("попадает на «")}${c.title}${tr('»')}.`, fix:moveFix(date)}); });
@@ -7367,6 +7367,20 @@ function moneyLinks(m){
   const a = debtsCard(m), b = savingsCard(m), bare = x => x.startsWith('<button class="link debt-add"');
   return bare(a) && bare(b) ? `<div class="money-links">${a}${b}</div>` : a + b;
 }
+/* ---- a clash in the schedule comes with a way to fix it: open the thing that is easiest to move ---- */
+function ovFix(a, b){
+  const exam = x => x.k === 'ev' && allEvents().find(e => e.id === x.id)?.kind === 'exam';
+  const pick = [a, b].find(x => x.k === 'task') || [b, a].find(x => x.k === 'ev' && !exam(x)) || [b, a].find(x => x.k === 'ev');
+  if (!pick) return {act: 'warnCls', label: tr('Открыть расписание'), data: {}};
+  return {act: pick.k === 'task' ? 'warnTask' : 'warnEv', label: tr('Изменить время'), data: {id: pick.id}};
+}
+A.warnEv = el => { A.evSheet(); A.evEdit(el); };
+A.warnTask = el => {
+  S.open['tk_' + el.dataset.id] = true; render();
+  setTimeout(() => $(`[data-act=tkOpen][data-id="${CSS.escape(el.dataset.id)}"]`)?.scrollIntoView({block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth'}), 60);
+};
+A.warnCls = () => { A.profile(); S.open.acc_classes = true; render(); };
+
 /* a photo of the timetable goes straight to Tell KAI, which shows the classes before adding them */
 const ttPhotoPick = () => imgCapable() ? `<label class="btn ghost">${ic('camera')}${tr('Фото расписания')}<input type="file" accept="image/*" hidden data-ch="ttPhoto"></label>` : '';
 CH.ttPhoto = el => {

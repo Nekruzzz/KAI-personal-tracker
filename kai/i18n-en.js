@@ -2540,4 +2540,7 @@ window.I18N_EN = {
 "Изменить пару":"Edit class",
 "Укажи время начала":"Set the start time",
 "Пара изменена":"Class changed",
+"Войди через Google, и KAI поймёт любые сообщения и фото. Короткие сообщения читаются прямо на телефоне и не тратят запросы к ИИ.":"Sign in with Google and KAI understands any message or photo. Short messages are read on the phone itself and don't use AI requests.",
+"Пары можно менять, а в «Неделе вперёд» они идут по названиям. Накладку в расписании теперь можно исправить в одно касание.":"Classes can be edited, and the week ahead lists them by name. A clash in the schedule can now be fixed in one tap.",
+"Здоровье → Тело: KAI возьмёт шаги, сон и вес со снимка и покажет, прежде чем записать.":"Health → Body: KAI takes steps, sleep and weight from the picture and shows you before saving.",
 };

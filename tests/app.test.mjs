@@ -3491,3 +3491,20 @@ test('a clash in the schedule comes with a button that opens the thing easiest t
     assert.match(run(`warnCard()`), /data-act="warnCls"/);
   } finally { run(`save('app/plan', plB); if (tkB) save('app/tasks', tkB); else saveTasks([]); setMeta({warnOff: mB.warnOff || {}}); delete S.open.tk_tkB; closeSheetQuiet(); S.tab = 'day'`); }
 });
+
+test('Tell KAI shows how many AI requests are left today, and ignores a count from an earlier day', () => {
+  run(`globalThis.cfgU = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authU = AUTH; globalThis.useU = KAI_USE;
+    AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'}; KAI_USE = {used: 17, limit: 20, tier: 'free', day: new Date().toISOString().slice(0, 10)}`);
+  try {
+    assert.match(run(`aiLeftHint()`), /AI requests left today: 3 of 20/);
+    run(`KAI_USE.used = 20`);
+    assert.match(run(`aiLeftHint()`), /You've used today's AI requests/);
+    run(`KAI_USE.day = '2020-01-01'`);
+    assert.equal(run(`aiLeftHint()`), '', 'yesterday\'s count is not shown as today\'s');
+    assert.doesNotMatch(run(`accountCard()`), /AI today:/);
+    run(`KAI_USE = {used: 1, limit: 20}`);
+    assert.equal(run(`aiLeftHint()`), '', 'a count saved before this version has no day');
+    run(`AUTH = null`);
+    assert.equal(run(`aiLeftHint()`), '');
+  } finally { run(`AUTH = authU; KAI_USE = useU; Object.assign(CFG, cfgU); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

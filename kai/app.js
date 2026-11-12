@@ -2331,7 +2331,7 @@ A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   ${SH?.tellFile ? '' : `<div class="hint">${tr('Фото расписания, объявления или записки KAI тоже разберёт.')}</div>`}
   ${provPicker(false)}
   <button class="btn block" data-act="tellGo">${ic('send')}${tr("Разобрать")}</button>
-  ${connectNudge(true)}
+  ${connectNudge(true)}${aiLeftHint()}
   <div id="tellOut" style="display:flex;flex-direction:column;gap:12px"></div>`, b => { if (!SH.jobId) $('#tellT', b).focus(); }); };
 A.tellGo = async () => {
   const text = val('tellT'); if (SH.tellFile) return tellPhotoGo(text);
@@ -4234,7 +4234,7 @@ function accountCard(){
   const st = syncState(), left = Object.keys(st.dirty || {}).length;
   const sync = S.syncErr ? tr('Не удалось синхронизировать, повторю позже') : st.at ? tr('Синхронизировано в') + ' ' + new Date(st.at).toTimeString().slice(0, 5) : tr('Синхронизация…');
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="t">${esc(AUTH.email)}</div>
-    ${KAI_USE ? `<div class="hint">${tr('ИИ сегодня:')} ${KAI_USE.used} ${tr('из')} ${KAI_USE.limit}</div>` : ''}${usageBtn}
+    ${aiUseToday() ? `<div class="hint">${tr('ИИ сегодня:')} ${aiUseToday().used} ${tr('из')} ${aiUseToday().limit}</div>` : ''}${usageBtn}
     <div class="hint">${esc(sync)}${left ? ' · ' + tr('ждёт отправки:') + ' ' + left : ''}. ${tr('Фото пока хранятся только на телефоне.')}</div>${Object.keys(st.stuck || {}).length ? `<div class="note">${trf('Сервер не принял записей: {n}, обычно из-за размера. Они сохранены на телефоне и попадут в облако после следующего изменения.', {n: Object.keys(st.stuck).length})}</div>` : ''}${privacy}
     <div class="btnrow"><button class="btn ghost" data-act="authOut">${tr('Выйти')}</button><button class="btn danger" data-act="authDelete">${tr('Удалить аккаунт')}</button></div>${legalLinks()}</section>`;
 }
@@ -4248,7 +4248,7 @@ async function callKai(prompt, imgs, json, kind){
   try { r = await apiFetch('/functions/v1/ai', {method:'POST', signal: t.signal, body: JSON.stringify({prompt: prompt + (json ? '\n\nОтветь только JSON, без пояснений.' : ''), images, kind})}); }
   catch(e){ if (e instanceof AIError) throw e; throw new AIError(tr('Нет связи с сервером'), false); } finally { t.done(); }
   const d = await r.json().catch(() => ({}));
-  if (d.limit != null){ KAI_USE = {used: d.used, limit: d.limit, tier: d.tier}; lsSet('kai_use', KAI_USE); }
+  if (d.limit != null){ KAI_USE = {used: d.used, limit: d.limit, tier: d.tier, day: new Date().toISOString().slice(0, 10)}; lsSet('kai_use', KAI_USE); }
   if (r.ok) return d.text;
   if (r.status === 401) throw new AIError(tr('Войди в аккаунт'), true);
   if (d.code === 'daily_limit') throw new AIError(`${tr('На сегодня запросы к ИИ закончились:')} ${d.used} ${tr('из')} ${d.limit}. ${tr('Завтра лимит обновится. Остальное работает как обычно.')}`, true);
@@ -5068,7 +5068,7 @@ function usageBody(){
   if (cloudOn()){
     if (!signedIn()) h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('ИИ от KAI')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ. Здесь появится расход по дням.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button></section>`;
     else {
-      const today = (SH.use || []).find(u => u.day === todayISO())?.requests ?? KAI_USE?.used ?? 0, lim = PLANS[planNow()]?.daily ?? KAI_USE?.limit ?? PLANS.free.daily;
+      const today = (SH.use || []).find(u => u.day === todayISO())?.requests ?? aiUseToday()?.used ?? 0, lim = PLANS[planNow()]?.daily ?? KAI_USE?.limit ?? PLANS.free.daily;
       const pts = [...Array(14)].map((_, i) => addDays(todayISO(), i - 13)).map(k => ({x: fmtShort(k).split(' ')[0], y: (SH.use || []).find(u => u.day === k)?.requests || 0}));
       const month = (SH.use || []).reduce((a, u) => a + u.requests, 0);
       h += `<section class="card" style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${tr('ИИ от KAI')}</b>${CFG.plans ? `<button class="link" data-act="planSheet">${planNow() === 'plus' ? 'Plus' : tr('Бесплатно')}</button>` : `<span class="muted">${planNow() === 'plus' ? 'Plus' : tr('Бесплатно')}</span>`}</div>
@@ -7367,6 +7367,16 @@ function moneyLinks(m){
   const a = debtsCard(m), b = savingsCard(m), bare = x => x.startsWith('<button class="link debt-add"');
   return bare(a) && bare(b) ? `<div class="money-links">${a}${b}</div>` : a + b;
 }
+/* ---- today's AI allowance, where the requests are made: no surprise when it runs out ---- */
+// the server counts by UTC day, so a count from an earlier UTC day is stale and is not shown
+const aiUseToday = () => KAI_USE && KAI_USE.day === new Date().toISOString().slice(0, 10) && KAI_USE.limit > 0 ? KAI_USE : null;
+function aiLeftHint(){
+  const u = signedIn() && aiUseToday(); if (!u) return '';
+  const left = Math.max(0, u.limit - u.used);
+  if (!left) return `<div class="note">${tr('На сегодня запросы к ИИ закончились. Простые сообщения я разберу на телефоне, остальное подождёт до завтра.')}</div>`;
+  return `<div class="hint">${trf('Запросов к ИИ на сегодня осталось: {n} из {m}', {n: left, m: u.limit})}</div>`;
+}
+
 /* ---- a clash in the schedule comes with a way to fix it: open the thing that is easiest to move ---- */
 function ovFix(a, b){
   const exam = x => x.k === 'ev' && allEvents().find(e => e.id === x.id)?.kind === 'exam';

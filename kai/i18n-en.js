@@ -2529,4 +2529,6 @@ window.I18N_EN = {
 "Это моё расписание пар на неделю. Добавь все пары.":"This is my class timetable for the week. Add every class.",
 "Изменить время":"Change time",
 "Открыть расписание":"Open the timetable",
+"На сегодня запросы к ИИ закончились. Простые сообщения я разберу на телефоне, остальное подождёт до завтра.":"You've used today's AI requests. I'll read simple messages on the phone; the rest waits until tomorrow.",
+"Запросов к ИИ на сегодня осталось: {n} из {m}":"AI requests left today: {n} of {m}",
 };

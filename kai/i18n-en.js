@@ -2531,4 +2531,6 @@ window.I18N_EN = {
 "Открыть расписание":"Open the timetable",
 "На сегодня запросы к ИИ закончились. Простые сообщения я разберу на телефоне, остальное подождёт до завтра.":"You've used today's AI requests. I'll read simple messages on the phone; the rest waits until tomorrow.",
 "Запросов к ИИ на сегодня осталось: {n} из {m}":"AI requests left today: {n} of {m}",
+"Разобрал на телефоне, запрос к ИИ не потрачен. Проверь и подтверди.":"Read on the phone, so no AI request was used. Check and confirm.",
+"Разобрать через ИИ":"Read it with AI instead",
 };

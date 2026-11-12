@@ -3508,3 +3508,20 @@ test('Tell KAI shows how many AI requests are left today, and ignores a count fr
     assert.equal(run(`aiLeftHint()`), '');
   } finally { run(`AUTH = authU; KAI_USE = useU; Object.assign(CFG, cfgU); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('a short message the phone understands completely is read on the phone even with AI on', () => {
+  assert.equal(run(`localWhole('slept 7 hours', todayISO())`), true);
+  assert.equal(run(`localWhole('walked 40 minutes, spent 12 on lunch', todayISO())`), true);
+  assert.equal(run(`localWhole('studied 2 hours, then argued with my roommate', todayISO())`), false, 'something is left over: the AI reads it');
+  assert.equal(run(`localWhole('move gym to Saturday', todayISO())`), false);
+  assert.equal(run(`localWhole('slept 7 hours' + ' and'.repeat(60), todayISO())`), false, 'long messages go to the AI');
+  run(`globalThis.cfgL = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authL = AUTH; AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'};
+    globalThis.inboxL = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    assert.equal(run(`aiStatus().ok`), true);
+    run(`SH = {}; tellLocal('slept 7 hours', todayISO())`);
+    const it = JSON.parse(run(`JSON.stringify(S.docs['inbox/' + SH.jobId])`));
+    assert.match(it.result.reply, /no AI request was used/);
+    assert.equal(it.result.sleep_h, 7);
+  } finally { run(`Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxL.includes(k)).forEach(k => remove(k)); SH = null; AUTH = authL; Object.assign(CFG, cfgL); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

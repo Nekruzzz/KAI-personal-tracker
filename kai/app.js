@@ -2340,7 +2340,7 @@ A.tellGo = async () => {
   if (carePause(text, 'tellOut', 'tellGo')) return;
   const date = todayISO();
   { const ans = localAnswer(text); if (ans){ const out = $('#tellOut'); if (out) out.innerHTML = answerCard(ans); return; } } // "how much did I spend this week?" is answered from the records
-  if (!aiStatus().ok && tellLocal(text, date)) return; // no AI yet: the common things are understood on the phone
+  if ((!aiStatus().ok || localWhole(text, date)) && tellLocal(text, date)) return; // no AI yet, or the phone understood every word: instant, and no AI request is spent
   const id = await submitJob('tell', {prompt: tellPrompt(text, date), meta:{date, text}, provider: SH.prov||'auto', label:tr('Разбор · ')+fmtShort(date)});
   queueNow(id, 'tellOut');
 };
@@ -4990,11 +4990,12 @@ function tellLocal(text, date0){
   const {r, left} = localTellParse(text, date);
   if (!tellLines(r, date).length) return false;
   const missed = left.map(x => x.trim()).filter(x => x.length > 2).slice(0, 4).map(x => (LANG === 'ru' ? '«' : '“') + x.slice(0, 60) + (LANG === 'ru' ? '»' : '”'));
-  r.reply = tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.') + (missed.length ? ' ' + tr('Не понял без ИИ:') + ' ' + missed.join(', ') + '. ' + tr('Еду проще записать с граммами, например «150 г риса».') : '');
+  const ai = aiStatus().ok;
+  r.reply = (ai ? tr('Разобрал на телефоне, запрос к ИИ не потрачен. Проверь и подтверди.') : tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.')) + (missed.length ? ' ' + tr('Не понял без ИИ:') + ' ' + missed.join(', ') + '. ' + tr('Еду проще записать с граммами, например «150 г риса».') : '');
   const id = uid(), it = {id, kind: 'tell', result: r, meta: {date, text, local: true}, provider: 'local', label: tr('Разбор · ') + fmtShort(date), date, created: new Date().toISOString(), done: false};
   save('inbox/' + id, it);
   SH.jobId = id; SH.outId = 'tellOut';
-  const out = $('#tellOut'); if (out) out.innerHTML = jobView(it);
+  const out = $('#tellOut'); if (out) out.innerHTML = jobView(it) + (ai ? `<button class="link" style="align-self:flex-start" data-act="tellAI" data-id="${id}">${ic('spark', 'link-ic')}${tr('Разобрать через ИИ')}</button>` : '');
   return true;
 }
 
@@ -7367,6 +7368,21 @@ function moneyLinks(m){
   const a = debtsCard(m), b = savingsCard(m), bare = x => x.startsWith('<button class="link debt-add"');
   return bare(a) && bare(b) ? `<div class="money-links">${a}${b}</div>` : a + b;
 }
+/* ---- phone first: a short message the phone understands completely doesn't need the AI ---- */
+function localWhole(text, date0){
+  if (text.length > 160) return false; // a long message usually carries something worth a closer read
+  const date = tellDayOf(text, date0), {r, left} = localTellParse(text, date);
+  return !left.some(x => x.trim().length > 2) && tellLines(r, date).length > 0;
+}
+/* the person can still ask the AI to read the same message */
+A.tellAI = async el => {
+  const it = S.docs['inbox/' + el.dataset.id]; if (!it || it.done || !aiStatus().ok) return;
+  const text = it.meta.text, date = todayISO();
+  remove('inbox/' + it.id);
+  const id = await submitJob('tell', {prompt: tellPrompt(text, date), meta: {date, text}, provider: SH?.prov || 'auto', label: tr('Разбор · ') + fmtShort(date)});
+  queueNow(id, 'tellOut');
+};
+
 /* ---- today's AI allowance, where the requests are made: no surprise when it runs out ---- */
 // the server counts by UTC day, so a count from an earlier UTC day is stale and is not shown
 const aiUseToday = () => KAI_USE && KAI_USE.day === new Date().toISOString().slice(0, 10) && KAI_USE.limit > 0 ? KAI_USE : null;

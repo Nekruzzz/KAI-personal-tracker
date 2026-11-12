@@ -4167,10 +4167,13 @@ async function apiFetch(path, opts = {}){
 }
 /* Apple and Google come back to this page with the session in the address */
 async function authFromUrl(){
-  if (!cloudOn() || !/access_token=|error_description=/.test(location.hash)) return;
+  // a refused or cancelled sign-in can come back with the error in the query string as well as the hash
+  const q = new URLSearchParams(location.search), qErr = q.has('error') || q.has('error_description');
+  if (!cloudOn() || !(qErr || /access_token=|error_description=/.test(location.hash))) return;
   const h = new URLSearchParams(location.hash.slice(1));
-  history.replaceState(null, '', location.pathname + location.search);
-  if (h.get('error_description')) return toast(tr('Не получилось войти'));
+  ['error', 'error_code', 'error_description'].forEach(k => q.delete(k));
+  history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+  if (h.get('error_description') || !h.get('access_token')) return toast(tr('Не получилось войти'));
   const access = h.get('access_token');
   const r = await fetch(apiUrl('/auth/v1/user'), {headers:{apikey:CFG.supabaseKey, authorization:'Bearer ' + access}});
   const user = await r.json().catch(() => null);

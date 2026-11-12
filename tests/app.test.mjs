@@ -3456,3 +3456,17 @@ test('Tell KAI answers "how are my goals?"', () => {
   try { assert.match(run(`localAnswer('how are my goals?')`), /Books: 1 \/ 4 \(25%\)/); }
   finally { run(`g75 ? save('app/goals', g75) : remove('app/goals')`); }
 });
+
+test('a refused Google sign-in says so and leaves a clean address', async () => {
+  run(`globalThis.cfgA = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.toasts = []; globalThis.toast0 = toast; toast = (m) => toasts.push(m);
+    globalThis.urls = []; globalThis.rs0 = history.replaceState; history.replaceState = (a, b, u) => urls.push(u);
+    location.search = '?error=access_denied&error_code=x&error_description=nope&utm=1'; location.hash = ''`);
+  try {
+    await run(`authFromUrl()`);
+    assert.equal(run(`toasts.at(-1)`), "Couldn't sign you in");
+    assert.equal(run(`urls.at(-1)`), '/?utm=1', 'the error is gone from the address, the rest stays');
+    run(`location.search = ''; toasts.length = 0; urls.length = 0`);
+    await run(`authFromUrl()`);
+    assert.equal(run(`toasts.length + urls.length`), 0, 'an ordinary visit is left alone');
+  } finally { run(`toast = toast0; history.replaceState = rs0; location.search = ''; location.hash = ''; Object.assign(CFG, cfgA); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

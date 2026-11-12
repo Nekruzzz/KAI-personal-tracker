@@ -1490,7 +1490,15 @@ test('KAI provides the AI: no screen asks for a Claude or ChatGPT key, and signi
     assert.doesNotMatch(b, /id="auE"/, 'email codes stay hidden until the owner turns them on');
     run(`CFG.emailCodes = true`);
     assert.match(run(`accountBody()`), /id="auE"/);
-    run(`CFG.emailCodes = false; setMeta({welcomed: true, signOff: false})`);
+    run(`CFG.emailCodes = false; setMeta({welcomed: true, signOff: false, toldOnce: false, firstTellOff: false})`);
+    assert.equal(run(`!!firstTellCard() && !!signCard()`), false, 'the Tell KAI card comes first, one card at a time');
+    run(`setMeta({toldOnce: true})`);
+    run(`globalThis.pf9 = clone(profile()); globalThis.pl9 = clone(plan()); save('app/profile', {...profile(), role: 'study'}); setMeta({startedOn: todayISO(), ttCardOff: false}); save('app/plan', {...plan(), classes: []})`);
+    assert.equal(run(`timetableCard()`), '', 'the timetable card waits for the sign-in card');
+    run(`setMeta({signOff: true})`);
+    assert.match(run(`timetableCard()`), /icsImport/);
+    assert.doesNotMatch(run(`timetableCard()`), /ttPhoto/, 'no photo button without an AI that reads pictures');
+    run(`save('app/profile', pf9); save('app/plan', pl9); setMeta({signOff: false})`);
     assert.match(run(`viewDay()`), /Turn on AI.*data-act="accountSheet"/s, 'Day offers signing in');
     assert.match(run(`obSignIn()`), /Already have an account\?.*data-v="google"/s, 'so does the first screen');
     run(`A.signCardOff()`);

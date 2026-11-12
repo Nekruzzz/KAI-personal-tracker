@@ -3289,7 +3289,7 @@ function viewMore(){
   h += isNative() ? acc('remind', 'bell', tr('Напоминания'), m.remindAsked ? tr('Включены') : tr('Не настроены'), `<button class="btn" data-act="notifSheet">${ic('bell')}${tr('Настроить напоминания')}</button>`) + healthRow() : acc('remind', 'bell', tr('Напоминания'), m.icsAt ? tr('Календарь iPhone настроен') : tr('Не настроены'), `<div class="hint">${tr("Календарь iPhone напомнит о тренировке, еде и сне, даже когда приложение закрыто.")}</div><button class="btn" data-act="ics">${ic('day')}${tr("Настроить напоминания в Календарь")}</button>`);
   if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:8px"><select class="in" id="clD" style="grid-column:1/-1" aria-label="${tr("День")}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}">${DOW[n]}</option>`).join('')}</select><div class="field" style="min-width:0"><label for="clT">${tr("Начало")}</label><input class="in" id="clT" type="time" value="09:00"></div><div class="field" style="min-width:0"><label for="clE">${tr("Конец")}</label><input class="in" id="clE" type="time"></div><input class="in" id="clN" style="grid-column:1/-1" placeholder="${tr("Предмет, ауд.")}" aria-label="${tr("Предмет")}"></div>
-    <div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}</div>`);
+    <div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}${ttPhotoPick()}</div>`);
   h += acc('ai', 'spark', tr('ИИ'), st.ok || ownKeysAllowed() ? esc(st.text) : cloudOn() ? tr('Войди в аккаунт') : tr('Пока не включён'), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow">${ownKeysAllowed() ? `<button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button>` : cloudOn() && !signedIn() ? `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>` : ''}<button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
   h += acc('modules', 'sliders', tr('Модули'), MODULES.filter(x => !modOn(x[0])).length ? tr('Выключено: ') + MODULES.filter(x => !modOn(x[0])).map(x => x[1]).join(', ') : tr('Всё включено'), modulesRows() + `<div class="hint">${tr("Выключенный модуль прячется, но его данные не удаляются.")}</div>` + (modOn('content') ? `<div class="field"><label for="pfWT">${tr("Цель роликов в неделю")}</label><input class="in" id="pfWT" inputmode="numeric" data-ch="wt" value="${content().weeklyTarget || 4}"></div>` : ''));
   h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
@@ -5846,10 +5846,10 @@ function habitStreakHTML(t, after){
 // after the first message (or once that card is dismissed), until classes exist, it's dismissed, or two weeks have passed
 function timetableCard(){
   const m = meta();
-  if (profile().role !== 'study' || (plan().classes || []).length || m.ttCardOff || !m.startedOn || dayDiff(m.startedOn, todayISO()) >= 14 || !(hasTold() || m.firstTellOff)) return '';
+  if (profile().role !== 'study' || (plan().classes || []).length || m.ttCardOff || !m.startedOn || dayDiff(m.startedOn, todayISO()) >= 14 || !(hasTold() || m.firstTellOff) || signCard()) return '';
   return `<section class="card firstc" aria-labelledby="ttH"><h2 id="ttH">${tr('Добавь расписание пар')}</h2>
-    <div class="hint">${tr('Если университет даёт расписание файлом календаря (.ics), KAI добавит все пары сразу. Или добавь их по одной.')}</div>
-    ${icsPick().replace('class="btn ghost"', 'class="btn block"')}<button class="btn ghost block" data-act="clsAdd2">${ic('plus')}${tr('Добавить пару')}</button>
+    <div class="hint">${ttPhotoPick() ? tr('Сфотографируй расписание, и KAI добавит все пары сразу. Подойдёт и файл календаря (.ics) от университета. Или добавь их по одной.') : tr('Если университет даёт расписание файлом календаря (.ics), KAI добавит все пары сразу. Или добавь их по одной.')}</div>
+    ${ttPhotoPick() ? ttPhotoPick().replace('class="btn ghost"', 'class="btn block"') + icsPick().replace('class="btn ghost"', 'class="btn ghost block"') : icsPick().replace('class="btn ghost"', 'class="btn block"')}<button class="btn ghost block" data-act="clsAdd2">${ic('plus')}${tr('Добавить пару')}</button>
     <button class="link" data-act="ttCardOff">${tr('Не сейчас')}</button></section>`;
 }
 A.ttCardOff = () => setMeta({ttCardOff: true});
@@ -7364,8 +7364,16 @@ function moneyLinks(m){
   const a = debtsCard(m), b = savingsCard(m), bare = x => x.startsWith('<button class="link debt-add"');
   return bare(a) && bare(b) ? `<div class="money-links">${a}${b}</div>` : a + b;
 }
+/* a photo of the timetable goes straight to Tell KAI, which shows the classes before adding them */
+const ttPhotoPick = () => imgCapable() ? `<label class="btn ghost">${ic('camera')}${tr('Фото расписания')}<input type="file" accept="image/*" hidden data-ch="ttPhoto"></label>` : '';
+CH.ttPhoto = el => {
+  const f = el.files?.[0]; if (!f) return;
+  A.tell({dataset: {}});
+  SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); SH.tellText = tr('Это моё расписание пар на неделю. Добавь все пары.');
+  haptic('light'); drawSheet();
+};
 function signCard(){
-  if (!cloudOn() || signedIn() || !meta().welcomed || meta().signOff) return '';
+  if (!cloudOn() || signedIn() || !meta().welcomed || meta().signOff || !(hasTold() || meta().firstTellOff)) return ''; // one first-week card at a time: Tell KAI, then this, then the timetable
   return `<section class="card nudge signc"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')}</div></div><div class="acts"><button class="btn" data-act="accountSheet">${tr('Войти')}</button><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div></section>`;
 }
 A.signCardOff = () => { setMeta({signOff: true}); render(); };

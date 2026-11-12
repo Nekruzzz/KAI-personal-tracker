@@ -2461,7 +2461,7 @@ window.I18N_EN = {
 "Нагрузка уже большая. На следующей неделе важнее сон и один день отдыха, чем новые часы.":"That's already a heavy load. Next week, sleep and one rest day matter more than extra hours.",
 "Твои занятия":"Your activities",
 "Занятие убрано. Записанное время осталось.":"Activity removed. The time you logged stays.",
-"Другое фото":"Another photo",
+"Другое фото":"Change photo",
 "Добавить фото: расписание, объявление, записка":"Add a photo: timetable, notice, note",
 "Убрать фото":"Remove the photo",
 "Чтобы KAI читал фото, подключи ИИ: Ещё → ИИ":"To let KAI read photos, connect AI: More → AI",
@@ -2524,4 +2524,7 @@ window.I18N_EN = {
 "Включи ИИ":"Turn on AI",
 "Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.":"Sign in and KAI understands any message or photo. A copy of your data is kept in the cloud.",
 "Фото расписания, объявления или записки KAI тоже разберёт.":"KAI also reads a photo of a timetable, a notice or a note.",
+"Сфотографируй расписание, и KAI добавит все пары сразу. Подойдёт и файл календаря (.ics) от университета. Или добавь их по одной.":"Take a photo of your timetable and KAI adds every class at once. A calendar file (.ics) from your university works too. Or add classes one by one.",
+"Фото расписания":"Photo of the timetable",
+"Это моё расписание пар на неделю. Добавь все пары.":"This is my class timetable for the week. Add every class.",
 };

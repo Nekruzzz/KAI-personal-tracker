@@ -3294,14 +3294,17 @@ test('Focus with blocked apps: blocks at the start, unblocks at the end, and sto
     assert.match(run(`unlockBody()`), /I choose distraction over my work/);
     run(`unlockTry('I choose distraction over my work')`);
     assert.ok(run(`!!FOCUS`), 'not before the wait');
-    run(`T += 31000; unlockTry('whatever')`);
+    run(`T += 31000; unlockTry('I choose distraction over my work')`);
+    assert.ok(run(`!!FOCUS`), 'half a minute is no longer enough');
+    assert.equal(run(`unlockWait()`), 60);
+    run(`T += 30000; unlockTry('whatever')`);
     assert.ok(run(`!!FOCUS`), 'not with the wrong sentence');
     run(`unlockTry('i choose DISTRACTION over my work!')`);
     assert.equal(run(`FOCUS`), null);
     await new Promise(r => setTimeout(r, 5));
     assert.equal(run(`stCalls.at(-1)`), 'unblock');
     const f = JSON.parse(run(`JSON.stringify(getDay('${day}').focus.at(-1))`));
-    assert.deepEqual([f.blocked, f.gaveUp, f.min], [true, true, 10]);
+    assert.deepEqual([f.blocked, f.gaveUp], [true, true]);
     run(`stCalls.length = 0; focusStart(25, 'x'); T += 26 * 60000; focusTick()`);
     await new Promise(r => setTimeout(r, 5));
     assert.deepEqual(JSON.parse(run(`JSON.stringify(stCalls)`)), ['block', 'unblock'], 'a full session unblocks by itself');
@@ -3322,4 +3325,93 @@ test('voice: offered only where speech recognition exists, and the mic on the Da
     assert.equal(run(`voiceOK()`), true);
     assert.match(run(`viewDay()`), /data-act="tell" data-voice="1"/);
   } finally { run(`delete window.webkitSpeechRecognition`); }
+});
+
+test('v9 fixes: own activities show and can be removed, the coach never pushes more training or work, a day holds 24 hours', () => {
+  run(`globalThis.meta70 = clone(meta()); globalThis.toast70 = toast; toast = () => {}`);
+  try {
+    run(`setMeta({acts: [{id: 'a_new', name: 'Guitar'}]})`);
+    assert.ok(run(`actsByUse().slice(0, 6).includes('a_new')`), 'a new activity is among the six buttons');
+    run(`SH = {}; A.actOff({dataset: {id: 'a_new'}}); SH = null`);
+    assert.equal(run(`allActs().includes('a_new')`), false);
+    assert.equal(run(`actOf('a_new').name`), 'Guitar', 'its records keep the name');
+    const n = by => JSON.stringify({cur: {by, total: Object.values(by).reduce((a, b) => a + b, 0), active: 5, sleep: null, focusN: 0, focusMin: 0, leaves: 0, tasks: 0}, was: {by: {}, total: 0, active: 0, focusN: 0, focusMin: 0, leaves: 0, tasks: 0}, best: null, streak: 0});
+    assert.ok(!JSON.parse(run(`JSON.stringify(coachLocal(${n({gym: 600, work: 900})}).next)`)).some(x => /Workout:|Work:/.test(x)));
+    assert.ok(JSON.parse(run(`JSON.stringify(coachLocal(${n({study: 5000})}).next)`)).some(x => /rest day/.test(x)), 'a huge week gets rest advice');
+  } finally { run(`toast = toast70; save('app/meta', meta70)`); }
+});
+
+test('Tell KAI with a photo: a timetable becomes classes, shown first, clash-checked, added once', () => {
+  run(`globalThis.plan71 = clone(plan())`);
+  try {
+    const r = {reply: 'ok', classes: [{day: 1, time: '09:00', end: '10:30', title: 'Physics, 204'}, {day: 1, time: '09:00', end: '10:30', title: 'Physics, 204'}, {day: 9, time: '10:00', title: 'bad day'}, {day: 2, time: '25:00', title: 'bad time'}, {day: 3, time: '12:00', title: '<b>Maths</b>'}], events: [{title: 'Dentist', date: run(`nextDow71 = (() => { let k = addDays(todayISO(), 1); while (dow(k) !== 1) k = addDays(k, 1); return k; })()`), from: '09:30', until: '10:00', kind: 'event'}]};
+    const lines = JSON.parse(run(`JSON.stringify(tellLines(${JSON.stringify(r)}, todayISO()))`));
+    assert.equal(lines.filter(l => /class:|пара:/.test(l)).length, 2, lines.join(' | '));
+    const warn = JSON.parse(run(`JSON.stringify(previewWarnings(${JSON.stringify(r)}).map(w => w.text))`));
+    assert.ok(warn.some(w => /Physics/.test(w) && /Dentist/.test(w)), 'the new class clashes with the new event: ' + warn.join(' | '));
+    const n0 = run(`(plan().classes || []).length`);
+    run(`tellPlanApply(${JSON.stringify(r)}, todayISO())`);
+    assert.equal(run(`plan().classes.length`), n0 + 2);
+    run(`tellPlanApply(${JSON.stringify({classes: r.classes})}, todayISO())`);
+    assert.equal(run(`plan().classes.length`), n0 + 2, 'telling it twice adds nothing');
+    assert.match(run(`tellPhotoPrompt('', todayISO())`), /"classes"/);
+    run(`SH = {tellFile: {}, tellUrl: 'blob:x'}`);
+    assert.match(run(`tellPhotoField()`), /tellFileOff/);
+  } finally { run(`SH = null; save('app/plan', plan71)`); }
+});
+
+test('objectives: progress from the records, pace against a deadline, a counter with Undo, +100 XP once reached', () => {
+  run(`globalThis.g72 = S.docs['app/goals'] ? clone(S.docs['app/goals']) : null; globalThis.day72 = clone(getDay(todayISO())); globalThis.toast72 = toast; toast = () => {}; globalThis.cf72 = confetti; confetti = () => {}`);
+  try {
+    run(`save('app/goals', {list: [{id: 'g1', kind: 'time', act: 'read', title: 'Read 2 h', target: 2, start: todayISO(), due: addDays(todayISO(), 6)}, {id: 'g2', kind: 'count', title: 'Books', target: 3, unit: 'books', count: 0, start: todayISO()}]}); mutDay(todayISO(), d => { d.track = []; })`);
+    assert.match(run(`goalsCard()`), /Read 2 h/);
+    assert.equal(run(`goalValue(goals()[0])`), 0);
+    run(`trackAdd(todayISO(), 'read', 60, '')`);
+    assert.equal(run(`goalValue(goals()[0])`), 1, 'an hour of reading counts by itself');
+    assert.match(run(`goalPace(goals()[0])`), /On pace|В графике/);
+    const xp0 = run(`totalXP()`);
+    run(`trackAdd(todayISO(), 'read', 60, ''); goalsTick()`);
+    assert.ok(run(`!!goals()[0].doneAt`), 'reached');
+    assert.equal(run(`totalXP()`) - xp0, 30 + 100, '60 minutes of effort, and the goal');
+    run(`goalsTick()`); assert.equal(run(`goalsXP()`), 100, 'once');
+    run(`A.goalPlus({dataset: {id: 'g2'}})`);
+    assert.equal(run(`goals()[1].count`), 1);
+    run(`A.undoApply()`); assert.equal(run(`goals()[1].count`), 0);
+    run(`globalThis.FORM = {'#glT': 'Study 50 h', '#glN': '50', '#glA': 'study', '#glD': ''}; A.goalNew(); A.goalSave(); delete globalThis.FORM`);
+    assert.equal(run(`goals().length`), 3); assert.equal(run(`goals()[2].act`), 'study');
+  } finally { run(`toast = toast72; confetti = cf72; SH = null; g72 ? save('app/goals', g72) : remove('app/goals'); save('days/' + todayISO(), day72)`); }
+});
+
+test('leaving a blocked Focus early: the wait doubles with each early exit of the week, up to 10 minutes', () => {
+  run(`globalThis.day73 = clone(getDay(todayISO()))`);
+  try {
+    run(`mutDay(todayISO(), d => { d.focus = []; })`); const base = run(`gaveUpWeek()`);
+    const w0 = run(`unlockWait()`);
+    run(`mutDay(todayISO(), d => { d.focus = [{min: 5, gaveUp: true}, {min: 5, gaveUp: true}]; })`);
+    assert.equal(run(`unlockWait()`), Math.min(600, w0 * 4));
+    run(`mutDay(todayISO(), d => { d.focus = Array(12).fill({min: 1, gaveUp: true}); })`);
+    assert.equal(run(`unlockWait()`), 600);
+  } finally { run(`save('days/' + todayISO(), day73)`); }
+});
+
+test('Tell KAI: work, reading, a project and own activities go to the time tracker, shown before Apply', () => {
+  run(`globalThis.meta74 = clone(meta()); globalThis.day74 = clone(getDay(todayISO())); setMeta({acts: [{id: 'a_gt', name: 'Guitar'}]})`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+    assert.deepEqual(p('worked 3 hours').track, [{a: 'work', min: 180}]);
+    assert.deepEqual(p('читал 30 минут').track, [{a: 'read', min: 30}]);
+    assert.deepEqual(p('guitar 40 min').track, [{a: 'a_gt', min: 40}]);
+    assert.equal(p('studied 2 hours').track, undefined, 'study stays study');
+    assert.deepEqual(p('studied 2 hours').time_log, [{kind: 'study', min: 120}]);
+    assert.equal(p('read chapter 3').track, undefined, 'no time, no entry');
+    assert.match(run(`tellLines({track: [{a: 'work', min: 180}], time_log: [], money: [], new_tasks: [], events: []}, todayISO()).join('|')`), /Work: 3 h/);
+    run(`mutDay(todayISO(), d => { d.track = []; }); (() => { const {r} = localTellParse('worked 3 hours', todayISO()); const id = uid(); save('inbox/' + id, {id, kind: 'tell', result: r, meta: {date: todayISO(), text: 'x', local: true}, done: false}); globalThis.toast74 = toast; toast = () => {}; A.tellApply({dataset: {id}}); toast = toast74; })()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(getDay(todayISO()).track.map(x => [x.a, x.min]))`)), [['work', 180]]);
+  } finally { run(`save('app/meta', meta74); save('days/' + todayISO(), day74)`); }
+});
+
+test('Tell KAI answers "how are my goals?"', () => {
+  run(`globalThis.g75 = S.docs['app/goals'] ? clone(S.docs['app/goals']) : null; save('app/goals', {list: [{id: 'q', kind: 'count', title: 'Books', target: 4, count: 1, start: todayISO()}]})`);
+  try { assert.match(run(`localAnswer('how are my goals?')`), /Books: 1 \/ 4 \(25%\)/); }
+  finally { run(`g75 ? save('app/goals', g75) : remove('app/goals')`); }
 });

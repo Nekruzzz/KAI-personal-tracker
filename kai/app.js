@@ -4374,7 +4374,7 @@ async function syncNow(){
     const st = syncState(); syncSave({...st, at: Date.now()});
     S.syncErr = false;
   } catch(e){ if (!S.syncErr) S.syncErrSince = Date.now(); S.syncErr = true; }
-  finally { syncBusy = false; if (S.tab === 'more') scheduleRender(); }
+  finally { syncBusy = false; if (S.tab === 'more') scheduleRender(); obSyncNote(); }
 }
 setInterval(() => syncSoon(0), 300000);
 // shown on screen only after half an hour of failures, so a short outage stays quiet
@@ -7359,7 +7359,7 @@ function ssoRow(){
 /* first screen: someone with an account gets their records back before filling anything in */
 function obSignIn(){
   if (!cloudOn()) return '';
-  if (signedIn()) return `<div class="hint" style="text-align:center">${tr('Ты вошёл:')} ${esc(AUTH.email)}</div>`;
+  if (signedIn()) return `<div class="hint" style="text-align:center">${tr('Ты вошёл:')} ${esc(AUTH.email)}<br><span id="obSync" role="status">${obSyncText()}</span></div>`;
   const row = ssoRow(); if (!row) return '';
   return `<div class="hint" style="text-align:center">${tr('Уже есть аккаунт? Войди, и твои данные вернутся.')}</div>${row}`;
 }
@@ -7415,6 +7415,9 @@ CH.ttPhoto = el => {
   SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); SH.tellText = tr('Это моё расписание пар на неделю. Добавь все пары.');
   haptic('light'); drawSheet();
 };
+/* someone signing in on a new phone sees that their records are being looked for, so they don't fill the form in again */
+const obSyncText = () => signedIn() && syncState().first && !S.syncErr ? tr('Ищу твои данные в облаке…') : '';
+function obSyncNote(){ const e = $('#obSync'); if (e) e.textContent = obSyncText(); }
 function signCard(){
   if (!cloudOn() || signedIn() || !meta().welcomed || meta().signOff || !(hasTold() || meta().firstTellOff)) return ''; // one first-week card at a time: Tell KAI, then this, then the timetable
   return `<section class="card nudge signc"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')}</div></div><div class="acts"><button class="btn" data-act="accountSheet">${tr('Войти')}</button><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div></section>`;

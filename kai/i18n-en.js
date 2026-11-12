@@ -2533,4 +2533,5 @@ window.I18N_EN = {
 "Запросов к ИИ на сегодня осталось: {n} из {m}":"AI requests left today: {n} of {m}",
 "Разобрал на телефоне, запрос к ИИ не потрачен. Проверь и подтверди.":"Read on the phone, so no AI request was used. Check and confirm.",
 "Разобрать через ИИ":"Read it with AI instead",
+"Ищу твои данные в облаке…":"Looking for your data in the cloud…",
 };

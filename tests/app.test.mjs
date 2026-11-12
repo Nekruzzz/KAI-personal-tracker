@@ -3535,7 +3535,11 @@ test('after signing in with Google, the welcome screen starts with the first nam
     assert.equal(run(`AUTH.name`), 'Alex');
     run(`SH = null; A.welcome()`);
     assert.equal(run(`SH.ob.name`), 'Alex');
+    run(`globalThis.seN = S.syncErr; S.syncErr = false`);
+    assert.match(run(`obSignIn()`), /Signed in:.*user@example\.com.*Looking for your data in the cloud/s, 'first sync still to come');
+    run(`syncSave({...syncState(), first: false})`);
+    assert.doesNotMatch(run(`obSignIn()`), /Looking for your data/);
     run(`closeSheetQuiet(); setSession({access_token: 'a', refresh_token: 'r', expires_in: 3600, user: {id: 'uN', email: 'user@example.com'}})`);
     assert.equal(run(`AUTH.name`), '', 'no name from an email sign-in');
-  } finally { run(`closeSheetQuiet(); AUTH = authN; lsSet('kai_auth', authN); syncSave(syncN); Object.assign(CFG, cfgN); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+  } finally { run(`if (typeof seN !== 'undefined') S.syncErr = seN; closeSheetQuiet(); AUTH = authN; lsSet('kai_auth', authN); syncSave(syncN); Object.assign(CFG, cfgN); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });

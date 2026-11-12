@@ -1283,6 +1283,7 @@ function viewDay(){
       <button data-act="rate">${ic('star')}${d.rating?'<span class="stars">'+'★'.repeat(d.rating)+'<i>'+'★'.repeat(5-d.rating)+'</i></span>':tr('Оценить день')}</button>
       <button data-act="sick">${ic('sick')}${d.status==='sick'?tr('Я здоров'):tr('Болею')}</button>
     </div></section>`;
+  h += nowCard(); // what to do right now comes first
   h += trackCard();
   h += comebackCard();
   h += firstTellCard();
@@ -1298,7 +1299,6 @@ function viewDay(){
   h += `<div class="sec-h" id="dailyH"><h2 tabindex="-1">${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
   <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
   h += goalsCard();
-  h += nowCard();
   h += taskCard();
   h += timelineCard();
   h += challengeCard();
@@ -1626,8 +1626,7 @@ function viewMoney(){
   ${budgetCard(m, so)}
   ${monthRecapCard(m)}
   ${billsCard(m)}
-  ${debtsCard(m)}
-  ${savingsCard(m)}
+  ${moneyLinks(m)}
   ${!monthTx(m).length ? `<section class="card">${emptyState('wallet', tr('В этом месяце пока ничего не записано. Добавь операцию сам или просто скажи KAI, например «обед 12».'))}<div class="btnrow" style="justify-content:center"><button class="btn" data-act="txAdd">${ic('plus')}${tr('Операция')}</button><button class="btn ghost" data-act="tellEx" data-v="${esc(tr('Потратил 12 на обед'))}">${ic('mic')}${tr('Сказать KAI')}</button></div></section>` : `<section class="card"><div class="hint">${sel==='in'?tr("Доходы"):tr("Расходы")}</div>
     <div class="hero-num" style="margin-top:2px;font-size:34px">${money(SUM)}</div>
     <div class="hint">${si||so?`${tr("Остаток месяца:")} ${si-so>=0?'+':''}${money(si-so)}`:tr('Операций пока нет')}</div>${moneyVsPrev(m, sel === 'in' ? 'in' : 'out', SUM)}
@@ -4227,7 +4226,7 @@ function accountCard(){
   const privacy = `<div class="hint">${consent ? tr('Ты разрешил отправлять данные ИИ.') : tr('Отправка данных ИИ не разрешена.')} ${consent ? `<button class="link" data-act="consentOff">${tr('Отозвать')}</button>` : ''}</div>`;
   const usageBtn = `<div class="btnrow"><button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>${cloudOn() && CFG.plans ? `<button class="btn ghost" data-act="planSheet">${ic('star')}${tr('Тарифы')}</button>` : ''}</div>`;
   if (!cloudOn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Конфиденциальность')}</b>${privacy}${usageBtn}${legalLinks()}</section>`;
-  if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${privacy}${legalLinks()}${usageBtn}</section>`;
+  if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${consent ? privacy : ''}${legalLinks()}${consent || ownAI() || CFG.plans ? usageBtn : ''}</section>`;
   const st = syncState(), left = Object.keys(st.dirty || {}).length;
   const sync = S.syncErr ? tr('Не удалось синхронизировать, повторю позже') : st.at ? tr('Синхронизировано в') + ' ' + new Date(st.at).toTimeString().slice(0, 5) : tr('Синхронизация…');
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="t">${esc(AUTH.email)}</div>
@@ -7359,9 +7358,14 @@ function obSignIn(){
   const row = ssoRow(); if (!row) return '';
   return `<div class="hint" style="text-align:center">${tr('Уже есть аккаунт? Войди, и твои данные вернутся.')}</div>${row}`;
 }
+/* with no debts and no savings goal, the two "add" links share one row */
+function moneyLinks(m){
+  const a = debtsCard(m), b = savingsCard(m), bare = x => x.startsWith('<button class="link debt-add"');
+  return bare(a) && bare(b) ? `<div class="money-links">${a}${b}</div>` : a + b;
+}
 function signCard(){
   if (!cloudOn() || signedIn() || !meta().welcomed || meta().signOff) return '';
-  return `<section class="card nudge"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')}</div><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div><button class="btn" data-act="accountSheet">${tr('Войти')}</button></section>`;
+  return `<section class="card nudge signc"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')}</div></div><div class="acts"><button class="btn" data-act="accountSheet">${tr('Войти')}</button><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div></section>`;
 }
 A.signCardOff = () => { setMeta({signOff: true}); render(); };
 

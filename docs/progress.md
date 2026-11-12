@@ -253,6 +253,13 @@ The owner will be the first user and asked for: anything typed, said or photogra
 
 Not verified: reading a real photo with a real AI (the proposal handling is tested with a simulated answer); anything on a real iPhone.
 
+## Eighth round: KAI provides the AI, Google sign-in
+
+- **Nobody is asked to connect an AI.** Every "Connect Claude or ChatGPT" prompt, the setup-list step, the card in More and the key screens are hidden. With the server connected, the same places say "Sign in". Without it they say AI isn't turned on yet, and everything else keeps working on the phone.
+- **Existing keys keep working.** Anyone who already saved a Claude or ChatGPT key (or their own computer) keeps it, and can still change or remove it. `ownKeys: true` in `kai/config.js` brings the option back for everyone.
+- **Google sign-in is on by default on the web.** `providers` in `kai/config.js` now lists Google, and its button comes first on the sign-in screen. It appears once the Supabase address and key are filled in; the steps for Google are in `server/README.md` (3a).
+- **The AI permission screen stays.** Before the first request, KAI still asks once whether data may be sent to the AI. That is a privacy rule, not a setup step.
+
 ## Gamification: why these pieces
 
 Asked to think about rewards that keep people using KAI every day. The app already had a streak flame, streak milestones, 25 awards, XP levels, confetti for perfect days and habit milestones. What was missing was mostly about what happens *after a slip* and about goals at the scale of a week, so the additions are:
@@ -322,3 +329,5 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 22. **The sentence for finishing a blocked Focus early** is "I choose distraction over my work" (Russian: "Я выбираю отвлечься вместо учёбы"), after a 30-second wait. Stricter or gentler is a one-line change: `UNLOCK_WAIT` and `unlockPhrase` in `kai/app.js`.
 23. **Time tracking sits at the top of the Day tab** for everyone. If it feels like too much in the first week, it could appear only after the first Tell KAI message.
 24. **How hard should leaving a blocked Focus be?** Now: a wait of 1 minute that doubles with each early exit in 7 days, up to 10, plus the typed sentence. A mode with no early exit at all is possible, but then a real emergency has no way out except waiting for the session to end, so it was not added. Say if you want it anyway.
+25. **There is no AI until the server is connected.** You said KAI provides the AI, so the app no longer offers "paste your own key". The deployed site has an empty `kai/config.js`, so right now it has no AI and no sign-in. To turn both on, someone has to create the Supabase project, the Google sign-in client and the Claude key (steps in `server/README.md`); that needs accounts and a paid key, so it was not done here. To use AI yourself before that, set `ownKeys: true` in `kai/config.js`.
+26. **Google sign-in inside the iPhone app** is still not there (see question 6): the iPhone app offers Apple and email codes. Apple requires Sign in with Apple wherever Google is offered, so both will be needed there.

@@ -53,9 +53,18 @@ In the Supabase dashboard, go to **Authentication → Email templates → Magic 
 
 Supabase's built-in email service has a very low sending limit. It's fine for testing, but connect your own email provider before real users arrive.
 
+### 3a. Turn on Google sign-in
+
+1. In Google Cloud Console, create a project, then **APIs & Services → OAuth consent screen**: fill in the app name and support email, and publish it.
+2. **Credentials → Create credentials → OAuth client ID → Web application**. Under **Authorized redirect URIs** add `https://YOUR_PROJECT.supabase.co/auth/v1/callback`.
+3. In the Supabase dashboard, **Authentication → Sign In / Providers → Google**: turn it on and paste the client ID and client secret.
+4. **Authentication → URL Configuration**: set **Site URL** to the address the app is served from, and add the same address under **Redirect URLs**. Sign-in returns to that address.
+
+`kai/config.js` already lists `'google'` under `providers`, so the "Continue with Google" button appears as soon as the URL and key from step 4 are filled in. The button only works on the web for now; the iPhone app offers Sign in with Apple and email codes.
+
 ### 4. Connect the app
 
-Copy your project URL and **publishable** key into `kai/config.js`. Never put the secret key or the Claude key there. The publishable key is designed to be public, because the security rules protect the data.
+Copy your project URL and **publishable** key into `kai/config.js`. Until then the app has no account and no AI: it never asks anyone to paste their own Claude or ChatGPT key (set `ownKeys: true` there to bring that option back, for example to test before the server is ready). Never put the secret key or the Claude key there. The publishable key is designed to be public, because the security rules protect the data.
 
 ### 5. Try it
 

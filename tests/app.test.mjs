@@ -1053,7 +1053,7 @@ test('"What can I write?" examples all work without AI, in both languages; the A
   run(`SH = null; save('app/meta', meta85)`);
 });
 
-test('in the iPhone app with KAI\'s own AI, "paste your own key" is hidden unless the owner allows it; the web keeps it', () => {
+test('"paste your own key" is hidden unless the owner allows it or a key is already saved', () => {
   run(`globalThis.cfg1 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; window.Capacitor = {isNativePlatform: () => true, Plugins: {}}`);
   try {
     assert.doesNotMatch(run(`aiSettings()`), /Connect Claude or ChatGPT|paste an API key/);
@@ -1061,7 +1061,10 @@ test('in the iPhone app with KAI\'s own AI, "paste your own key" is hidden unles
     run(`CFG.ownKeys = true`);
     assert.match(run(`aiSettings()`), /Claude/);
     run(`CFG.ownKeys = false; delete window.Capacitor`);
-    assert.match(run(`aiSettings()`), /Claude/, 'the web keeps the option');
+    assert.doesNotMatch(run(`aiSettings()`), /Connect Claude or ChatGPT|paste an API key/, 'the web hides it too');
+    assert.match(run(`aiSettings()`), /Sign in to use AI\./);
+    run(`globalThis.ai7 = clone(aiCfg()); save('app/ai', {...aiCfg(), claude: {...aiCfg().claude, key: 'sk-ant-test'}})`);
+    try { assert.match(run(`aiSettings()`), /Claude/, 'a key saved earlier stays editable'); } finally { run(`save('app/ai', ai7)`); }
   } finally { run(`delete window.Capacitor; Object.assign(CFG, cfg1); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
 
@@ -1467,7 +1470,25 @@ test('Tell KAI explains what works without AI the first time, then keeps it to o
   run(`setMeta({toldOnce: true})`);
   const h = run(`connectNudge(true)`);
   assert.doesNotMatch(h, /Without AI I understand/);
-  assert.match(h, /Reading on the phone: simple messages\..*data-act="aiConnect"/);
+  assert.match(h, /Reading on the phone: simple messages\./);
+  assert.doesNotMatch(h, /data-act/, 'KAI provides the AI: nobody is asked to connect one');
+  run(`CFG.ownKeys = true`);
+  try { assert.match(run(`connectNudge(true)`), /data-act="aiConnect"/); } finally { run(`CFG.ownKeys = false`); }
+});
+
+test('KAI provides the AI: no screen asks for a Claude or ChatGPT key, and signing in is what turns AI on', () => {
+  run(`setMeta({toldOnce: false})`);
+  for (const h of [run(`connectNudge(true)`), run(`connectNudge()`), run(`viewMore()`), run(`aiSettings()`), run(`imgNote(true)`), run(`imgNote(false)`)]) assert.doesNotMatch(h, /Claude or ChatGPT|Connect AI|API key|data-act="aiConnect"/);
+  assert.match(run(`aiSettings()`), /isn't turned on yet/);
+  run(`globalThis.cfg8 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; CFG.providers = ['apple', 'google']`);
+  try {
+    assert.match(run(`connectNudge(true)`), /For everything else, sign in\..*data-act="accountSheet"/s);
+    assert.doesNotMatch(run(`viewMore()`), /Claude or ChatGPT|data-act="aiConnect"/);
+    const b = run(`SH = {}; accountBody()`);
+    assert.ok(b.indexOf('data-v="google"') > 0 && b.indexOf('data-v="google"') < b.indexOf('data-v="apple"'), 'Google comes first');
+    assert.doesNotMatch(b, /key/);
+  } finally { run(`Object.assign(CFG, cfg8); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+  assert.equal(run(`window.KAI_CONFIG.providers.join()`), 'google');
 });
 
 test('on a weight-loss goal, rising weight is called rising, not "too slow", and the advice stays a small, floored cut', () => {
@@ -1502,7 +1523,9 @@ test('bar charts label their axis with round numbers', () => {
 });
 
 test('without an AI that reads pictures, the note says how to get one in this setup, and the offline note names no provider', () => {
-  assert.match(run(`imgNote(true)`), /Claude or ChatGPT/, 'no server: connect a key');
+  assert.match(run(`imgNote(true)`), /isn't turned on yet/, 'no server and no own keys: nothing to connect');
+  run(`CFG.ownKeys = true`);
+  try { assert.match(run(`imgNote(true)`), /Claude or ChatGPT/, 'own keys allowed: connect a key'); } finally { run(`CFG.ownKeys = false`); }
   run(`globalThis.cfg6 = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'`);
   try { assert.match(run(`imgNote(true)`), /KAI's AI: sign in/); assert.match(run(`imgNote(false)`), /KAI's AI: sign in/); }
   finally { run(`Object.assign(CFG, cfg6); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }

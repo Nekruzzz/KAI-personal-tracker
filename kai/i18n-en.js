@@ -2519,4 +2519,8 @@ window.I18N_EN = {
 "Аккаунт включает ИИ и хранит копию данных в облаке, чтобы они не потерялись при смене телефона.":"An account turns on AI and keeps a copy of your data in the cloud, so it's safe if you change phones.",
 "Войди, чтобы пользоваться ИИ и хранить копию данных в облаке.":"Sign in to use AI and keep a copy of your data in the cloud.",
 "Войди, чтобы пользоваться ИИ. Здесь появится расход по дням.":"Sign in to use AI. Your daily usage will appear here.",
+"Ты вошёл:":"Signed in:",
+"Уже есть аккаунт? Войди, и твои данные вернутся.":"Already have an account? Sign in and your data comes back.",
+"Включи ИИ":"Turn on AI",
+"Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.":"Sign in and KAI understands any message or photo. A copy of your data is kept in the cloud.",
 };

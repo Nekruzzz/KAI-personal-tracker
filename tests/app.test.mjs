@@ -1490,7 +1490,12 @@ test('KAI provides the AI: no screen asks for a Claude or ChatGPT key, and signi
     assert.doesNotMatch(b, /id="auE"/, 'email codes stay hidden until the owner turns them on');
     run(`CFG.emailCodes = true`);
     assert.match(run(`accountBody()`), /id="auE"/);
-    run(`CFG.emailCodes = false; CFG.providers = []`);
+    run(`CFG.emailCodes = false; setMeta({welcomed: true, signOff: false})`);
+    assert.match(run(`viewDay()`), /Turn on AI.*data-act="accountSheet"/s, 'Day offers signing in');
+    assert.match(run(`obSignIn()`), /Already have an account\?.*data-v="google"/s, 'so does the first screen');
+    run(`A.signCardOff()`);
+    assert.doesNotMatch(run(`viewDay()`), /Turn on AI/, '"Not now" hides the card for good');
+    run(`setMeta({signOff: false}); CFG.providers = []`);
     assert.match(run(`accountBody()`), /id="auE"/, 'with no other way in, email stays');
   } finally { run(`Object.assign(CFG, cfg8); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
   assert.equal(run(`window.KAI_CONFIG.providers.join()`), 'google');

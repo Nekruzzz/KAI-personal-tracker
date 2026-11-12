@@ -1286,6 +1286,7 @@ function viewDay(){
   h += trackCard();
   h += comebackCard();
   h += firstTellCard();
+  h += signCard();
   h += timetableCard();
   h += suppsGoneNote();
   h += yesterdayBanner();
@@ -4059,7 +4060,7 @@ function obBody(){
   if (o.step === 0) return `<div class="wlogo"><img src="logo.png" alt="KAI" width="96"><div class="hint">${tr("Твоя жизнь в одном месте: пиши как есть, а план и подсчёты я возьму на себя")}</div></div>${langSeg()}${dots}
     <div class="field"><label for="obN">${tr("Как тебя зовут?")}</label><input class="in" id="obN" value="${esc(o.name)}" autocomplete="given-name"></div>
     <div class="field"><label>${tr("Чем занимаешься?")}</label><div class="seg">${[['study', tr('Учусь')], ['work', tr('Работаю')], ['other', tr('Другое')]].map(([v, l]) => `<button class="${o.role === v ? 'on' : ''}" data-act="obRole" data-v="${v}">${l}</button>`).join('')}</div></div>
-    <button class="btn block" data-act="obNext">${tr("Дальше")}</button>`;
+    <button class="btn block" data-act="obNext">${tr("Дальше")}</button>${obSignIn()}`;
   if (o.step === 1) return `${dots}<div class="t" style="font-weight:700;font-size:17px">${tr("Что хочешь отслеживать?")}</div><div class="hint">${tr("Выбери всё нужное. Изменить можно в любой момент.")}</div>
     <div class="ob-goals">${OB_GOALS.map(([k, l, i]) => `<button class="pill ${o.goals.includes(k) ? 'on' : ''}" data-act="obGoal" data-v="${k}" aria-pressed="${o.goals.includes(k)}">${ic(i)}${l}</button>`).join('')}</div>
     ${o.goals.includes('gym') ? `<div class="field"><label id="obWhereL">${tr('Где будешь тренироваться?')}</label><div class="seg" role="group" aria-labelledby="obWhereL">${[['home', tr('Дома, без инвентаря')], ['gym', tr('В зале')]].map(([v, l]) => `<button class="${o.where === v ? 'on' : ''}" aria-pressed="${o.where === v}" data-act="obWhere" data-v="${v}">${l}</button>`).join('')}</div></div>` : ''}
@@ -4181,7 +4182,7 @@ async function authFromUrl(){
 function accountBody(){
   const step = SH.authStep || 'start';
   if (step === 'code') return `<div class="hint">${tr('Мы отправили код на')} ${esc(SH.authEmail)}.</div><div class="field"><label for="auC">${tr('Код из письма')}</label><input class="in" id="auC" inputmode="numeric" autocomplete="one-time-code"></div><button class="btn block" data-act="authVerify">${tr('Войти')}</button><button class="link" data-act="authBack">${tr('Назад')}</button>`;
-  const prov = isNative() ? (plug('SignInWithApple') ? `<button class="btn block sso apple" data-act="authApple">${SSO_LOGO.apple}${tr('Продолжить через')} Apple</button>` : '') : [...(CFG.providers || [])].sort((x, y) => (y === 'google') - (x === 'google')).map(p => `<button class="btn block sso ${p === 'apple' || p === 'google' ? p : ''}" data-act="authOAuth" data-v="${esc(p)}">${SSO_LOGO[p] || ''}${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
+  const prov = ssoRow();
   /* email codes need the owner's own email service (Supabase only sends a link until then), so they stay hidden unless turned on or there is no other way in */
   const email = CFG.emailCodes || !prov ? `<div class="field"><label for="auE">${tr('Эл. почта')}</label><input class="in" id="auE" type="email" autocomplete="email" autocapitalize="off" value="${esc(SH.authEmail || '')}"></div>
     <button class="btn block" data-act="authEmail">${tr('Получить код')}</button>` : '';
@@ -7345,6 +7346,24 @@ function localTrack(c){
   return hit ? {a: hit[0], min} : null;
 }
 const cleanTrack = list => (Array.isArray(list) ? list : []).filter(x => x && allActs().includes(x.a) && +x.min >= 1 && +x.min <= TRACK_MAX && !actOf(x.a).kind).map(x => ({a: x.a, min: Math.round(+x.min)})).slice(0, 8);
+
+/* ============ signing in early: on the first screen and as a card on Day ============ */
+function ssoRow(){
+  if (isNative()) return plug('SignInWithApple') ? `<button class="btn block sso apple" data-act="authApple">${SSO_LOGO.apple}${tr('Продолжить через')} Apple</button>` : '';
+  return [...(CFG.providers || [])].sort((x, y) => (y === 'google') - (x === 'google')).map(p => `<button class="btn block sso ${p === 'apple' || p === 'google' ? p : ''}" data-act="authOAuth" data-v="${esc(p)}">${SSO_LOGO[p] || ''}${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
+}
+/* first screen: someone with an account gets their records back before filling anything in */
+function obSignIn(){
+  if (!cloudOn()) return '';
+  if (signedIn()) return `<div class="hint" style="text-align:center">${tr('Ты вошёл:')} ${esc(AUTH.email)}</div>`;
+  const row = ssoRow(); if (!row) return '';
+  return `<div class="hint" style="text-align:center">${tr('Уже есть аккаунт? Войди, и твои данные вернутся.')}</div>${row}`;
+}
+function signCard(){
+  if (!cloudOn() || signedIn() || !meta().welcomed || meta().signOff) return '';
+  return `<section class="card nudge"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')}</div><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div><button class="btn" data-act="accountSheet">${tr('Войти')}</button></section>`;
+}
+A.signCardOff = () => { setMeta({signOff: true}); render(); };
 
 /* ============ init ============ */
 async function init(){

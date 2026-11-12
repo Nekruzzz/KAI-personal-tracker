@@ -2534,4 +2534,7 @@ window.I18N_EN = {
 "Разобрал на телефоне, запрос к ИИ не потрачен. Проверь и подтверди.":"Read on the phone, so no AI request was used. Check and confirm.",
 "Разобрать через ИИ":"Read it with AI instead",
 "Ищу твои данные в облаке…":"Looking for your data in the cloud…",
+"Скриншот из приложения здоровья":"Health app screenshot",
+"Шаги, сон и вес KAI возьмёт со снимка и покажет, прежде чем записать":"KAI takes steps, sleep and weight from the picture and shows you before saving",
+"Это снимок экрана из приложения здоровья. Запиши шаги, сон и вес, которые на нём видны.":"This is a screenshot from my health app. Record the steps, sleep and weight shown on it.",
 };

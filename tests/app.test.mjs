@@ -3543,3 +3543,14 @@ test('after signing in with Google, the welcome screen starts with the first nam
     assert.equal(run(`AUTH.name`), '', 'no name from an email sign-in');
   } finally { run(`if (typeof seN !== 'undefined') S.syncErr = seN; closeSheetQuiet(); AUTH = authN; lsSet('kai_auth', authN); syncSave(syncN); Object.assign(CFG, cfgN); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('Health → Body offers a health-app screenshot only when an AI can read pictures', () => {
+  assert.equal(run(`healthShotRow()`), '', 'no AI: nothing to offer');
+  run(`globalThis.cfgH = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authH = AUTH; AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'}`);
+  try {
+    assert.match(run(`healthShotRow()`), /Health app screenshot.*data-ch="healthShot"/s);
+    run(`CH.healthShot({files: [new Blob(['x'], {type: 'image/png'})]})`);
+    assert.match(run(`SH.tellText`), /screenshot from my health app/);
+    assert.equal(run(`!!SH.tellFile`), true);
+  } finally { run(`closeSheetQuiet(); AUTH = authH; Object.assign(CFG, cfgH); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

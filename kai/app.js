@@ -1507,6 +1507,7 @@ function hBody(){
   const photos = (S.docs['app/photos']?.list||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
   let h = `<section class="card hero"><div class="hero-row"><div class="grow"><div class="hero-num">${last?num(W(last.v),1)+' '+kgU():'—'}</div><div class="hero-sub">${last?`${tr("среднее за 7 записей")} ${num(W(avg7),1)} ${kgU()}${first&&first!==last?` ${tr("· за сезон")} ${last.v-first.v>0?'+':''}${num(W(last.v-first.v),1)} ${kgU()}`:''}`:tr('Взвешивайся утром натощак, после туалета')}</div></div></div>
     <div class="fgrid" style="margin-top:14px"><div class="field"><label for="wIn">${tr("Вес сегодня")}, ${kgU()}</label><input class="in" id="wIn" inputmode="decimal" data-ch="weight" value="${W(d.weight)??''}" placeholder="${last?W(last.v):W(75)}"></div><div class="field"><label for="waIn">${tr("Талия")}, ${cmU()} ${tr("(раз в неделю)")}</label><input class="in" id="waIn" inputmode="decimal" data-ch="waist" value="${L(d.waist)??''}" placeholder="${waists.length?L(waists[waists.length-1].v):tr('на уровне пупка')}"></div></div></section>`;
+  h += healthShotRow();
   h += `<div class="sec-h"><h2>${tr("Вес")}</h2></div><section class="card"><div class="hint" style="margin-bottom:6px">${tr("Линия — среднее за 7 дней, точки — взвешивания")}</div>${lineChart(ws.slice(-60).map(x=>({x:fmtShort(x.k), y:W(x.v)})), {avg:true, c:'c1', unit:kgU(), dec:1, id:'w', label:tr('Вес')})}<div class="hint" style="margin-top:8px">${tr("Цель темпа: −0,5…0,7% веса в неделю")}${last?` (≈ ${num(W(last.v*0.005),1)}–${num(W(last.v*0.007),1)} ${kgU()})`:''}${tr(". Быстрее — растёт риск потерять мышцы.")}</div></section>`;
   // the calorie adjustment lives on the Food tab, where the target is used
   h += sleepSection();
@@ -7415,6 +7416,18 @@ CH.ttPhoto = el => {
   SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); SH.tellText = tr('Это моё расписание пар на неделю. Добавь все пары.');
   haptic('light'); drawSheet();
 };
+/* ---- steps, sleep and weight from a screenshot of the phone's health app: on the web there is no direct link to it ---- */
+function healthShotRow(){
+  if (!imgCapable() || (isNative() && meta().healthOn)) return '';
+  return `<label class="card navrow" style="cursor:pointer"><span class="ic">${ic('image')}</span><div class="mid"><div class="t">${tr('Скриншот из приложения здоровья')}</div><div class="s">${tr('Шаги, сон и вес KAI возьмёт со снимка и покажет, прежде чем записать')}</div></div>${ic('chevR')}<input type="file" accept="image/*" hidden data-ch="healthShot"></label>`;
+}
+CH.healthShot = el => {
+  const f = el.files?.[0]; if (!f) return;
+  A.tell({dataset: {}});
+  SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); SH.tellText = tr('Это снимок экрана из приложения здоровья. Запиши шаги, сон и вес, которые на нём видны.');
+  haptic('light'); drawSheet();
+};
+
 /* someone signing in on a new phone sees that their records are being looked for, so they don't fill the form in again */
 const obSyncText = () => signedIn() && syncState().first && !S.syncErr ? tr('Ищу твои данные в облаке…') : '';
 function obSyncNote(){ const e = $('#obSync'); if (e) e.textContent = obSyncText(); }

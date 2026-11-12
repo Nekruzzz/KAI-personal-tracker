@@ -271,6 +271,7 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 - **Phone first:** a short message the phone understands completely ("slept 7 hours, walked 40 minutes", "spent 12 on lunch") is now read on the phone even when AI is on. It is instant and doesn't use one of the day's 20 requests. Anything with a part the phone can't read still goes to the AI, and a "Read it with AI instead" link sits under the phone's answer.
 - **Privacy policy covers Google sign-in:** it now says what KAI receives from Google (email, name, profile picture address) and what it doesn't (no password, no Gmail, Drive, contacts or calendar), in both languages.
 - **Name from Google:** after signing in with Google on the first screen, "What's your name?" is already filled with the first name from the account, and can be changed.
+- **Health data on the web:** a browser can't read the phone's health app, so Health → Body now has "Health app screenshot". The picture goes through Tell KAI, which shows the steps, sleep and weight it found before saving. It appears only when AI can read pictures, and not in the iPhone app once Apple Health is connected. How well the AI reads such screenshots was not measured here (that needs paid AI calls).
 - **The AI permission screen stays.** Before the first request, KAI still asks once whether data may be sent to the AI. That is a privacy rule, not a setup step.
 - **Limits for everyone:** free plan is now 20 AI requests a day per person, photos included, on the fast model. Plus stays at 100 with the smarter model. All users together are capped at 2,000 requests a day (`app_limits`), so a busy day cannot make a large bill. The numbers live in database rows, so they can change without a code change (migration `20261112000000_free_limits.sql`).
 - **Many people at once:** the server function keeps no state per user and the daily count is taken under a database lock, so simultaneous requests are counted correctly and share the one Claude key. If Claude itself is busy, the person sees "AI is busy, trying later" and the request waits in the queue.
@@ -315,6 +316,8 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 - In Chromium at 390×844 (phone size), served with `python -m http.server 8123 --directory kai`: each change was tried, in English and Russian where relevant, and in both themes.
 
 ## Not verified
+
+- **Live server, checked with the public key only (12 Nov):** Google sign-in is turned on in the Supabase project and its sign-in address redirects to Google correctly; the AI function is deployed and refuses requests without an account (401). No AI request was made. Not checked: a full Google sign-in in a browser, whether the site address is in Supabase's Redirect URLs, and a real AI answer.
 
 - Anything on a real iPhone: notification taps, the permissions step, Apple Health, the status bar in light mode.
 - The RevenueCat webhook against real RevenueCat events, and the Supabase function itself (only its logic and the SQL were tested).

@@ -4073,7 +4073,7 @@ function obBody(){
     <div class="btnrow"><button class="btn ghost" data-act="obBack">${tr("Назад")}</button><button class="btn" data-act="obDone">${tr("Готово")}</button></div>`;
 }
 const obRead = () => { const o = SH.ob; [['obN', 'name'], ['obW', 'wake'], ['obS', 'sleep'], ['obC', 'cur'], ['obB', 'budget'], ['obA', 'about']].forEach(([id, k]) => { if ($('#' + id)) o[k] = val(id); }); };
-A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: profile().currency || guessCurrency(), about: '', where: 'home'}; return obBody(); });
+A.welcome = () => openSheet(tr('Добро пожаловать'), () => { SH.ob = SH.ob || {step: 0, name: (signedIn() && AUTH.name) || '', role: 'study', goals: ['study', 'gym', 'food', 'walk', 'sleep', 'money'], wake: '07:00', sleep: '23:00', cur: profile().currency || guessCurrency(), about: '', where: 'home'}; return obBody(); });
 A.obWhere = el => { SH.ob.where = el.dataset.v; drawSheet(); };
 A.obRole = el => { obRead(); SH.ob.role = el.dataset.v; drawSheet(); };
 A.obGoal = el => { const o = SH.ob, v = el.dataset.v; o.goals = o.goals.includes(v) ? o.goals.filter(x => x !== v) : [...o.goals, v]; drawSheet(); };
@@ -4147,7 +4147,7 @@ function setSession(d){
   const id = d.user?.id; if (!id || !d.access_token) return false;
   const st = syncState();
   if (st.owner && st.owner !== id){ toast(tr('На этом телефоне данные другого аккаунта. Войди в него или удали данные.'), {ms:5000}); return false; }
-  AUTH = {access: d.access_token, refresh: d.refresh_token, exp: Date.now() + (d.expires_in || 3600) * 1000, id, email: d.user.email || ''};
+  AUTH = {access: d.access_token, refresh: d.refresh_token, exp: Date.now() + (d.expires_in || 3600) * 1000, id, email: d.user.email || '', name: String(d.user.user_metadata?.full_name || d.user.user_metadata?.name || '').trim().split(/\s+/)[0].slice(0, 40)}; // the first name, to fill in the welcome screen
   lsSet('kai_auth', AUTH);
   if (st.owner !== id) syncSave({owner: id, cursor: 0, dirty: {}, first: true});
   return true;

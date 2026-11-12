@@ -3527,3 +3527,15 @@ test('a short message the phone understands completely is read on the phone even
     assert.equal(it.result.sleep_h, 7);
   } finally { run(`Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxL.includes(k)).forEach(k => remove(k)); SH = null; AUTH = authL; Object.assign(CFG, cfgL); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('after signing in with Google, the welcome screen starts with the first name from the account', () => {
+  run(`globalThis.cfgN = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authN = AUTH; globalThis.syncN = lsGet('kai_sync'); syncSave(null)`);
+  try {
+    assert.equal(run(`setSession({access_token: 'a', refresh_token: 'r', expires_in: 3600, user: {id: 'uN', email: 'user@example.com', user_metadata: {full_name: 'Alex  Example'}}})`), true);
+    assert.equal(run(`AUTH.name`), 'Alex');
+    run(`SH = null; A.welcome()`);
+    assert.equal(run(`SH.ob.name`), 'Alex');
+    run(`closeSheetQuiet(); setSession({access_token: 'a', refresh_token: 'r', expires_in: 3600, user: {id: 'uN', email: 'user@example.com'}})`);
+    assert.equal(run(`AUTH.name`), '', 'no name from an email sign-in');
+  } finally { run(`closeSheetQuiet(); AUTH = authN; lsSet('kai_auth', authN); syncSave(syncN); Object.assign(CFG, cfgN); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

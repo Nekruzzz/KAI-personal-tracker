@@ -581,7 +581,7 @@ test('the plan screen shows both limits and says plainly that the price is a pla
   run(`SH = {}`);
   const h = run(`planBody()`);
   assert.match(h, /AI requests a day/);
-  assert.match(h, />10</); assert.match(h, />100</);
+  assert.match(h, />20</); assert.match(h, />100</);
   assert.match(h, /placeholder, not a real price/);
   assert.match(h, /nothing is charged/);
   assert.match(h, /<button class="btn block" disabled>/, 'nothing to buy yet');

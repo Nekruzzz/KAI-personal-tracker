@@ -39,10 +39,10 @@ test('a new account gets a free profile automatically', async () => {
   assert.equal((await rows('select tier from public.profiles where user_id=$1', [A]))[0].tier, 'free');
 });
 
-test('free plan stops at 10 requests a day, and tomorrow is a new day', async () => {
-  for (let i = 1; i <= 10; i++){ const r = await reserve(A); assert.equal(r.ok, true); assert.equal(r.used, i); assert.equal(r.smart_model, false); }
+test('free plan stops at 20 requests a day, and tomorrow is a new day', async () => {
+  for (let i = 1; i <= 20; i++){ const r = await reserve(A); assert.equal(r.ok, true); assert.equal(r.used, i); assert.equal(r.smart_model, false); }
   const over = await reserve(A);
-  assert.deepEqual([over.ok, over.code, over.used, over.limit], [false, 'daily_limit', 10, 10]);
+  assert.deepEqual([over.ok, over.code, over.used, over.limit], [false, 'daily_limit', 20, 20]);
   assert.equal((await reserve(A, false, '2026-11-02')).used, 1);
 });
 
@@ -55,8 +55,10 @@ test('a failed AI call gives the request back, a good one records tokens', async
   assert.deepEqual([Number(u.input_tokens), Number(u.output_tokens)], [3000, 500]);
 });
 
-test('photos need the paid plan, which also unlocks the smart model', async () => {
-  assert.equal((await reserve(B, true)).code, 'plus_required');
+test('photos work on the free plan; the paid plan adds the smart model', async () => {
+  const f = await reserve(B, true);
+  assert.deepEqual([f.ok, f.tier, f.limit, f.smart_model], [true, 'free', 20, false]);
+  await settle(B, false);
   await db.exec(`update public.profiles set tier='plus' where user_id='${B}'`);
   const r = await reserve(B, true);
   assert.deepEqual([r.ok, r.tier, r.smart_model], [true, 'plus', true]);
@@ -163,7 +165,7 @@ test('subscription events set the plan once each, in order, and an end date in t
   assert.ok((await tierOf(C)).tier_expires_at);
   assert.equal(await sub('e3', 'grant', '2026-11-03T10:00:00Z', '2020-01-01T00:00:00Z'), 'applied');
   const r = await reserve(C, true, '2026-11-04');
-  assert.deepEqual([r.ok, r.code], [false, 'plus_required'], 'past its end date: treated as free even without a webhook');
+  assert.deepEqual([r.ok, r.tier, r.smart_model], [true, 'free', false], 'past its end date: treated as free even without a webhook');
   assert.equal(await sub('e4', 'revoke', '2026-11-04T10:00:00Z'), 'applied');
   assert.deepEqual(await tierOf(C), {tier: 'free', tier_expires_at: null});
   assert.equal(await sub('e5', 'grant', '2026-11-05T10:00:00Z', null, '99999999-9999-9999-9999-999999999999'), 'unknown_user');

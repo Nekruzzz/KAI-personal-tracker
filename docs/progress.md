@@ -259,6 +259,9 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 - **Existing keys keep working.** Anyone who already saved a Claude or ChatGPT key (or their own computer) keeps it, and can still change or remove it. `ownKeys: true` in `kai/config.js` brings the option back for everyone.
 - **Google sign-in is on by default on the web.** `providers` in `kai/config.js` now lists Google, and its button comes first on the sign-in screen. It appears once the Supabase address and key are filled in; the steps for Google are in `server/README.md` (3a).
 - **The AI permission screen stays.** Before the first request, KAI still asks once whether data may be sent to the AI. That is a privacy rule, not a setup step.
+- **Limits for everyone:** free plan is now 20 AI requests a day per person, photos included, on the fast model. Plus stays at 100 with the smarter model. All users together are capped at 2,000 requests a day (`app_limits`), so a busy day cannot make a large bill. The numbers live in database rows, so they can change without a code change (migration `20261112000000_free_limits.sql`).
+- **Many people at once:** the server function keeps no state per user and the daily count is taken under a database lock, so simultaneous requests are counted correctly and share the one Claude key. If Claude itself is busy, the person sees "AI is busy, trying later" and the request waits in the queue.
+- **The key is never in the repo.** It goes in as a Supabase secret (`ANTHROPIC_API_KEY`), see `server/README.md`.
 
 ## Gamification: why these pieces
 

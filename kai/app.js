@@ -5030,7 +5030,7 @@ A.permSheet = () => openSheet(tr('Разрешения'), permBody);
 A.permHealth = async el => { await A.healthConnect(el); if (SH) drawSheet(); };
 
 /* ============ plans and AI usage: limits mirror server/supabase (tiers); no payments exist yet ============ */
-const PLANS = {free: {daily: 10, photos: false, smart: false}, plus: {daily: 100, photos: true, smart: true}};
+const PLANS = {free: {daily: 20, photos: true, smart: false}, plus: {daily: 100, photos: true, smart: true}};
 const PLUS_PRICE = null; // set when payments are added; until then the screen says the price is a placeholder
 const planNow = () => SH?.prof?.tier || KAI_USE?.tier || 'free';
 async function loadAccountUsage(){

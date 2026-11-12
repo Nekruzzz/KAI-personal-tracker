@@ -19,6 +19,7 @@ You need about 30 minutes. Run the commands from this `server` folder.
 ### 1. Create the accounts
 
 - **Supabase:** create a project at [supabase.com](https://supabase.com). Note its project ref, which is the part of its URL before `.supabase.co`.
+- **One key for everyone:** all users share the single Claude key stored on the server (`ANTHROPIC_API_KEY`, below). Requests from many people at once are fine: the daily count is taken under a database lock, and the cap across all users (`app_limits`) bounds the bill. Raise your Anthropic rate tier if the key starts answering "busy" at peak times.
 - **Anthropic:** create an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys), and **set a monthly spending limit** there.
 
 ### 2. Put the database and functions online
@@ -76,7 +77,7 @@ Edit the `tiers` table in the Supabase dashboard. No code change is needed.
 
 | Plan | AI requests a day | Photos | Better model for heavy tasks |
 |---|---|---|---|
-| free | 10 | no | no |
+| free | 20 | yes | no |
 | plus | 100 | yes | yes |
 
 The `app_limits` table holds a daily cap across all users, 2,000 requests to start with. To give someone the paid plan by hand, set `tier` to `plus` on their row in `profiles` and leave `tier_expires_at` empty.

@@ -2509,7 +2509,9 @@ test('the week ahead lists each day: classes, workout, exams, to-dos and payment
     const days = JSON.parse(run(`JSON.stringify(weekAheadDays())`));
     assert.equal(days.length, 7);
     const d1 = days[1].items.map(x => x.t), d3 = days[3].items.map(x => x.t);
-    assert.ok(d1.includes('Buy pens') && d1.some(t => /1/.test(t)), 'a class and the to-do tomorrow');
+    assert.ok(d1.includes('Buy pens') && d1.includes('Algebra'), 'the class by name and the to-do tomorrow');
+    assert.equal(days[1].items.find(x => x.t === 'Algebra').s, '09:00–10:30', 'with its hours');
+    assert.ok(d1.indexOf('Algebra') < d1.indexOf('Buy pens'), 'timed things first, in order');
     assert.ok(d3.includes('Physics') && d3.includes('Phone'), 'the exam and the payment');
     assert.ok(run(`(A.weekAhead(), SH.body())`).includes('Physics'));
   } finally { run(`closeSheetQuiet(); save('app/plan', plan33); saveTasks(tasks33); save('app/bills', {list: []}); setMeta({modules: mods33})`); }
@@ -3553,4 +3555,21 @@ test('Health → Body offers a health-app screenshot only when an AI can read pi
     assert.match(run(`SH.tellText`), /screenshot from my health app/);
     assert.equal(run(`!!SH.tellFile`), true);
   } finally { run(`closeSheetQuiet(); AUTH = authH; Object.assign(CFG, cfgH); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});
+
+test('a class can be edited: name, day and hours change in place, with Undo', () => {
+  run(`globalThis.plC = clone(plan()); { const pl = clone(plan()); pl.classes = [{day: 1, time: '09:00', end: '10:30', title: 'Maths'}, {day: 2, time: '10:00', title: 'English'}]; save('app/plan', pl); } S.tab = 'more'; S.open.acc_classes = true`);
+  try {
+    assert.match(run(`viewMore()`), /data-act="clsEdit" data-i="0"[^>]*aria-label="Edit Maths"/);
+    run(`A.clsEdit({dataset: {i: '0'}})`);
+    const body = run(`SH.body()`);
+    assert.match(body, /id="ceN"[^>]*value="Maths"/); assert.match(body, /value="1" selected/); assert.match(body, /id="ceE"[^>]*value="10:30"/);
+    run(`globalThis.FORM = {'#ceN': 'Maths, room 12', '#ceD': '3', '#ceT': '11:00', '#ceE': ''}; A.clsSave({dataset: {i: '0'}}); delete globalThis.FORM`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(plan().classes[0])`)), {day: 3, time: '11:00', title: 'Maths, room 12'}, 'no end time: the old one is dropped');
+    assert.equal(run(`plan().classes[1].title`), 'English', 'the other class is untouched');
+    run(`A.undoApply()`);
+    assert.equal(run(`plan().classes[0].title + plan().classes[0].end`), 'Maths10:30', 'Undo brings it back');
+    run(`A.clsEdit({dataset: {i: '0'}}); globalThis.FORM = {'#ceN': '', '#ceD': '1', '#ceT': '09:00', '#ceE': ''}; A.clsSave({dataset: {i: '0'}}); delete globalThis.FORM`);
+    assert.equal(run(`plan().classes[0].title`), 'Maths', 'an empty name is not saved');
+  } finally { run(`delete globalThis.FORM; closeSheetQuiet(); save('app/plan', plC); S.tab = 'day'; delete S.open.acc_classes`); }
 });

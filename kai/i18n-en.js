@@ -2537,4 +2537,7 @@ window.I18N_EN = {
 "Скриншот из приложения здоровья":"Health app screenshot",
 "Шаги, сон и вес KAI возьмёт со снимка и покажет, прежде чем записать":"KAI takes steps, sleep and weight from the picture and shows you before saving",
 "Это снимок экрана из приложения здоровья. Запиши шаги, сон и вес, которые на нём видны.":"This is a screenshot from my health app. Record the steps, sleep and weight shown on it.",
+"Изменить пару":"Edit class",
+"Укажи время начала":"Set the start time",
+"Пара изменена":"Class changed",
 };

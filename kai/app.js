@@ -3288,7 +3288,7 @@ function viewMore(){
   h += acc('tasks', 'list', tr('Ежедневные задачи'), shownDaily(pl).length + ' ' + plural(shownDaily(pl).length, tr('задача'), tr('задачи'), tr('задач')), `<div class="list">${(pl.dailyTasks || []).map((tk, i) => !SUPPS_ON && tk.cat === 'supps' ? '' : `<div class="row"><div class="mid"><div class="t">${esc(tk.title)}</div><button class="link" style="font-size:13.5px;padding:2px 0" data-act="dtDays" data-i="${i}">${esc(daysLabel(tk.days))}</button></div><button class="iconbtn" data-act="dtDel" data-i="${i}" aria-label="${tr("Убрать")} ${esc(tk.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div style="display:flex;gap:8px"><input class="in" id="dtNew" placeholder="${tr("Новая ежедневная задача")}"><button class="btn" data-act="dtAdd" aria-label="${tr("Добавить")}">${ic('plus')}</button></div>`);
   h += isNative() ? acc('remind', 'bell', tr('Напоминания'), m.remindAsked ? tr('Включены') : tr('Не настроены'), `<button class="btn" data-act="notifSheet">${ic('bell')}${tr('Настроить напоминания')}</button>`) + healthRow() : acc('remind', 'bell', tr('Напоминания'), m.icsAt ? tr('Календарь iPhone настроен') : tr('Не настроены'), `<div class="hint">${tr("Календарь iPhone напомнит о тренировке, еде и сне, даже когда приложение закрыто.")}</div><button class="btn" data-act="ics">${ic('day')}${tr("Настроить напоминания в Календарь")}</button>`);
-  if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
+  if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><button class="mid" data-act="clsEdit" data-i="${c.i}" style="text-align:left" aria-label="${tr('Изменить')} ${esc(c.title)}"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></button><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:8px"><select class="in" id="clD" style="grid-column:1/-1" aria-label="${tr("День")}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}">${DOW[n]}</option>`).join('')}</select><div class="field" style="min-width:0"><label for="clT">${tr("Начало")}</label><input class="in" id="clT" type="time" value="09:00"></div><div class="field" style="min-width:0"><label for="clE">${tr("Конец")}</label><input class="in" id="clE" type="time"></div><input class="in" id="clN" style="grid-column:1/-1" placeholder="${tr("Предмет, ауд.")}" aria-label="${tr("Предмет")}"></div>
     <div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}${ttPhotoPick()}</div>`);
   h += acc('ai', 'spark', tr('ИИ'), st.ok || ownKeysAllowed() ? esc(st.text) : cloudOn() ? tr('Войди в аккаунт') : tr('Пока не включён'), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow">${ownKeysAllowed() ? `<button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button>` : cloudOn() && !signedIn() ? `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>` : ''}<button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
@@ -6137,11 +6137,12 @@ A.debtSave = () => { const who = val('dbW'), amount = Math.abs(toNum(val('dbA'))
 function weekAheadDays(today = todayISO()){
   return [...Array(7)].map((_, i) => {
     const date = addDays(today, i), items = [];
-    const cls = timedOn(date).filter(x => x.k === 'cls');
-    if (cls.length) items.push({ic: 'cap', t: `${cls.length} ${plural(cls.length, tr('пара'), tr('пары'), tr('пар'))}`, s: cls.map(c => hmStr(c.s)).join(', ')});
-    const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym); if (gym) items.push({ic: 'gym', t: tr('Тренировка'), s: hmStr(gym.s)});
-    eventsFor(date).forEach(e => items.push({ic: e.kind === 'exam' ? 'alert' : e.kind === 'deadline' ? 'list' : 'day', t: e.title, s: [EV_KIND[e.kind]?.[0], e.from].filter(Boolean).join(' · '), warn: e.kind === 'exam' || e.kind === 'deadline'}));
-    smartTasks().filter(t => !t.done && t.due === date && !studyOver(t)).forEach(t => items.push({ic: t.time ? 'bell' : 'checkc', t: t.title, s: [t.time, everyText(t)].filter(Boolean).join(' · ')}));
+    // each class by name, and everything with a time in the order it happens
+    timedOn(date).filter(x => x.k === 'cls').forEach(c => items.push({ic: 'cap', t: c.title, s: hmStr(c.s) + '–' + hmStr(c.e), at: c.s}));
+    const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym); if (gym) items.push({ic: 'gym', t: tr('Тренировка'), s: hmStr(gym.s), at: gym.s});
+    eventsFor(date).forEach(e => items.push({ic: e.kind === 'exam' ? 'alert' : e.kind === 'deadline' ? 'list' : 'day', t: e.title, s: [EV_KIND[e.kind]?.[0], e.from].filter(Boolean).join(' · '), warn: e.kind === 'exam' || e.kind === 'deadline', at: e.from ? hm(e.from) : null}));
+    smartTasks().filter(t => !t.done && t.due === date && !studyOver(t)).forEach(t => items.push({ic: t.time ? 'bell' : 'checkc', t: t.title, s: [t.time, everyText(t)].filter(Boolean).join(' · '), at: t.time ? hm(t.time) : null}));
+    items.sort((a, b) => (a.at ?? 1e9) - (b.at ?? 1e9)); // stable: things without a time keep their order after the timed ones
     if (modOn('money')) bills().filter(b => b.type !== 'in' && billDue(b, date.slice(0, 7)) === date && billState(b, date) !== 'paid' && billState(b, date) !== 'skip').forEach(b => items.push({ic: 'cash', t: b.title, s: money(b.amount)}));
     return {date, items};
   });
@@ -7416,6 +7417,24 @@ CH.ttPhoto = el => {
   SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); SH.tellText = tr('Это моё расписание пар на неделю. Добавь все пары.');
   haptic('light'); drawSheet();
 };
+/* ---- a class can be changed, not only removed: a new room or hour shouldn't mean typing it again ---- */
+A.clsEdit = el => {
+  const i = +el.dataset.i; if (!plan().classes?.[i]) return;
+  openSheet(tr('Изменить пару'), () => { const c = plan().classes?.[i]; if (!c) return ''; return `
+    <div class="field"><label for="ceN">${tr('Предмет, ауд.')}</label><input class="in" id="ceN" maxlength="80" value="${esc(c.title)}"></div>
+    <div class="field"><label for="ceD">${tr('День')}</label><select class="in" id="ceD">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${+c.day === n ? 'selected' : ''}>${DOW_FULL[n]}</option>`).join('')}</select></div>
+    <div class="fgrid"><div class="field"><label for="ceT">${tr('Начало')}</label><input class="in" id="ceT" type="time" value="${esc(c.time)}"></div><div class="field"><label for="ceE">${tr('Конец')}</label><input class="in" id="ceE" type="time" value="${esc(c.end || '')}"></div></div>
+    <button class="btn block" data-act="clsSave" data-i="${i}">${ic('check')}${tr('Сохранить')}</button>`; });
+};
+A.clsSave = el => {
+  const i = +el.dataset.i, title = val('ceN'), time = val('ceT'), end = val('ceE');
+  if (!title) return toast(tr('Впиши предмет'));
+  if (!time) return toast(tr('Укажи время начала'));
+  if (!plan().classes?.[i]) return closeSheet();
+  withUndo(['app/plan'], () => { const pl = clone(plan()), c = {...pl.classes[i], day: +val('ceD'), time, title}; if (end && end > time) c.end = end; else delete c.end; pl.classes[i] = c; save('app/plan', pl); }, tr('Пара изменена'));
+  closeSheet();
+};
+
 /* ---- steps, sleep and weight from a screenshot of the phone's health app: on the web there is no direct link to it ---- */
 function healthShotRow(){
   if (!imgCapable() || (isNative() && meta().healthOn)) return '';

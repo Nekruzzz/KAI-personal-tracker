@@ -3,7 +3,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
-import { handleAi, parseRequest, pickModel, FAST_MODEL, SMART_MODEL } from '../supabase/functions/_shared/ai-core.ts';
+import { handleAi, parseRequest, pickModel, maxTokensFor, FAST_MODEL, SMART_MODEL, SAFETY_RULES, STYLE_RULES } from '../supabase/functions/_shared/ai-core.ts';
 
 let server, client, last, next, calls;
 const ok = (over = {}) => ({status: 200, body: {id: 'msg_1', type: 'message', role: 'assistant', model: 'm', stop_reason: 'end_turn', stop_sequence: null,
@@ -35,7 +35,7 @@ test('an ordinary message uses the fast model and records tokens', async () => {
   assert.equal(r.body.text, '{"reply":"hi"}'); // read by block type: a thinking block comes first
   assert.deepEqual([r.body.used, r.body.limit], [3, 10]);
   assert.equal(last.body.model, FAST_MODEL);
-  assert.equal(last.body.max_tokens, 8000);
+  assert.equal(last.body.max_tokens, 2500);
   assert.equal(last.body.output_config.effort, 'medium');
   assert.match(last.body.system, /not a doctor/); // added by the server, so an old or altered app can't skip it
   assert.deepEqual(settled, [{good: true, i: 3000, o: 500}]);
@@ -45,7 +45,18 @@ test('an ordinary message uses the fast model and records tokens', async () => {
 test('the phone cannot choose a model or raise limits', async () => {
   await run({prompt: 'x', model: 'claude-opus-5-5', max_tokens: 128000, kind: 'review'});
   assert.equal(last.body.model, FAST_MODEL);
-  assert.equal(last.body.max_tokens, 8000);
+  assert.equal(last.body.max_tokens, 3500);
+});
+
+test('terse style rides after the safety rules and each kind has an output ceiling', async () => {
+  await run({prompt: 'x', kind: 'tell'});
+  assert.ok(last.body.system.startsWith(SAFETY_RULES)); // safety first, untouched
+  assert.ok(last.body.system.endsWith(STYLE_RULES));
+  assert.match(STYLE_RULES, /plain, kind, complete sentences/); // health and crisis text is never clipped
+  assert.equal(maxTokensFor('bank'), 6000);
+  assert.equal(maxTokensFor('unknown'), 8000);
+  assert.equal(maxTokensFor('__proto__'), 8000);
+  assert.equal(maxTokensFor(''), 8000);
 });
 
 test('paid plan gets the smart model with fallback for heavy work, fast model for logging', async () => {

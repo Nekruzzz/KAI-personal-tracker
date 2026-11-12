@@ -1487,6 +1487,11 @@ test('KAI provides the AI: no screen asks for a Claude or ChatGPT key, and signi
     const b = run(`SH = {}; accountBody()`);
     assert.ok(b.indexOf('data-v="google"') > 0 && b.indexOf('data-v="google"') < b.indexOf('data-v="apple"'), 'Google comes first');
     assert.doesNotMatch(b, /key/);
+    assert.doesNotMatch(b, /id="auE"/, 'email codes stay hidden until the owner turns them on');
+    run(`CFG.emailCodes = true`);
+    assert.match(run(`accountBody()`), /id="auE"/);
+    run(`CFG.emailCodes = false; CFG.providers = []`);
+    assert.match(run(`accountBody()`), /id="auE"/, 'with no other way in, email stays');
   } finally { run(`Object.assign(CFG, cfg8); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
   assert.equal(run(`window.KAI_CONFIG.providers.join()`), 'google');
 });

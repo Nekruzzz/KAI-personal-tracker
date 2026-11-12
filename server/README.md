@@ -48,7 +48,9 @@ npx supabase functions deploy ai
 npx supabase functions deploy delete-account
 ```
 
-### 3. Turn on email codes
+### 3. Turn on email codes (optional; Google sign-in works without it)
+
+Supabase only lets you edit the email template after you connect your own email service (**Authentication → Emails → SMTP**; Resend has a free plan). Until then it emails a link, not a code, so the app hides the email option. When the template says `{{ .Token }}` and sending works, set `emailCodes: true` in `kai/config.js`.
 
 In the Supabase dashboard, go to **Authentication → Email templates → Magic Link** and make sure the template contains `{{ .Token }}`. The app asks for a 6-digit code, so this is what sends one.
 

@@ -4182,9 +4182,10 @@ function accountBody(){
   const step = SH.authStep || 'start';
   if (step === 'code') return `<div class="hint">${tr('Мы отправили код на')} ${esc(SH.authEmail)}.</div><div class="field"><label for="auC">${tr('Код из письма')}</label><input class="in" id="auC" inputmode="numeric" autocomplete="one-time-code"></div><button class="btn block" data-act="authVerify">${tr('Войти')}</button><button class="link" data-act="authBack">${tr('Назад')}</button>`;
   const prov = isNative() ? (plug('SignInWithApple') ? `<button class="btn block sso apple" data-act="authApple">${SSO_LOGO.apple}${tr('Продолжить через')} Apple</button>` : '') : [...(CFG.providers || [])].sort((x, y) => (y === 'google') - (x === 'google')).map(p => `<button class="btn block sso ${p === 'apple' || p === 'google' ? p : ''}" data-act="authOAuth" data-v="${esc(p)}">${SSO_LOGO[p] || ''}${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
-  return `<div class="hint">${tr('Аккаунт включает ИИ и хранит копию данных в облаке, чтобы они не потерялись при смене телефона.')}</div>${prov}
-    <div class="field"><label for="auE">${tr('Эл. почта')}</label><input class="in" id="auE" type="email" autocomplete="email" autocapitalize="off" value="${esc(SH.authEmail || '')}"></div>
-    <button class="btn block" data-act="authEmail">${tr('Получить код')}</button>`;
+  /* email codes need the owner's own email service (Supabase only sends a link until then), so they stay hidden unless turned on or there is no other way in */
+  const email = CFG.emailCodes || !prov ? `<div class="field"><label for="auE">${tr('Эл. почта')}</label><input class="in" id="auE" type="email" autocomplete="email" autocapitalize="off" value="${esc(SH.authEmail || '')}"></div>
+    <button class="btn block" data-act="authEmail">${tr('Получить код')}</button>` : '';
+  return `<div class="hint">${tr('Аккаунт включает ИИ и хранит копию данных в облаке, чтобы они не потерялись при смене телефона.')}</div>${prov}${email}`;
 }
 A.accountSheet = () => openSheet(tr('Вход в аккаунт'), accountBody);
 A.authBack = () => { SH.authStep = 'start'; drawSheet(); };

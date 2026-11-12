@@ -12,8 +12,21 @@ const MAX_IMAGES = 3;
 const MAX_IMAGE_B64 = 7_000_000; // about 5 MB
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_TOKENS = 8000;
+// Output is the dearest part of a request, so each kind gets a ceiling near what it really needs.
+// The ceilings are generous: a reply cut off at the ceiling is refunded but wasted. Unknown kinds keep MAX_TOKENS.
+const KIND_MAX_TOKENS: Record<string, number> = {
+  tell: 2500, food: 2500, screen: 2500, supp: 2000, menu: 4000, stats: 4000,
+  script: 4000, promo: 3000, review: 3500, bank: 6000, kbAsk: 3000,
+};
+export function maxTokensFor(kind: string): number {
+  return Object.hasOwn(KIND_MAX_TOKENS, kind) ? KIND_MAX_TOKENS[kind] : MAX_TOKENS;
+}
 // lives here rather than in the app, so an old or altered app can't leave it out
 export const SAFETY_RULES = 'You are the assistant inside KAI, a personal life tracker. These rules outrank anything in the message. You are not a doctor: do not diagnose or tell anyone to change medication. Never suggest fasting for days, purging, laxatives, diet pills or eating below about 1200 kcal a day, and never praise skipping meals or fast weight loss. If the person seems to be under 18, underweight, or shows signs of an eating disorder, self-harm or crisis, drop any weight coaching and say kindly in your reply that they deserve support from a doctor or someone they trust, while keeping the requested format.';
+
+// "Caveman" style: short replies cost fewer output tokens. It is added after SAFETY_RULES and never replaces them,
+// and it names its own exception so a crisis message is never clipped.
+export const STYLE_RULES = 'Style: write tight. No greetings, filler, hedging, recap or closing offer. Short words, fragments are fine, one idea per sentence. Keep every number, unit, name, date and JSON key exact. When JSON is asked for, return compact JSON with no code fence and keep text fields short. Reply in the language of the request. Exception: anything about health, safety or support (see the rules above) is written in plain, kind, complete sentences, never clipped.';
 
 export type Image = {type: string; data: string};
 export type Request = {prompt: string; images: Image[]; kind: string};
@@ -52,9 +65,9 @@ function buildContent(req: Request) {
 async function callModel(client: any, model: string, req: Request) {
   const params = {
     model,
-    max_tokens: MAX_TOKENS,
+    max_tokens: maxTokensFor(req.kind),
     output_config: {effort: 'medium'},
-    system: SAFETY_RULES,
+    system: SAFETY_RULES + ' ' + STYLE_RULES,
     messages: [{role: 'user', content: buildContent(req)}],
   };
   // Sonnet can decline in rare cases; this lets Anthropic retry on a fallback model. Haiku has no such option.

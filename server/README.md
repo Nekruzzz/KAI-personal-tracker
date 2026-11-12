@@ -19,6 +19,7 @@ You need about 30 minutes. Run the commands from this `server` folder.
 ### 1. Create the accounts
 
 - **Supabase:** create a project at [supabase.com](https://supabase.com). Note its project ref, which is the part of its URL before `.supabase.co`.
+- **One key for everyone:** all users share the single Claude key stored on the server (`ANTHROPIC_API_KEY`, below). Requests from many people at once are fine: the daily count is taken under a database lock, and the cap across all users (`app_limits`) bounds the bill. Raise your Anthropic rate tier if the key starts answering "busy" at peak times.
 - **Anthropic:** create an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys), and **set a monthly spending limit** there.
 
 ### 2. Put the database and functions online
@@ -47,15 +48,26 @@ npx supabase functions deploy ai
 npx supabase functions deploy delete-account
 ```
 
-### 3. Turn on email codes
+### 3. Turn on email codes (optional; Google sign-in works without it)
+
+Supabase only lets you edit the email template after you connect your own email service (**Authentication → Emails → SMTP**; Resend has a free plan). Until then it emails a link, not a code, so the app hides the email option. When the template says `{{ .Token }}` and sending works, set `emailCodes: true` in `kai/config.js`.
 
 In the Supabase dashboard, go to **Authentication → Email templates → Magic Link** and make sure the template contains `{{ .Token }}`. The app asks for a 6-digit code, so this is what sends one.
 
 Supabase's built-in email service has a very low sending limit. It's fine for testing, but connect your own email provider before real users arrive.
 
+### 3a. Turn on Google sign-in
+
+1. In Google Cloud Console, create a project, then **APIs & Services → OAuth consent screen**: fill in the app name and support email, and publish it.
+2. **Credentials → Create credentials → OAuth client ID → Web application**. Under **Authorized redirect URIs** add `https://YOUR_PROJECT.supabase.co/auth/v1/callback`.
+3. In the Supabase dashboard, **Authentication → Sign In / Providers → Google**: turn it on and paste the client ID and client secret.
+4. **Authentication → URL Configuration**: set **Site URL** to the address the app is served from, and add the same address under **Redirect URLs**. Sign-in returns to that address.
+
+`kai/config.js` already lists `'google'` under `providers`, so the "Continue with Google" button appears as soon as the URL and key from step 4 are filled in. The button only works on the web for now; the iPhone app offers Sign in with Apple and email codes.
+
 ### 4. Connect the app
 
-Copy your project URL and **publishable** key into `kai/config.js`. Never put the secret key or the Claude key there. The publishable key is designed to be public, because the security rules protect the data.
+Copy your project URL and **publishable** key into `kai/config.js`. Until then the app has no account and no AI: it never asks anyone to paste their own Claude or ChatGPT key (set `ownKeys: true` there to bring that option back, for example to test before the server is ready). Never put the secret key or the Claude key there. The publishable key is designed to be public, because the security rules protect the data.
 
 ### 5. Try it
 
@@ -67,7 +79,7 @@ Edit the `tiers` table in the Supabase dashboard. No code change is needed.
 
 | Plan | AI requests a day | Photos | Better model for heavy tasks |
 |---|---|---|---|
-| free | 10 | no | no |
+| free | 20 | yes | no |
 | plus | 100 | yes | yes |
 
 The `app_limits` table holds a daily cap across all users, 2,000 requests to start with. To give someone the paid plan by hand, set `tier` to `plus` on their row in `profiles` and leave `tier_expires_at` empty.

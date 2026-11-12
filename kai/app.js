@@ -567,6 +567,7 @@ function provConfigured(p){ const c = aiCfg(); if (p==='app') return !!SAMPLE_CA
 /* without an AI that reads pictures: say how to get one, in this setup (an account when there's a server, a key otherwise) */
 const imgNote = photo => cloudOn()
   ? (photo ? tr('Фото читает ИИ KAI: войди в аккаунт в разделе ИИ, а пока фото подождёт в очереди. Или опиши еду текстом.') : tr('Скриншоты читает ИИ KAI: войди в аккаунт. Пока не вошёл, запрос подождёт в очереди.'))
+  : !ownKeysAllowed() ? (photo ? tr('Разбор фото пока не включён. Опиши еду текстом.') : tr('Разбор скриншотов пока не включён. Впиши данные вручную.'))
   : (photo ? tr('Фото читает ИИ: Claude или ChatGPT. Подключи его в разделе ИИ, а пока фото подождёт в очереди. Или опиши еду текстом.') : tr('Скриншоты читает ИИ: Claude или ChatGPT. Пока он не подключён, запрос подождёт в очереди.'));
 const imgCapable = () => S.inClaude ? !!S.appImg : provConfigured('kai') || provConfigured('claude') || provConfigured('openai') || (provConfigured('pc') && aiCfg().pc.vision);
 function pickProvider(job){
@@ -1820,7 +1821,7 @@ function onboardSteps(){
     ['install', tr('Установить на экран «Домой»'), isStandalone(), tr('Safari → «Поделиться» → «На экран Домой». Только так приложение работает без сети и данные не удаляются.')],
     ['profile', tr('Возраст, рост и вес'), targets().ok, tr('Нужно для нормы КБЖУ')],
     ['classes', tr('Расписание пар'), (plan().classes||[]).length > 0, tr('Пары появятся в задачах дня')],
-    ['ai', tr('Подключить ИИ'), PROV_LIST().some(provConfigured), cloudOn() ? tr('Войди в аккаунт, и ИИ заработает') : tr('Claude или ChatGPT: вставь один ключ')],
+    ...(cloudOn() ? [['ai', tr('Войти в аккаунт'), PROV_LIST().some(provConfigured), tr('Войди в аккаунт, и ИИ заработает')]] : ownKeysAllowed() ? [['ai', tr('Подключить ИИ'), PROV_LIST().some(provConfigured), tr('Claude или ChatGPT: вставь один ключ')]] : []),
     isNative() ? ['ics', tr('Напоминания'), !!m.remindAsked, tr('Работают даже когда приложение закрыто')] : ['ics', tr('Напоминания в Календарь iPhone'), !!m.icsAt, tr('Работают даже когда приложение закрыто')],
     ['backup', tr('Первая резервная копия'), !!m.lastBackup || cloudKept(), tr('Сохрани файл в «Файлы» или iCloud')],
   ];
@@ -3148,10 +3149,14 @@ function aiStatus(){
 }
 function connectNudge(forTell){
   if (aiStatus().ok) return '';
+  const cloud = cloudOn(), own = !cloud && ownKeysAllowed();
+  const can = tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками.');
   // Tell KAI half-works without AI, so it says what does; after the first message, one line is enough
-  if (forTell && meta().toldOnce) return `<div class="hint">${tr('Читаю на телефоне: простые сообщения.')} <button class="link" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${cloudOn() ? tr('Войти для ИИ') : tr('Подключить ИИ')}</button></div>`;
-  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Без ИИ я понимаю сон, шаги, прогулки, вес, расходы, подходы в зале, отметки задач, дела с датой и еду с граммами или штуками. Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloudOn() ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloudOn() ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
-  if (cloudOn()) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
+  if (forTell && meta().toldOnce) return `<div class="hint">${tr('Читаю на телефоне: простые сообщения.')}${cloud || own ? ` <button class="link" data-act="${cloud ? 'accountSheet' : 'aiConnect'}">${cloud ? tr('Войти для ИИ') : tr('Подключить ИИ')}</button>` : ''}</div>`;
+  if (forTell && !cloud && !own) return `<div class="note">${can}</div>`;
+  if (forTell) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${can} ${cloud ? tr('Для остального войди в аккаунт.') : tr('Для остального подключи ИИ.')}</div><button class="btn ghost" data-act="${cloud ? 'accountSheet' : 'aiConnect'}">${ic('spark')}${cloud ? tr('Войти') : tr("Подключить Claude или ChatGPT")}</button></div>`;
+  if (cloud) return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr('Войди, чтобы пользоваться ИИ: без него разбор сообщений и фото еды не работает.')}</div><button class="btn" data-act="accountSheet">${ic('spark')}${tr('Войти')}</button></div>`;
+  if (!own) return '';
   return `<div class="note" style="display:flex;flex-direction:column;gap:10px"><div>${tr("ИИ ещё не подключён. Без него не работают фото еды и скриншоты, а сообщения я понимаю только простые. Подключение занимает минуту.")}</div><button class="btn" data-act="aiConnect">${ic('spark')}${tr("Подключить Claude или ChatGPT")}</button></div>`;
 }
 const SVC = {
@@ -3233,9 +3238,11 @@ async function callOpenAI(prompt, imgs, json){
   return d.choices?.[0]?.message?.content || '';
 }
 /* in the iPhone app with KAI's own AI, paying another company for a key could read as buying features outside in-app purchase (App Review 3.1.1); the web keeps it */
-const ownKeysAllowed = () => !(isNative() && cloudOn()) || !!CFG.ownKeys;
+/* KAI provides the AI: nobody is asked to connect their own. A key someone already saved keeps working and stays editable. */
+const ownAI = () => ['claude', 'openai', 'pc', 'phone'].some(provConfigured);
+const ownKeysAllowed = () => !!CFG.ownKeys || (!(isNative() && cloudOn()) && ownAI());
 function aiSettings(){
-  if (!ownKeysAllowed()) return `<section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr('ИИ от KAI')}</b><div class="hint">${signedIn() ? tr('ИИ работает через твой аккаунт, ключи не нужны.') : tr('Войди, чтобы пользоваться ИИ без ключей.')}</div>${signedIn() ? `<button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>` : `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>`}</section>`;
+  if (!ownKeysAllowed()) return `<section class="card" style="display:flex;flex-direction:column;gap:12px"><b>${tr('ИИ от KAI')}</b><div class="hint">${!cloudOn() ? tr('ИИ от KAI пока не включён. Всё остальное работает без него.') : signedIn() ? tr('ИИ работает через твой аккаунт.') : tr('Войди, чтобы пользоваться ИИ.')}</div>${!cloudOn() ? '' : signedIn() ? `<button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>` : `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>`}</section>`;
   if (S.inClaude) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr("ИИ здесь — это Claude")}</b><div class="hint">${tr("Внутри приложения Claude запросы идут через твой аккаунт Claude: ключ API не нужен. При первом запросе Claude попросит разрешение.")}</div></section>`;
   const c = aiCfg(), st = aiStatus();
   const row = p => { const ok = provConfigured(p); return `<div class="row"><span class="ic">${ic(PROV[p].icon)}</span><div class="mid"><div class="t">${PROV[p].name}</div><div class="s">${ok ? (st.p === p ? tr('основной') : tr('подключён')) : tr('не подключён')}</div></div>${ok ? `<span class="tag good">${st.p === p ? tr('по умолчанию') : tr('запасной')}</span>` : ''}</div>`; };
@@ -3255,7 +3262,7 @@ function viewMore(){
   const lastB = m.lastBackup ? dayDiff(m.lastBackup, todayISO()) : null;
   const fx = FX();
   let h = `<section class="card profhead"><button class="ava big" data-act="season" aria-label="${tr("Сезон")}">${esc((p.name || 'K')[0])}</button><div class="mid"><div class="t" style="font-size:19px">${esc(p.name || tr('Профиль'))}</div><div class="s">${esc(s.title)} ${tr("· день")} ${di} ${tr("из")} ${s.length || 90}</div></div><button class="link" data-act="season">${tr("Сезон")}</button></section>`;
-  if (!st.ok && !cloudOn()) h += `<section class="card nudge"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr("Подключи ИИ")}</div><div class="s">${tr("Claude или ChatGPT. Одна минута, один ключ.")}</div></div><button class="btn" data-act="aiConnect">${tr("Начать")}</button></section>`;
+  if (!st.ok && !cloudOn() && ownKeysAllowed()) h += `<section class="card nudge"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr("Подключи ИИ")}</div><div class="s">${tr("Claude или ChatGPT. Одна минута, один ключ.")}</div></div><button class="btn" data-act="aiConnect">${tr("Начать")}</button></section>`;
   if (cloudOn()) h += accountCard(); // signing in unlocks AI without keys, so it sits near the top
   if (modOn('content')) h += `<button class="card navrow" data-act="tab" data-v="content"><span class="ic">${ic('video')}</span><div class="mid"><div class="t">${tr("Контент")}</div><div class="s">${tr("Сценарии, план роликов, продвижение")}</div></div>${ic('chevR')}</button>`;
   h += acc('profile', 'user', tr('Профиль и норма питания'), t.ok ? `${W(p.weight)} ${kgU()} · ${heightShow(p.height)}${isUS() ? '' : ' ' + cmU()} · ${tr("норма")} ${num(t.kcal)} ${tr("ккал")}` : tr('Укажи рост, вес и возраст: нужны для нормы КБЖУ'), `<div class="fgrid" style="align-items:end">
@@ -3282,7 +3289,7 @@ function viewMore(){
   if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></div><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:8px"><select class="in" id="clD" style="grid-column:1/-1" aria-label="${tr("День")}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}">${DOW[n]}</option>`).join('')}</select><div class="field" style="min-width:0"><label for="clT">${tr("Начало")}</label><input class="in" id="clT" type="time" value="09:00"></div><div class="field" style="min-width:0"><label for="clE">${tr("Конец")}</label><input class="in" id="clE" type="time"></div><input class="in" id="clN" style="grid-column:1/-1" placeholder="${tr("Предмет, ауд.")}" aria-label="${tr("Предмет")}"></div>
     <div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}</div>`);
-  h += acc('ai', 'spark', tr('ИИ'), esc(st.text), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow"><button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button><button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
+  h += acc('ai', 'spark', tr('ИИ'), st.ok || ownKeysAllowed() ? esc(st.text) : cloudOn() ? tr('Войди в аккаунт') : tr('Пока не включён'), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow">${ownKeysAllowed() ? `<button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button>` : cloudOn() && !signedIn() ? `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>` : ''}<button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
   h += acc('modules', 'sliders', tr('Модули'), MODULES.filter(x => !modOn(x[0])).length ? tr('Выключено: ') + MODULES.filter(x => !modOn(x[0])).map(x => x[1]).join(', ') : tr('Всё включено'), modulesRows() + `<div class="hint">${tr("Выключенный модуль прячется, но его данные не удаляются.")}</div>` + (modOn('content') ? `<div class="field"><label for="pfWT">${tr("Цель роликов в неделю")}</label><input class="in" id="pfWT" inputmode="numeric" data-ch="wt" value="${content().weeklyTarget || 4}"></div>` : ''));
   h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
   h += acc('fx', 'zap', tr('Отклик'), (fx.haptics ? tr('Вибрация вкл') : tr('Вибрация выкл')) + ' · ' + (fx.sound ? tr('звуки вкл') : tr('звуки выкл')), [['haptics', tr('Вибрация при действиях'), tr('На iPhone нужна iOS 18 или новее')], ['sound', tr('Звуки'), tr('Короткий звук при отметке и наградах')]].map(([k, l, hh]) => `<label class="row" style="padding:10px 0"><div class="mid"><div class="t">${l}</div><div class="s">${hh}</div></div><input type="checkbox" switch class="sw" data-ch="fxToggle" data-k="${k}" aria-label="${l}" ${fx[k] ? 'checked' : ''}></label>`).join(''));
@@ -3764,7 +3771,7 @@ function screenBody(){
   return `<div class="hint">${tr("Настройки → Экранное время → «Посмотреть всю активность». Сделай скриншот за нужный день (можно 2–3, если приложения не влезли) и выбери ниже.")}</div>
   <div class="seg">${[[todayISO(), tr('Сегодня')], [addDays(todayISO(), -1), tr('Вчера')]].map(([v, l]) => `<button class="${sd === v ? 'on' : ''}" data-act="scDay" data-v="${v}">${l}</button>`).join('')}</div>
   <label class="btn block">${ic('image')}${files.length ? tr('Выбрано: ') + files.length + tr('. Заменить') : tr('Выбрать скриншоты')}<input type="file" accept="image/*" multiple hidden data-ch="screenFiles"></label>
-  ${imgCapable() ? '' : `<div class="note">${tr("Скриншоты читает Claude или ChatGPT. Подключи ИИ в «Ещё», а пока впиши данные вручную ниже.")}</div>`}
+  ${imgCapable() ? '' : `<div class="note">${cloudOn() ? tr('Скриншоты читает ИИ KAI: войди в аккаунт, а пока впиши данные вручную ниже.') : ownKeysAllowed() ? tr("Скриншоты читает Claude или ChatGPT. Подключи ИИ в «Ещё», а пока впиши данные вручную ниже.") : tr('Разбор скриншотов пока не включён: впиши данные вручную ниже.')}</div>`}
   ${provPicker(true)}
   <button class="btn block" data-act="screenGo">${ic('spark')}${tr("Разобрать скриншот")}</button><div id="scOut"></div>
   <details class="manual"><summary>${tr("Или впиши вручную")}</summary><div class="field"><textarea class="in" id="scTxt" placeholder="${tr("Всего 3ч 20м&#10;Instagram 1ч 5м&#10;YouTube 45 мин&#10;Telegram 40")}"></textarea></div><button class="btn ghost block" data-act="screenManual">${tr("Сохранить")}</button></details>
@@ -4174,10 +4181,11 @@ async function authFromUrl(){
 function accountBody(){
   const step = SH.authStep || 'start';
   if (step === 'code') return `<div class="hint">${tr('Мы отправили код на')} ${esc(SH.authEmail)}.</div><div class="field"><label for="auC">${tr('Код из письма')}</label><input class="in" id="auC" inputmode="numeric" autocomplete="one-time-code"></div><button class="btn block" data-act="authVerify">${tr('Войти')}</button><button class="link" data-act="authBack">${tr('Назад')}</button>`;
-  const prov = isNative() ? (plug('SignInWithApple') ? `<button class="btn block sso apple" data-act="authApple">${SSO_LOGO.apple}${tr('Продолжить через')} Apple</button>` : '') : (CFG.providers || []).map(p => `<button class="btn block sso ${p === 'apple' || p === 'google' ? p : ''}" data-act="authOAuth" data-v="${esc(p)}">${SSO_LOGO[p] || ''}${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
-  return `<div class="hint">${tr('Аккаунт включает ИИ без ключей и хранит копию данных в облаке, чтобы они не потерялись при смене телефона.')}</div>${prov}
-    <div class="field"><label for="auE">${tr('Эл. почта')}</label><input class="in" id="auE" type="email" autocomplete="email" autocapitalize="off" value="${esc(SH.authEmail || '')}"></div>
-    <button class="btn block" data-act="authEmail">${tr('Получить код')}</button>`;
+  const prov = isNative() ? (plug('SignInWithApple') ? `<button class="btn block sso apple" data-act="authApple">${SSO_LOGO.apple}${tr('Продолжить через')} Apple</button>` : '') : [...(CFG.providers || [])].sort((x, y) => (y === 'google') - (x === 'google')).map(p => `<button class="btn block sso ${p === 'apple' || p === 'google' ? p : ''}" data-act="authOAuth" data-v="${esc(p)}">${SSO_LOGO[p] || ''}${tr('Продолжить через')} ${p === 'apple' ? 'Apple' : p === 'google' ? 'Google' : esc(p)}</button>`).join('');
+  /* email codes need the owner's own email service (Supabase only sends a link until then), so they stay hidden unless turned on or there is no other way in */
+  const email = CFG.emailCodes || !prov ? `<div class="field"><label for="auE">${tr('Эл. почта')}</label><input class="in" id="auE" type="email" autocomplete="email" autocapitalize="off" value="${esc(SH.authEmail || '')}"></div>
+    <button class="btn block" data-act="authEmail">${tr('Получить код')}</button>` : '';
+  return `<div class="hint">${tr('Аккаунт включает ИИ и хранит копию данных в облаке, чтобы они не потерялись при смене телефона.')}</div>${prov}${email}`;
 }
 A.accountSheet = () => openSheet(tr('Вход в аккаунт'), accountBody);
 A.authBack = () => { SH.authStep = 'start'; drawSheet(); };
@@ -4218,7 +4226,7 @@ function accountCard(){
   const privacy = `<div class="hint">${consent ? tr('Ты разрешил отправлять данные ИИ.') : tr('Отправка данных ИИ не разрешена.')} ${consent ? `<button class="link" data-act="consentOff">${tr('Отозвать')}</button>` : ''}</div>`;
   const usageBtn = `<div class="btnrow"><button class="btn ghost" data-act="usageSheet">${ic('activity')}${tr('Расход ИИ')}</button>${cloudOn() && CFG.plans ? `<button class="btn ghost" data-act="planSheet">${ic('star')}${tr('Тарифы')}</button>` : ''}</div>`;
   if (!cloudOn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Конфиденциальность')}</b>${privacy}${usageBtn}${legalLinks()}</section>`;
-  if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ без ключей и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${privacy}${legalLinks()}${usageBtn}</section>`;
+  if (!signedIn()) return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ и хранить копию данных в облаке.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button>${privacy}${legalLinks()}${usageBtn}</section>`;
   const st = syncState(), left = Object.keys(st.dirty || {}).length;
   const sync = S.syncErr ? tr('Не удалось синхронизировать, повторю позже') : st.at ? tr('Синхронизировано в') + ' ' + new Date(st.at).toTimeString().slice(0, 5) : tr('Синхронизация…');
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Аккаунт')}</b><div class="t">${esc(AUTH.email)}</div>
@@ -5023,7 +5031,7 @@ A.permSheet = () => openSheet(tr('Разрешения'), permBody);
 A.permHealth = async el => { await A.healthConnect(el); if (SH) drawSheet(); };
 
 /* ============ plans and AI usage: limits mirror server/supabase (tiers); no payments exist yet ============ */
-const PLANS = {free: {daily: 10, photos: false, smart: false}, plus: {daily: 100, photos: true, smart: true}};
+const PLANS = {free: {daily: 20, photos: true, smart: false}, plus: {daily: 100, photos: true, smart: true}};
 const PLUS_PRICE = null; // set when payments are added; until then the screen says the price is a placeholder
 const planNow = () => SH?.prof?.tier || KAI_USE?.tier || 'free';
 async function loadAccountUsage(){
@@ -5054,7 +5062,7 @@ A.planSheet = () => { openSheet(tr('Тарифы'), planBody); loadAccountUsage(
 function usageBody(){
   let h = '';
   if (cloudOn()){
-    if (!signedIn()) h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('ИИ от KAI')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ без ключей. Здесь появится расход по дням.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button></section>`;
+    if (!signedIn()) h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('ИИ от KAI')}</b><div class="hint">${tr('Войди, чтобы пользоваться ИИ. Здесь появится расход по дням.')}</div><button class="btn" data-act="accountSheet">${tr('Войти')}</button></section>`;
     else {
       const today = (SH.use || []).find(u => u.day === todayISO())?.requests ?? KAI_USE?.used ?? 0, lim = PLANS[planNow()]?.daily ?? KAI_USE?.limit ?? PLANS.free.daily;
       const pts = [...Array(14)].map((_, i) => addDays(todayISO(), i - 13)).map(k => ({x: fmtShort(k).split(' ')[0], y: (SH.use || []).find(u => u.day === k)?.requests || 0}));
@@ -7115,7 +7123,7 @@ ${JSON.stringify(data)}
 A.weekReview = () => {
   const n = weekNumbers();
   openSheet(tr('Разбор недели'), () => `${coachHTML(coachLocal(n), n)}
-    ${aiStatus().ok ? `<button class="btn ghost block" data-act="coachAI">${ic('spark')}${tr('Подробнее от ИИ')}</button>` : `<div class="hint">${tr('Это разбор по твоим записям, без ИИ. С подключённым ИИ можно получить более подробный.')}</div>`}
+    ${aiStatus().ok ? `<button class="btn ghost block" data-act="coachAI">${ic('spark')}${tr('Подробнее от ИИ')}</button>` : `<div class="hint">${cloudOn() ? tr('Это разбор по твоим записям, без ИИ. Войди в аккаунт, чтобы получить более подробный.') : ownKeysAllowed() ? tr('Это разбор по твоим записям, без ИИ. С подключённым ИИ можно получить более подробный.') : tr('Это разбор по твоим записям.')}</div>`}
     <div id="rvOut"></div>`);
 };
 A.coachAI = async () => {
@@ -7213,7 +7221,7 @@ function tellPhotoPrompt(text, date){
 Если на фото недельное расписание занятий, верни каждое повторяющееся занятие в дополнительном поле "classes": [{"day": 1-7 (1 — понедельник), "time": "ЧЧ:ММ", "end": "ЧЧ:ММ" или null, "title": "предмет, аудитория"}], а не в events. Разовые события с датой (экзамен, дедлайн, встреча) — в events.`;
 }
 async function tellPhotoGo(text){
-  if (!imgCapable()) return toast(tr('Чтобы KAI читал фото, подключи ИИ: Ещё → ИИ'), {ms: 5000});
+  if (!imgCapable()) return toast(cloudOn() ? tr('Чтобы KAI читал фото, войди в аккаунт: Ещё → Аккаунт') : ownKeysAllowed() ? tr('Чтобы KAI читал фото, подключи ИИ: Ещё → ИИ') : tr('Разбор фото пока не включён'), {ms: 5000});
   if (carePause(text, 'tellOut', 'tellGo')) return;
   SH.tellText = text;
   const date = todayISO(), file = SH.tellFile;

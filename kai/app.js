@@ -2325,12 +2325,13 @@ A.tell = () => { openSheet(tr('Скажи KAI'), () => `
   <div class="hint">${tr("Одним сообщением: что сделал, что съел, что потратил или что изменить в планах. Я покажу, прежде чем что-то менять.")}</div>
   <button class="link" style="align-self:flex-start" data-act="tellHelp" aria-expanded="${!!SH?.tellHelp}">${SH?.tellHelp ? tr('Скрыть примеры') : tr('Что можно написать?')}</button>
   ${SH?.tellHelp ? tellHelpHTML() : ''}
-  ${connectNudge(true)}
-  ${voiceOK() ? `<button class="btn ghost block micb" id="micB" data-act="voice">${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}</button>` : ''}
-  ${tellPhotoField()}
-  <textarea class="in" id="tellT" style="min-height:150px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
+  <textarea class="in" id="tellT" style="min-height:120px" placeholder="${tr("Что сделал, что съел, что нужно добавить или перенести…")}">${esc(SH?.tellText||'')}</textarea>
+  <div class="tell-tools">${voiceOK() ? `<button class="btn ghost micb" id="micB" data-act="voice">${ic('mic')}${VOICE ? tr('Слушаю… нажми, чтобы закончить') : tr('Сказать голосом')}</button>` : ''}
+  ${tellPhotoField()}</div>
+  ${SH?.tellFile ? '' : `<div class="hint">${tr('Фото расписания, объявления или записки KAI тоже разберёт.')}</div>`}
   ${provPicker(false)}
   <button class="btn block" data-act="tellGo">${ic('send')}${tr("Разобрать")}</button>
+  ${connectNudge(true)}
   <div id="tellOut" style="display:flex;flex-direction:column;gap:12px"></div>`, b => { if (!SH.jobId) $('#tellT', b).focus(); }); };
 A.tellGo = async () => {
   const text = val('tellT'); if (SH.tellFile) return tellPhotoGo(text);
@@ -7211,7 +7212,7 @@ A.actOff = el => withUndo(['app/meta'], () => { setMeta({acts: (meta().acts || [
 { const ff0 = focusFinish; focusFinish = (...a) => { const r = ff0(...a); if (SH?.unlockAt) closeSheet(); return r; }; } // the session ended by itself while "Finish early?" was open
 
 /* ============ Tell KAI with a photo: a timetable, a notice, a note or a screenshot becomes classes, events and to-dos, shown and checked for clashes before anything changes ============ */
-const tellPhotoField = () => `<label class="btn ghost block">${ic('camera')}${SH?.tellFile ? tr('Другое фото') : tr('Добавить фото: расписание, объявление, записка')}<input type="file" accept="image/*" hidden data-ch="tellFile"></label>
+const tellPhotoField = () => `<label class="btn ghost" title="${tr('Добавить фото: расписание, объявление, записка')}">${ic('camera')}${SH?.tellFile ? tr('Другое фото') : tr('Добавить фото')}<input type="file" accept="image/*" hidden data-ch="tellFile"></label>
   ${SH?.tellFile ? `<div class="tell-ph"><img src="${SH.tellUrl}" alt="${tr('Выбранное фото')}"><button class="iconbtn" data-act="tellFileOff" aria-label="${tr('Убрать фото')}">${ic('x')}</button></div>` : ''}`;
 CH.tellFile = el => { const f = el.files?.[0]; if (!f) return; SH.tellText = val('tellT'); SH.tellFile = f; SH.tellUrl = URL.createObjectURL(f); haptic('light'); drawSheet(); };
 A.tellFileOff = () => { SH.tellText = val('tellT'); SH.tellFile = null; SH.tellUrl = ''; drawSheet(); };

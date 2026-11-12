@@ -2410,7 +2410,7 @@ window.I18N_EN = {
 "Такое занятие уже есть":"That activity already exists",
 "Добавлено: {a}":"Added: {a}",
 "Слушаю… нажми, чтобы закончить":"Listening… tap to finish",
-"Сказать голосом":"Say it out loud",
+"Сказать голосом":"Use voice",
 "Разреши микрофон и распознавание речи для KAI в Настройках iPhone":"Allow the microphone and speech recognition for KAI in iPhone Settings",
 "Не получилось включить микрофон":"Couldn't turn on the microphone",
 "Разреши доступ к микрофону":"Allow access to the microphone",
@@ -2523,4 +2523,5 @@ window.I18N_EN = {
 "Уже есть аккаунт? Войди, и твои данные вернутся.":"Already have an account? Sign in and your data comes back.",
 "Включи ИИ":"Turn on AI",
 "Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.":"Sign in and KAI understands any message or photo. A copy of your data is kept in the cloud.",
+"Фото расписания, объявления или записки KAI тоже разберёт.":"KAI also reads a photo of a timetable, a notice or a note.",
 };

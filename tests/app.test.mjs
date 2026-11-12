@@ -3514,6 +3514,8 @@ test('a short message the phone understands completely is read on the phone even
   assert.equal(run(`localWhole('walked 40 minutes, spent 12 on lunch', todayISO())`), true);
   assert.equal(run(`localWhole('studied 2 hours, then argued with my roommate', todayISO())`), false, 'something is left over: the AI reads it');
   assert.equal(run(`localWhole('move gym to Saturday', todayISO())`), false);
+  assert.equal(run(`localWhole('slept 7 hours but woke up tired', todayISO())`), false, 'what follows "but" is not swallowed');
+  assert.deepEqual(JSON.parse(run(`JSON.stringify(localTellParse('slept 7 hours but woke up tired', todayISO()).left)`)), ['woke up tired']);
   assert.equal(run(`localWhole('slept 7 hours' + ' and'.repeat(60), todayISO())`), false, 'long messages go to the AI');
   run(`globalThis.cfgL = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authL = AUTH; AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'};
     globalThis.inboxL = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);

@@ -4833,7 +4833,7 @@ function localTellParse(text, date, opts = {}){
     if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(bed[0], ' '); }
   }
   if (sets.length) r.sets = sets;
-  const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also)\s+/i).map(x => x.trim().replace(/^(?:and|also|а|и|ещё)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
+  const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c0 of parts){
     const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study

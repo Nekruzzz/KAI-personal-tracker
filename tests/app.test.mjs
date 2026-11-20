@@ -3631,3 +3631,22 @@ test('a goal can be set by telling KAI, and is shown before it is added', () => 
     assert.equal(run(`goalsDoc().list.length`), 0, 'Undo removes it');
   } finally { run(`closeSheetQuiet(); save('app/goals', gD); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxG.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('telling KAI "ran 5 km" or "finished a book" counts toward a matching counter goal', () => {
+  run(`globalThis.gE = clone(goalsDoc()); save('app/goals', {list: [{id: 'gk', kind: 'count', title: 'Run 100 km', target: 100, unit: 'km', count: 10, start: todayISO()}, {id: 'gb', kind: 'count', title: 'Read 12 books', target: 12, unit: 'books', count: 2, start: todayISO()}, {id: 'gr', kind: 'count', title: 'Прочитать 12 книг', target: 12, unit: 'книг', count: 0, start: todayISO()}]}); globalThis.inboxE = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const add = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.goal_add || null)`));
+    assert.deepEqual(add('ran 5 km'), [{id: 'gk', n: 5}]);
+    assert.deepEqual(add('finished a book'), [{id: 'gb', n: 1}]);
+    assert.deepEqual(add('дочитал книгу'), [{id: 'gr', n: 1}]);
+    assert.equal(add('bought 2 books for 30'), null, 'spending is not progress');
+    assert.equal(add('slept 7 hours'), null);
+    run(`SH = {}; tellLocal('ran 5 km', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).includes('Goal “Run 100 km”: +5 km'));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`goalsDoc().list.find(g => g.id === 'gk').count`), 15);
+    run(`A.undoApply()`);
+    assert.equal(run(`goalsDoc().list.find(g => g.id === 'gk').count`), 10);
+  } finally { run(`closeSheetQuiet(); save('app/goals', gE); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxE.includes(k)).forEach(k => remove(k))`); }
+});

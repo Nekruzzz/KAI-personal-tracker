@@ -2385,6 +2385,7 @@ function tellLines0(r, date){
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
+  cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
   cleanGoals(r.goals).forEach(g => lines.push(g.due ? trf('+ цель: {t}, до {d}', {t: g.title, d: fmtShort(g.due)}) : trf('+ цель: {t}', {t: g.title})));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
   (r.savings || []).forEach(x => { const g = savings().find(y => y.id === x.id); if (g) lines.push(trf('В копилку «{t}»: +{s}', {t: g.title, s: money(x.amount)})); });
@@ -2418,6 +2419,7 @@ A.tellApply = el => {
   if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
   cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
   goalsAddMany(cleanGoals(r.goals));
+  { const adds = cleanGoalAdds(r.goal_add); if (adds.length){ const doc = goalsDoc(); save('app/goals', {...doc, list: (doc.list || []).map(g => { const n = adds.filter(x => x.g.id === g.id).reduce((a, x) => a + x.n, 0); return n ? {...g, count: Math.round(((+g.count || 0) + n) * 100) / 100} : g; })}); } }
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -4868,6 +4870,7 @@ function localTellParse(text, date, opts = {}){
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
+    { const ga = localGoalAdd(c, r); if (ga){ (r.goal_add = r.goal_add || []).push(ga); hit = true; } } // "ran 5 km" also counts toward "Run 100 km"
     if (!hit && (LOCAL_SKIP.test(c) || pastStart(c))){ left.push(c); continue; } // "went to bed at 1am" happened; it isn't a to-do
     if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; }
     if (!hit){ const ts = weekdayCopies(c).map(x => parseQuick(x)).filter(t => t?.every && t.due); if (ts.length > 1){ ts.forEach(t => r.new_tasks.push({title: t.title, date: t.due, time: t.time || null, every: t.every})); hit = true; } } // "ran 5k yesterday morning" is not a to-do for tomorrow
@@ -5963,7 +5966,8 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
-  if ((lp.goals || []).length && !out.goals) out.goals = lp.goals; // goals are read on the phone; the AI's answer has no place for them
+  if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.goal_add || []).length && !out.goal_add) out.goal_add = lp.goal_add; // goals are read on the phone; the AI's answer has no place for them
   if ((lp.track || []).length && !out.track) out.track = lp.track; // the AI's answer has no place for work, reading or the person's own activities
   if ((lp.savings || []).length && !out.savings){ out.savings = lp.savings; const sum = lp.savings.reduce((a, x) => a + x.amount, 0); out.money = out.money.filter(m => !(m.type !== 'in' && Math.abs(+m.amount - sum) < 0.01)); } // the AI may read it as spending
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
@@ -7407,6 +7411,20 @@ function localGoal(c, date){
 const cleanGoals = list => (Array.isArray(list) ? list : []).filter(g => g && ['time', 'days', 'count'].includes(g.kind) && String(g.title || '').trim() && +g.target > 0 && +g.target <= (g.kind === 'days' ? 730 : 100000))
   .map(g => ({kind: g.kind, title: String(g.title).trim().slice(0, 60), target: +g.target, due: DATE_RE.test(g.due || '') && g.due >= todayISO() ? g.due : '', ...(g.kind === 'time' ? {act: allActs().includes(g.act) ? g.act : 'study'} : {}), ...(g.kind === 'count' ? {unit: String(g.unit || '').slice(0, 12)} : {})}))
   .filter(g => !(goalsDoc().list || []).some(x => !x.hidden && sameTitle(x.title, g.title))).slice(0, 3); // a goal already set isn't added twice
+/* progress toward a counter goal from the same message: "ran 5 km" for "Run 100 km", "прочитал книгу" for "Прочитать 12 книг" */
+function localGoalAdd(c, r){
+  if ((r.money || []).some(m => c.includes(String(m.note || '\u0000'))) || /(?:потратил|spent|paid|bought|купил|заплатил|получил|got paid|earned)/i.test(c)) return null; // "bought 2 books" is spending
+  const open = (goalsDoc().list || []).filter(g => g.kind === 'count' && !g.hidden && !g.doneAt && g.unit && g.unit.length >= 2);
+  const words = wordsOf(c);
+  for (const g of open){
+    const u = g.unit.toLowerCase(), same = w => w === u || (u.length >= 3 && sameWord(w, u));
+    const m = c.match(new RegExp('(\\d+(?:[.,]\\d+)?)\\s*([^\\s\\d.,;]+)', 'ig'));
+    for (const x of m || []){ const [, n, w] = x.match(/(\d+(?:[.,]\d+)?)\s*(\S+)/); if (same(w.toLowerCase()) && toN(n) > 0 && toN(n) <= 1000) return {id: g.id, n: toN(n)}; }
+    if (words.some(same) && !/\d/.test(c) && /(?:read|finished|done|прочитал[аи]?|закончил[аи]?|дочитал[аи]?|сделал[аи]?)/i.test(c)) return {id: g.id, n: 1}; // "finished a book"
+  }
+  return null;
+}
+const cleanGoalAdds = list => (Array.isArray(list) ? list : []).map(x => ({g: (goalsDoc().list || []).find(g => g.id === x?.id && g.kind === 'count' && !g.hidden), n: +x?.n})).filter(x => x.g && x.n > 0 && x.n <= 1000).slice(0, 5);
 function goalsAddMany(list){
   if (!list.length) return;
   const doc = goalsDoc();

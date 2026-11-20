@@ -6840,6 +6840,11 @@ const daysIn = (from, to) => { const out = []; for (let k = from; k <= to && out
 function localAnswer(text){
   const t = String(text).trim(); if (!ASK_RE.test(t) || t.length > 140) return null;
   const p = askPeriod(t), ks = daysIn(p.from, p.to);
+  if (/(?:запрос|request)/i.test(t) && /(?:ИИ|AI)(?![a-zа-яё])/i.test(t)){ // "how many AI requests do I have left?"
+    if (!signedIn()) return cloudOn() ? tr('Войди в аккаунт, чтобы пользоваться ИИ: запросы считаются на аккаунт.') : null;
+    const u = aiUseToday();
+    return u ? trf('Запросов к ИИ на сегодня осталось: {n} из {m}', {n: Math.max(0, u.limit - u.used), m: u.limit}) + '. ' + tr('Новый день у сервера начинается в полночь по UTC.') : tr('Сегодня запросов к ИИ ещё не было. Точный расход: Ещё → Аккаунт → Расход ИИ.');
+  }
   if (/калори|ккал|calori|kcal|белк|protein|(?:^|\s)(?:съел[аи]?|ел[аи]?|eat|ate|eaten)(?![a-zа-яё])/i.test(t) && !/потратил|spent|spend/i.test(t)){
     const tg = targets(), e = ks.reduce((a, k) => { const x = eaten(S.docs['days/' + k] || {}); return {kcal: a.kcal + x.kcal, p: a.p + x.p, n: a.n + (S.docs['days/' + k]?.meals?.length ? 1 : 0)}; }, {kcal: 0, p: 0, n: 0});
     if (!e.n) return trf('Еда {p} не записана.', {p: p.label});

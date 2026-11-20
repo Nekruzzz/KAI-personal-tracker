@@ -2553,4 +2553,7 @@ window.I18N_EN = {
 "+ цель: {t}, до {d}":"+ goal: {t}, by {d}",
 "Цель «{t}»: +{n}":"Goal “{t}”: +{n}",
 "Цель «{t}» идёт по графику":"Goal “{t}” is on pace",
+"Войди в аккаунт, чтобы пользоваться ИИ: запросы считаются на аккаунт.":"Sign in to use AI: requests are counted per account.",
+"Новый день у сервера начинается в полночь по UTC.":"The server's day starts at midnight UTC.",
+"Сегодня запросов к ИИ ещё не было. Точный расход: Ещё → Аккаунт → Расход ИИ.":"No AI requests today yet. For exact usage: More → Account → AI usage.",
 };

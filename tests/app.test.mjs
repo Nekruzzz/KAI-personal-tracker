@@ -3662,3 +3662,16 @@ test('the weekly review brings in the person\'s own goals: one behind pace leads
     assert.ok(c.wins.includes('Goal “Run 100 km” is on pace'), c.wins.join(' | '));
   } finally { run(`save('app/goals', gW)`); }
 });
+
+test('"how many AI requests do I have left?" is answered on the phone', () => {
+  assert.equal(run(`localAnswer('how many AI requests do I have left?')`), null, 'no server: nothing to say, the usual path');
+  run(`globalThis.cfgR = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authR = AUTH; globalThis.useR = KAI_USE`);
+  try {
+    assert.match(run(`localAnswer('how many AI requests do I have left?')`), /Sign in to use AI/);
+    run(`AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'}; KAI_USE = {used: 5, limit: 20, tier: 'free', day: new Date().toISOString().slice(0, 10)}`);
+    assert.match(run(`localAnswer('сколько запросов к ИИ осталось?')`), /15/);
+    assert.match(run(`localAnswer('how many AI requests do I have left?')`), /AI requests left today: 15 of 20\. The server's day starts at midnight UTC\./);
+    run(`KAI_USE = null`);
+    assert.match(run(`localAnswer('how many AI requests do I have left?')`), /No AI requests today yet/);
+  } finally { run(`AUTH = authR; KAI_USE = useR; Object.assign(CFG, cfgR); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

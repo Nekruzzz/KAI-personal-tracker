@@ -3617,6 +3617,9 @@ test('a goal can be set by telling KAI, and is shown before it is added', () => 
     assert.equal(p('new goal 30 days')[0].title, '30 days that count');
     assert.equal(p('цель: 50 часов работы до 15 числа')[0].act, 'work');
     assert.equal(p('my goal for today is to rest'), null, 'no number: left for the AI');
+    assert.equal(p('my target weight is 70 kg'), null, 'weight goals stay with the profile');
+    assert.equal(p('цель: сбросить 5 кг'), null);
+    assert.equal(p('goal 2000 kcal a day'), null);
     assert.equal(p('slept 7 hours'), null);
     assert.equal(run(`localWhole('goal: 100 hours of study by 20 December', todayISO())`), true, 'read on the phone, no AI request');
     run(`SH = {}; tellLocal('slept 7 hours, goal: 10 hours of reading', todayISO())`);

@@ -7399,6 +7399,7 @@ const GOAL_DUE_RE = new RegExp('\\s+(?:by|until|till|before|до|к)\\s+(.+)$', 
 function localGoal(c, date){
   const m = String(c).trim().match(GOAL_RE); if (!m) return null;
   let body = (m[1] || m[2] || '').trim(), due = '';
+  if (/(?:^|[^a-zа-яё])(?:вес[а-яё]*|weigh[a-z]*|kg|кг|lbs?|фунт[а-яё]*|kcal|ккал|калори[а-яё]*|calori[a-z]*|похуд[а-яё]*|сбросить|lose|gain|набрать)(?![a-zа-яё])/i.test(body)) return null; // body weight and calories belong to the profile and its safety rules, not a counter
   const dm = body.match(GOAL_DUE_RE);
   if (dm){
     const w = ' ' + dm[1] + ' ', md = w.match(MONTH_DATE), dd = w.match(DOM_RE), sd = w.match(SOFT_DATE_RE);

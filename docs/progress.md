@@ -253,7 +253,7 @@ The owner will be the first user and asked for: anything typed, said or photogra
 
 Not verified: reading a real photo with a real AI (the proposal handling is tested with a simulated answer); anything on a real iPhone.
 
-## Eighth round: KAI provides the AI, Google sign-in
+## Eighth round: KAI provides the AI, Google sign-in, goals and classes by message
 
 - **Nobody is asked to connect an AI.** Every "Connect Claude or ChatGPT" prompt, the setup-list step, the card in More and the key screens are hidden. With the server connected, the same places say "Sign in". Without it they say AI isn't turned on yet, and everything else keeps working on the phone.
 - **Existing keys keep working.** Anyone who already saved a Claude or ChatGPT key (or their own computer) keeps it, and can still change or remove it. `ownKeys: true` in `kai/config.js` brings the option back for everyone.

@@ -7139,6 +7139,11 @@ function coachLocal(n){
   if (cur.total > 70 * 60) next.push(tr('Нагрузка уже большая. На следующей неделе важнее сон и один день отдыха, чем новые часы.'));
   else if (grow) next.push(trf('{a}: попробуй {t} за следующую неделю', {a: actOf(grow[0]).name, t: hoursOf(Math.min(COACH_CAP, Math.max(30, Math.round(grow[1] * 1.1 / 30) * 30)))}));
   if (cur.active < 7) next.push(trf('Цель: {n} активных дней', {n: Math.min(7, cur.active + 1)}));
+  // the person's own goals: one that is behind comes first in the plan, one on pace is a win
+  const dated = goals().filter(g => g.due && !g.doneAt && g.due >= todayISO()), pace = g => { const v = goalValue(g), span = Math.max(1, dayDiff(g.start, g.due) + 1); return v >= g.target * Math.min(1, (dayDiff(g.start, todayISO()) + 1) / span) * 0.95; };
+  const behind = dated.find(g => !pace(g)), ahead = dated.find(g => pace(g));
+  if (behind) next.unshift(`${behind.title}: ${goalPace(behind).replace(/^[^:]+:\s*/, '')}`);
+  if (ahead && wins.length < 4) wins.push(trf('Цель «{t}» идёт по графику', {t: ahead.title}));
   return {headline, wins: wins.slice(0, 4), watch, next: next.slice(0, 3)};
 }
 const cleanCoach = r => r && typeof r.headline === 'string' ? {headline: r.headline.slice(0, 160), wins: (Array.isArray(r.wins) ? r.wins : []).filter(x => typeof x === 'string').slice(0, 4).map(x => x.slice(0, 200)), watch: typeof r.watch === 'string' ? r.watch.slice(0, 240) : '', next: (Array.isArray(r.next) ? r.next : []).filter(x => typeof x === 'string').slice(0, 3).map(x => x.slice(0, 200))} : null;

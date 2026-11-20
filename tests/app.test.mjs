@@ -3650,3 +3650,15 @@ test('telling KAI "ran 5 km" or "finished a book" counts toward a matching count
     assert.equal(run(`goalsDoc().list.find(g => g.id === 'gk').count`), 10);
   } finally { run(`closeSheetQuiet(); save('app/goals', gE); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxE.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('the weekly review brings in the person\'s own goals: one behind pace leads the plan, one on pace is a win', () => {
+  run(`globalThis.gW = clone(goalsDoc()); save('app/goals', {list: [
+    {id: 'gw1', kind: 'count', title: 'Read 12 books', target: 12, unit: 'books', count: 0, start: addDays(todayISO(), -20), due: addDays(todayISO(), 20)},
+    {id: 'gw2', kind: 'count', title: 'Run 100 km', target: 100, unit: 'km', count: 90, start: addDays(todayISO(), -20), due: addDays(todayISO(), 20)}]})`);
+  try {
+    const n = `{cur: {by: {study: 300}, total: 300, active: 5, tasks: 4, focusN: 0, focusMin: 0, leaves: 0, sleep: 7.5}, was: {by: {study: 300}, total: 300}, streak: 2, best: null}`;
+    const c = JSON.parse(run(`JSON.stringify(coachLocal(${n}))`));
+    assert.match(c.next[0], /^Read 12 books: .*a week/, c.next.join(' | '));
+    assert.ok(c.wins.includes('Goal “Run 100 km” is on pace'), c.wins.join(' | '));
+  } finally { run(`save('app/goals', gW)`); }
+});

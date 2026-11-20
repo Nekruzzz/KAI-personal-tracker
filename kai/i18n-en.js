@@ -2552,4 +2552,5 @@ window.I18N_EN = {
 "Цель: прочитать 12 книг до конца года":"Goal: read 12 books by the end of the year",
 "+ цель: {t}, до {d}":"+ goal: {t}, by {d}",
 "Цель «{t}»: +{n}":"Goal “{t}”: +{n}",
+"Цель «{t}» идёт по графику":"Goal “{t}” is on pace",
 };

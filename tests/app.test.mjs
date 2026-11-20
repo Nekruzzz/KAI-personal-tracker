@@ -3605,3 +3605,29 @@ test('a request refused for today\'s limit waits until the server\'s next day in
     assert.equal(run(`pickProvider(S.docs['jobs/jq1'])`), null);
   } finally { run(`remove('jobs/jq1'); SH = null; apiFetch = afQ; AI.downUntil = {}; setMeta({aiConsent: mQ}); AUTH = authQ; Object.assign(CFG, cfgQ); CFG.supabaseUrl = ''; CFG.supabaseKey = ''; Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxQ.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('a goal can be set by telling KAI, and is shown before it is added', () => {
+  run(`globalThis.gD = clone(goalsDoc()); save('app/goals', {list: []}); globalThis.inboxG = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.goals || null)`));
+    const g1 = p('goal: 100 hours of study by 20 December')[0];
+    assert.deepEqual([g1.kind, g1.target, g1.act, g1.title], ['time', 100, 'study', '100 hours of study']);
+    assert.match(g1.due, /-12-20$/);
+    assert.deepEqual(p('my goal is 12 books by the end of the year')[0].unit, 'books');
+    assert.equal(p('new goal 30 days')[0].title, '30 days that count');
+    assert.equal(p('цель: 50 часов работы до 15 числа')[0].act, 'work');
+    assert.equal(p('my goal for today is to rest'), null, 'no number: left for the AI');
+    assert.equal(p('slept 7 hours'), null);
+    assert.equal(run(`localWhole('goal: 100 hours of study by 20 December', todayISO())`), true, 'read on the phone, no AI request');
+    run(`SH = {}; tellLocal('slept 7 hours, goal: 10 hours of reading', todayISO())`);
+    const id = run(`SH.jobId`), lines = JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`));
+    assert.ok(lines.includes('+ goal: 10 hours of reading'), lines.join(' | '));
+    assert.equal(run(`goalsDoc().list.length`), 0, 'nothing added before confirming');
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    const g = JSON.parse(run(`JSON.stringify(goalsDoc().list)`));
+    assert.deepEqual([g.length, g[0].kind, g[0].act, g[0].target, g[0].start], [1, 'time', 'read', 10, run(`todayISO()`)]);
+    assert.equal(run(`cleanGoals([{kind: 'time', title: '10 hours of reading', target: 10, act: 'read'}]).length`), 0, 'the same goal is not added twice');
+    run(`A.undoApply()`);
+    assert.equal(run(`goalsDoc().list.length`), 0, 'Undo removes it');
+  } finally { run(`closeSheetQuiet(); save('app/goals', gD); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxG.includes(k)).forEach(k => remove(k))`); }
+});

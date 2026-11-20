@@ -2385,6 +2385,7 @@ function tellLines0(r, date){
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
+  cleanGoals(r.goals).forEach(g => lines.push(g.due ? trf('+ цель: {t}, до {d}', {t: g.title, d: fmtShort(g.due)}) : trf('+ цель: {t}', {t: g.title})));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
   (r.savings || []).forEach(x => { const g = savings().find(y => y.id === x.id); if (g) lines.push(trf('В копилку «{t}»: +{s}', {t: g.title, s: money(x.amount)})); });
   (r.exam_results || []).forEach(x => { const e = allEvents().find(y => y.id === x.id); if (e) lines.push(trf(x.passed ? 'Результат «{e}»: сдан{g}' : 'Результат «{e}»: не сдан{g}', {e: e.title, g: x.grade ? ' · ' + x.grade : ''})); });
@@ -2416,6 +2417,7 @@ A.tellApply = el => {
   if ((r.debts || []).length && modOn('money')) debtsAdd(r.debts, date);
   if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
   cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
+  goalsAddMany(cleanGoals(r.goals));
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
@@ -4840,6 +4842,7 @@ function localTellParse(text, date, opts = {}){
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c0 of parts){
+    { const g = localGoal(c0, date); if (g){ (r.goals = r.goals || []).push(g); continue; } } // "goal: 100 hours of study by 20 December"
     const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
@@ -5025,6 +5028,7 @@ const TELL_HELP = [
   [tr('Еда'), [tr('200 г гречки и 2 яйца'), tr('Стакан кефира')]],
   [tr('Деньги'), [tr('Потратил 12 на обед'), tr('Получил зарплату 900'), tr('Получил 50 от мамы'), tr('Стипендия 300'), tr('Аренда 400 каждый месяц')]],
   [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку'), tr('Эссе до пятницы'), tr('Выносить мусор по понедельникам')]],
+  [tr('Цели'), [tr('Цель: 100 часов учёбы до 20 декабря'), tr('Цель: прочитать 12 книг до конца года')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4'), tr('Вчера гулял час')]],
   [tr('Вопросы'), [tr('Сколько я потратил на этой неделе?'), tr('Сколько осталось денег?'), tr('Когда следующий экзамен?')]],
 ];
@@ -5959,6 +5963,7 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
+  if ((lp.goals || []).length && !out.goals) out.goals = lp.goals; // goals are read on the phone; the AI's answer has no place for them
   if ((lp.track || []).length && !out.track) out.track = lp.track; // the AI's answer has no place for work, reading or the person's own activities
   if ((lp.savings || []).length && !out.savings){ out.savings = lp.savings; const sum = lp.savings.reduce((a, x) => a + x.amount, 0); out.money = out.money.filter(m => !(m.type !== 'in' && Math.abs(+m.amount - sum) < 0.01)); } // the AI may read it as spending
   if ((lp.exam_results || []).length && !out.exam_results) out.exam_results = lp.exam_results;
@@ -7373,6 +7378,40 @@ function localTrack(c){
   return hit ? {a: hit[0], min} : null;
 }
 const cleanTrack = list => (Array.isArray(list) ? list : []).filter(x => x && allActs().includes(x.a) && +x.min >= 1 && +x.min <= TRACK_MAX && !actOf(x.a).kind).map(x => ({a: x.a, min: Math.round(+x.min)})).slice(0, 8);
+
+/* ============ goals by telling KAI: "goal: 100 hours of study by 20 December", "цель: прочитать 12 книг до конца года" ============ */
+const GOAL_RE = /^(?:(?:my|a|new|set(?:\s+a)?)\s+)?(?:goal|target)(?:\s+is)?\s*[:—–-]?\s*(.+)$|^(?:моя\s+|новая\s+|поставь\s+|постав(?:ить|лю)\s+)?цель\s*[:—–-]?\s*(.+)$/i;
+const GOAL_DUE_RE = new RegExp('\\s+(?:by|until|till|before|до|к)\\s+(.+)$', 'i');
+function localGoal(c, date){
+  const m = String(c).trim().match(GOAL_RE); if (!m) return null;
+  let body = (m[1] || m[2] || '').trim(), due = '';
+  const dm = body.match(GOAL_DUE_RE);
+  if (dm){
+    const w = ' ' + dm[1] + ' ', md = w.match(MONTH_DATE), dd = w.match(DOM_RE), sd = w.match(SOFT_DATE_RE);
+    due = /^\s*\d{4}-\d\d-\d\d\s*$/.test(dm[1]) ? dm[1].trim() : md ? monthDate(md) : /конц[уа]?\s+года|end of (?:the |this )?year/i.test(w) ? date.slice(0, 4) + '-12-31' : sd ? softDate(sd[0], date) : dd ? domDate(domN(dd), date) : '';
+    if (!due){ const q = parseQuick('x ' + dm[1]); if (q?.due && !q.time && !q.every && q.title === 'X') due = q.due; } // "by Friday", "до среды", "by tomorrow"
+    if (due) body = body.slice(0, dm.index).trim();
+  }
+  const n = body.match(/(\d+(?:[.,]\d+)?)\s*([^\s\d]*)/); if (!n) return null;
+  const target = toN(n[1]), unit = n[2].toLowerCase().replace(/[.,:;]+$/, '');
+  if (!(target > 0 && target <= 100000)) return null;
+  const title = (body[0].toUpperCase() + body.slice(1)).replace(/[.,;:]+$/, '').slice(0, 60);
+  if (/^(?:hours?|hrs?|h|час(?:а|ов)?|ч)$/.test(unit)){
+    const low = body.toLowerCase(), own = (meta().acts || []).filter(x => !x.off).find(x => x.name.length >= 3 && low.includes(x.name.toLowerCase()));
+    const act = own ? own.id : (TRACK_WORDS.find(([, re]) => re.test(body)) || [])[0] || (/work|работ/i.test(body) ? 'work' : /read|чтени|читат/i.test(body) ? 'read' : 'study');
+    return {kind: 'time', title, target, due, act};
+  }
+  if (/^(?:days?|дн(?:я|ей)|день)$/.test(unit) && target <= 730) return {kind: 'days', title: /^\d+\s*\S+$/.test(body) ? trf('{n} засчитанных дней', {n: target}) : title, target, due};
+  return {kind: 'count', title, target, due, unit: unit.slice(0, 12)};
+}
+const cleanGoals = list => (Array.isArray(list) ? list : []).filter(g => g && ['time', 'days', 'count'].includes(g.kind) && String(g.title || '').trim() && +g.target > 0 && +g.target <= (g.kind === 'days' ? 730 : 100000))
+  .map(g => ({kind: g.kind, title: String(g.title).trim().slice(0, 60), target: +g.target, due: DATE_RE.test(g.due || '') && g.due >= todayISO() ? g.due : '', ...(g.kind === 'time' ? {act: allActs().includes(g.act) ? g.act : 'study'} : {}), ...(g.kind === 'count' ? {unit: String(g.unit || '').slice(0, 12)} : {})}))
+  .filter(g => !(goalsDoc().list || []).some(x => !x.hidden && sameTitle(x.title, g.title))).slice(0, 3); // a goal already set isn't added twice
+function goalsAddMany(list){
+  if (!list.length) return;
+  const doc = goalsDoc();
+  save('app/goals', {...doc, list: [...(doc.list || []), ...list.map(g => ({id: uid(), ...g, start: todayISO(), ...(g.kind === 'count' ? {count: 0} : {})}))]});
+}
 
 /* ============ signing in early: on the first screen and as a card on Day ============ */
 function ssoRow(){

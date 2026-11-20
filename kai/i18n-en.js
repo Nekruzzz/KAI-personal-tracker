@@ -2545,4 +2545,10 @@ window.I18N_EN = {
 "Здоровье → Тело: KAI возьмёт шаги, сон и вес со снимка и покажет, прежде чем записать.":"Health → Body: KAI takes steps, sleep and weight from the picture and shows you before saving.",
 "Запросы к ИИ на сегодня закончились, поэтому разобрал на телефоне. Проверь и подтверди.":"Today's AI requests have run out, so I read this on the phone. Check and confirm.",
 "Запросы к ИИ на сегодня закончились. Запрос сохранён и отправится завтра сам, а ответ придёт в раздел «ИИ». Ничего не изменится без твоего подтверждения.":"Today's AI requests have run out. The request is saved and goes out by itself tomorrow; the answer will come to the AI section. Nothing changes until you confirm.",
+"+ цель: {t}":"+ goal: {t}",
+", до ":", by ",
+"{n} засчитанных дней":"{n} days that count",
+"Цель: 100 часов учёбы до 20 декабря":"Goal: 100 hours of study by 20 December",
+"Цель: прочитать 12 книг до конца года":"Goal: read 12 books by the end of the year",
+"+ цель: {t}, до {d}":"+ goal: {t}, by {d}",
 };

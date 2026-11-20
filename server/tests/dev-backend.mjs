@@ -2,7 +2,7 @@
 // The database rules and AI logic are the real ones; only the login emails and Claude itself are simulated.
 // Run: node server/tests/dev-backend.mjs   then open http://localhost:8124
 import http from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
@@ -20,7 +20,7 @@ await db.exec(`
   alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
   alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 `);
-await db.exec(readFileSync(join(here, '../supabase/migrations/20261030000000_kai.sql'), 'utf8'));
+for (const f of readdirSync(join(here, '../supabase/migrations')).sort()) await db.exec(readFileSync(join(here, '../supabase/migrations', f), 'utf8')); // every migration, in order, as `supabase db push` applies them
 
 // a request's rows must run as that person, one at a time, as they would through Supabase
 let chain = Promise.resolve();
@@ -52,11 +52,19 @@ http.createServer(async (req, res) => {
   let raw = ''; for await (const c of req) raw += c;
   const body = raw ? JSON.parse(raw) : null;
   try {
-    if (p === '/config.js') return send(res, 200, `window.KAI_CONFIG={supabaseUrl:location.origin,supabaseKey:'dev-publishable',providers:[]};`, 'text/javascript');
+    if (p === '/config.js') return send(res, 200, `window.KAI_CONFIG={supabaseUrl:location.origin,supabaseKey:'dev-publishable',providers:['google'],emailCodes:true};`, 'text/javascript');
     if (p === '/__stats') return send(res, 200, stats);
     if (p === '/__ai') { stats.aiMode = url.searchParams.get('mode'); return send(res, 200, {}); }
     if (p === '/__sql') return send(res, 200, (await serial(() => db.query(body.q))).rows);
 
+    // Google sign-in, simulated: straight back to the app with a session in the address, as Supabase does after Google agrees
+    if (p === '/auth/v1/authorize') {
+      const id = uuid('google@example.test'), back = url.searchParams.get('redirect_to');
+      if (url.searchParams.get('deny')) { res.writeHead(302, {location: back + '?error=access_denied&error_description=denied#error=access_denied&error_description=denied'}); return res.end(); }
+      await serial(() => db.query('insert into auth.users (id,email) values ($1,$2) on conflict do nothing', [id, 'google@example.test']));
+      res.writeHead(302, {location: `${back}#access_token=tok.${id}&refresh_token=ref.${id}&expires_in=3600&token_type=bearer`}); return res.end();
+    }
+    if (p === '/auth/v1/user') { const u = userOf(req); return u ? send(res, 200, {id: u, email: 'google@example.test', app_metadata: {provider: 'google'}, user_metadata: {full_name: 'Alex Example'}}) : send(res, 401, {}); }
     if (p === '/auth/v1/otp') return send(res, 200, {});
     if (p === '/auth/v1/verify') {
       if (body.token !== CODE) return send(res, 400, {msg: 'bad code'});

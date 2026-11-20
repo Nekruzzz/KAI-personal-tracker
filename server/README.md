@@ -136,7 +136,7 @@ npm install
 npm test
 ```
 
-To try the whole app locally without any accounts, run the command below from the project's main folder, open http://localhost:8124 and sign in with any email and the code `123456`. Claude's replies are simulated.
+To try the whole app locally without any accounts, run the command below from the project's main folder, open http://localhost:8124 and tap "Continue with Google" (simulated: it signs you in at once as a test account), or sign in with any email and the code `123456`. Claude's replies are simulated, and every migration is applied, so the limits match the real project.
 
 ```bash
 node server/tests/dev-backend.mjs

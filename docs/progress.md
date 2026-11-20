@@ -317,6 +317,8 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 - `node tools/check-i18n.js kai`: `missing: 0`.
 - In Chromium at 390×844 (phone size), served with `python -m http.server 8123 --directory kai`: each change was tried, in English and Russian where relevant, and in both themes.
 
+- **End to end against the local stand-in server (`server/tests/dev-backend.mjs`, real database rules and AI code, simulated Google and Claude):** Continue with Google on the first screen signs in and returns to a clean address with the name filled in; the AI permission screen comes before anything is sent; one AI request is made and shown for confirmation; "AI requests left today: 19 of 20" appears; "slept 7 hours" is read on the phone with no AI request; records sync; a second device signing in gets the profile back and the welcome closes by itself; a refused sign-in leaves a clean address.
+
 ## Not verified
 
 - **Live server, checked with the public key only (12 Nov):** Google sign-in is turned on in the Supabase project and its sign-in address redirects to Google correctly; the AI function is deployed and refuses requests without an account (401). No AI request was made. Not checked: a full Google sign-in in a browser, whether the site address is in Supabase's Redirect URLs, and a real AI answer.

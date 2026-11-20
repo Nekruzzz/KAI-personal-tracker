@@ -3149,6 +3149,7 @@ A.accToggle = el => {
 function aiStatus(){
   if (S.inClaude) return {ok: !!SAMPLE_CAP, text: tr('Claude в приложении Claude')};
   const c = aiCfg(), p = c.order.find(x => provConfigured(x));
+  if (p === 'kai' && !ownAI()) return {ok: true, p, text: tr('ИИ от KAI')}; // the only one: "main" would mean nothing
   return p ? {ok:true, p, text: PROV[p].short + tr(' · основной')} : {ok:false, text:tr('Не подключён')};
 }
 function connectNudge(forTell){
@@ -5096,7 +5097,7 @@ function usageBody(){
     }
   }
   const own = Object.entries(meta().claudeUsage || {}).sort().reverse().slice(0, 6);
-  h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Свой ключ Claude')}</b>${own.length ? `<div class="list">${own.map(([m, u]) => `<div class="row" style="padding:8px 0"><div class="mid"><div class="t">${esc(new Date(m + '-15').toLocaleDateString(LOCALE, {month: 'long', year: 'numeric'}))}</div><div class="s">${trf('{n} {r} · {i} входящих и {o} исходящих токенов', {n: u.n, r: plural(u.n, tr('запрос'), tr('запроса'), tr('запросов')), i: num(u.in), o: num(u.out)})}</div></div></div>`).join('')}</div><div class="hint">${tr('Оплата идёт напрямую в Anthropic по твоему ключу. Точную сумму смотри в их консоли.')}</div>` : `<div class="hint">${tr('Запросов по своему ключу пока не было.')}</div>`}</section>`;
+  if (own.length || ownKeysAllowed()) h += `<section class="card" style="display:flex;flex-direction:column;gap:10px"><b>${tr('Свой ключ Claude')}</b>${own.length ? `<div class="list">${own.map(([m, u]) => `<div class="row" style="padding:8px 0"><div class="mid"><div class="t">${esc(new Date(m + '-15').toLocaleDateString(LOCALE, {month: 'long', year: 'numeric'}))}</div><div class="s">${trf('{n} {r} · {i} входящих и {o} исходящих токенов', {n: u.n, r: plural(u.n, tr('запрос'), tr('запроса'), tr('запросов')), i: num(u.in), o: num(u.out)})}</div></div></div>`).join('')}</div><div class="hint">${tr('Оплата идёт напрямую в Anthropic по твоему ключу. Точную сумму смотри в их консоли.')}</div>` : `<div class="hint">${tr('Запросов по своему ключу пока не было.')}</div>`}</section>`;
   const jobs = Object.keys(S.docs).filter(k => k.startsWith('jobs/')).map(k => S.docs[k]), wait = jobs.filter(j => j.status === 'queued' || j.status === 'running').length, bad = jobs.filter(j => j.status === 'error').length;
   if (wait || bad) h += `<section class="card navrow" style="cursor:pointer" data-act="aiSheet"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Очередь ИИ')}</div><div class="s">${trf('ждут: {w} · с ошибкой: {b}', {w: wait, b: bad})}</div></div>${ic('chevR')}</section>`;
   return h;

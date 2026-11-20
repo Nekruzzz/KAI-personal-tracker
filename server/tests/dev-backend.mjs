@@ -87,6 +87,10 @@ http.createServer(async (req, res) => {
       const rev = Number(url.searchParams.get('rev').slice(3)), limit = Number(url.searchParams.get('limit'));
       return send(res, 200, await asUser(me, async () => (await db.query('select path,data,deleted,rev::int,client_ts::float8 client_ts from public.docs where rev > $1 order by rev asc limit $2', [rev, limit])).rows));
     }
+    // the usage screen's reads, under the same per-person rules
+    if (p === '/rest/v1/tiers') return send(res, 200, await asUser(me, async () => (await db.query('select tier, daily_requests, images_allowed, smart_model from public.tiers')).rows));
+    if (p === '/rest/v1/profiles') return send(res, 200, await asUser(me, async () => (await db.query('select tier, tier_expires_at from public.profiles')).rows));
+    if (p === '/rest/v1/ai_usage') return send(res, 200, await asUser(me, async () => (await db.query("select to_char(day, 'YYYY-MM-DD') as day, requests, input_tokens::int, output_tokens::int from public.ai_usage where day >= $1 order by day", [String(url.searchParams.get('day') || 'gte.2000-01-01').slice(4)])).rows));
     if (p === '/rest/v1/rpc/sync_push') return send(res, 200, await asUser(me, async () => (await db.query('select public.sync_push($1::jsonb) r', [JSON.stringify(body.p_items)])).rows[0].r));
     if (p === '/functions/v1/ai') {
       const out = await handleAi(body, me, {client,

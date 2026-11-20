@@ -3678,3 +3678,9 @@ test('"how many AI requests do I have left?" is answered on the phone', () => {
     assert.match(run(`localAnswer('how many AI requests do I have left?')`), /No AI requests today yet/);
   } finally { run(`AUTH = authR; KAI_USE = useR; Object.assign(CFG, cfgR); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('a goal set today is not called behind pace', () => {
+  const g = `{id: 'gt', kind: 'count', title: 'Read 12 books', target: 12, unit: 'books', count: 0, start: todayISO(), due: addDays(todayISO(), 27)}`;
+  assert.match(run(`goalPace(${g})`), /^3 a week needed until/);
+  assert.match(run(`goalPace({...${g}, start: addDays(todayISO(), -7)})`), /^Behind pace/);
+});

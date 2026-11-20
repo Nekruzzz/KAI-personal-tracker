@@ -7310,6 +7310,7 @@ function goalPace(g){
   if (dl < 0) return trf('Срок прошёл {d}. Осталось {n}.', {d: fmtShort(g.due), n: num(left, left % 1 ? 1 : 0)});
   const perWeek = left / Math.max(1, dl + 1) * 7, span = Math.max(1, dayDiff(g.start, g.due) + 1), should = g.target * Math.min(1, (dayDiff(g.start, today) + 1) / span);
   const need = trf('до {d} нужно {n} в неделю', {d: fmtShort(g.due), n: num(perWeek, perWeek < 10 && perWeek % 1 ? 1 : 0)});
+  if (g.start >= today && v < should) return need[0].toUpperCase() + need.slice(1); // set today: too early to be behind
   return (v >= should * 0.95 ? tr('В графике') : tr('Отстаёшь от графика')) + ': ' + need;
 }
 function goalsCard(){

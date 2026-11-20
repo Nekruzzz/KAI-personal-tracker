@@ -708,11 +708,12 @@ async function processQueue(){
         catch(e){ if ((job.tries||0) < 1){ save('jobs/'+job.id, {...job, status:'queued', tries:(job.tries||0)+1, lastError:tr('ответ не в том формате, пробую ещё раз')}); continue; } throw new AIError(tr('ИИ (')+PROV[prov].short+tr(') дважды ответил не в том формате. Выбери другой ИИ и повтори.'), true); }
         await finishJob(job, result, prov);
       } catch(e){
+        if (e?.code === 'daily_limit' && limitFallback(job)) continue; // the phone reads what it can instead
         const fatal = e instanceof AIError ? e.fatal : false;
         const msg = e instanceof AIError ? e.message : (tr('Ошибка: ')+(e?.message||e));
         AI.lastErr[prov] = msg;
-        if (!fatal) AI.downUntil[prov] = Date.now() + 60000;
-        save('jobs/'+job.id, {...S.docs['jobs/'+job.id], status: fatal ? 'error' : 'queued', lastError: msg, using:null});
+        if (!fatal) AI.downUntil[prov] = e?.code === 'daily_limit' ? nextServerDay() : Date.now() + 60000;
+        save('jobs/'+job.id, {...S.docs['jobs/'+job.id], status: fatal ? 'error' : 'queued', lastError: msg, code: e?.code || null, using:null});
         jobStatus(job.id);
       }
     }
@@ -745,6 +746,7 @@ function jobStatus(id){
   const el = $('#'+SH.outId); if (!el) return;
   const j = S.docs['jobs/'+id]; if (!j) return;
   if (j.status === 'running') el.innerHTML = `<div class="note"><span class="spin"></span> ${tr("Думает")} ${esc(PROV[j.using]?.name||tr('ИИ'))}…${j.using==='phone'&&AI.progress?`<div class="hint" id="phoneProg">${esc(AI.progress)}</div>`:''}</div>`;
+  else if (j.code === 'daily_limit' && j.status === 'queued') el.innerHTML = `<div class="note">${ic('repeat')} ${tr('Запросы к ИИ на сегодня закончились. Запрос сохранён и отправится завтра сам, а ответ придёт в раздел «ИИ». Ничего не изменится без твоего подтверждения.')}</div>`;
   else if (j.status === 'error') el.innerHTML = `<div class="note">${esc(j.lastError||tr('Ошибка'))}</div><div class="btnrow"><button class="btn ghost" data-act="jobRetry" data-id="${id}">${tr("Повторить")}</button></div>`;
   else if (!S.online) el.innerHTML = `<div class="note">${ic('repeat')} ${tr('Нет интернета. Запрос сохранён в очереди и отправится сам, когда связь вернётся. Можешь закрыть окно: ответ придёт в раздел «ИИ».')}</div>`;
   else el.innerHTML = `<div class="note">${ic('repeat')} ${tr("Сейчас ни один ИИ недоступен")}${j.lastError?' ('+esc(j.lastError)+')':''}${tr(". Запрос сохранён в очереди и отправится сам, как только появится интернет или компьютер. Можешь закрыть окно — ответ придёт в раздел «ИИ».")}</div>`;
@@ -4252,7 +4254,7 @@ async function callKai(prompt, imgs, json, kind){
   if (d.limit != null){ KAI_USE = {used: d.used, limit: d.limit, tier: d.tier, day: new Date().toISOString().slice(0, 10)}; lsSet('kai_use', KAI_USE); }
   if (r.ok) return d.text;
   if (r.status === 401) throw new AIError(tr('Войди в аккаунт'), true);
-  if (d.code === 'daily_limit') throw new AIError(`${tr('На сегодня запросы к ИИ закончились:')} ${d.used} ${tr('из')} ${d.limit}. ${tr('Завтра лимит обновится. Остальное работает как обычно.')}`, true);
+  if (d.code === 'daily_limit') throw Object.assign(new AIError(`${tr('На сегодня запросы к ИИ закончились:')} ${d.used} ${tr('из')} ${d.limit}. ${tr('Завтра лимит обновится. Остальное работает как обычно.')}`, false), {code: 'daily_limit'}); // not fatal: the request waits for tomorrow
   if (d.code === 'plus_required') throw new AIError(tr('Разбор фото доступен в платной версии. Пока опиши это текстом.'), true);
   if (d.code === 'refused') throw new AIError(tr('ИИ не стал отвечать на этот запрос.'), true);
   if (d.code === 'bad_request') throw new AIError(tr('Запрос слишком большой или с неподходящим файлом.'), true);
@@ -4987,16 +4989,31 @@ function foodLocal(text, date){
   return true;
 }
 function tellLocal(text, date0){
+  const it = tellLocalItem(text, date0); if (!it) return false;
+  save('inbox/' + it.id, it);
+  SH.jobId = it.id; SH.outId = 'tellOut';
+  const out = $('#tellOut'); if (out) out.innerHTML = jobView(it) + (aiStatus().ok ? `<button class="link" style="align-self:flex-start" data-act="tellAI" data-id="${it.id}">${ic('spark', 'link-ic')}${tr('Разобрать через ИИ')}</button>` : '');
+  return true;
+}
+function tellLocalItem(text, date0, why){
   const date = tellDayOf(text, date0); // "вчера потратил 500 на такси" belongs to yesterday
   const {r, left} = localTellParse(text, date);
-  if (!tellLines(r, date).length) return false;
+  if (!tellLines(r, date).length) return null;
   const missed = left.map(x => x.trim()).filter(x => x.length > 2).slice(0, 4).map(x => (LANG === 'ru' ? '«' : '“') + x.slice(0, 60) + (LANG === 'ru' ? '»' : '”'));
   const ai = aiStatus().ok;
-  r.reply = (ai ? tr('Разобрал на телефоне, запрос к ИИ не потрачен. Проверь и подтверди.') : tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.')) + (missed.length ? ' ' + tr('Не понял без ИИ:') + ' ' + missed.join(', ') + '. ' + tr('Еду проще записать с граммами, например «150 г риса».') : '');
-  const id = uid(), it = {id, kind: 'tell', result: r, meta: {date, text, local: true}, provider: 'local', label: tr('Разбор · ') + fmtShort(date), date, created: new Date().toISOString(), done: false};
-  save('inbox/' + id, it);
-  SH.jobId = id; SH.outId = 'tellOut';
-  const out = $('#tellOut'); if (out) out.innerHTML = jobView(it) + (ai ? `<button class="link" style="align-self:flex-start" data-act="tellAI" data-id="${id}">${ic('spark', 'link-ic')}${tr('Разобрать через ИИ')}</button>` : '');
+  r.reply = (why === 'limit' ? tr('Запросы к ИИ на сегодня закончились, поэтому разобрал на телефоне. Проверь и подтверди.') : ai ? tr('Разобрал на телефоне, запрос к ИИ не потрачен. Проверь и подтверди.') : tr('Разобрал на телефоне, без ИИ. Проверь и подтверди.')) + (missed.length ? ' ' + tr('Не понял без ИИ:') + ' ' + missed.join(', ') + '. ' + tr('Еду проще записать с граммами, например «150 г риса».') : '');
+  const id = uid();
+  return {id, kind: 'tell', result: r, meta: {date, text, local: true}, provider: 'local', label: tr('Разбор · ') + fmtShort(date), date, created: new Date().toISOString(), done: false};
+}
+// the server counts requests by UTC day; the next one starts at UTC midnight (a minute later, to be safe)
+const nextServerDay = (now = Date.now()) => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 1); };
+/* today's AI requests ran out: a Tell KAI message without a photo is read on the phone, if it understands any of it */
+function limitFallback(job){
+  if (job.kind !== 'tell' || job.nImg || !job.meta?.text) return false;
+  const it = tellLocalItem(job.meta.text, job.meta.date || todayISO(), 'limit'); if (!it) return false;
+  save('inbox/' + it.id, it); remove('jobs/' + job.id); delete JOB_IMGS[job.id];
+  if (SH?.jobId === job.id){ SH.jobId = it.id; const out = SH.outId && $('#' + SH.outId); if (out) out.innerHTML = jobView(it); }
+  renderBadge();
   return true;
 }
 

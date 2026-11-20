@@ -3573,3 +3573,35 @@ test('a class can be edited: name, day and hours change in place, with Undo', ()
     assert.equal(run(`plan().classes[0].title`), 'Maths', 'an empty name is not saved');
   } finally { run(`delete globalThis.FORM; closeSheetQuiet(); save('app/plan', plC); S.tab = 'day'; delete S.open.acc_classes`); }
 });
+
+test('when today\'s AI requests run out, a Tell KAI message is read on the phone instead of failing', () => {
+  run(`globalThis.inboxF = Object.keys(S.docs).filter(k => k.startsWith('inbox/')); save('jobs/jf1', {id: 'jf1', kind: 'tell', status: 'running', nImg: 0, meta: {date: todayISO(), text: 'slept 7 hours, had some soup'}})`);
+  try {
+    assert.equal(run(`limitFallback(S.docs['jobs/jf1'])`), true);
+    assert.equal(run(`S.docs['jobs/jf1']`), undefined, 'the waiting request is gone');
+    const it = JSON.parse(run(`JSON.stringify(Object.entries(S.docs).find(([k]) => k.startsWith('inbox/') && !inboxF.includes(k))[1])`));
+    assert.equal(it.provider, 'local'); assert.equal(it.result.sleep_h, 7);
+    assert.match(it.result.reply, /AI requests have run out/);
+    assert.match(it.result.reply, /had some soup/, 'and it says what it could not read');
+    assert.equal(run(`limitFallback({id: 'jf2', kind: 'tell', nImg: 1, meta: {text: 'slept 7 hours'}})`), false, 'a photo cannot be read on the phone');
+    assert.equal(run(`limitFallback({id: 'jf3', kind: 'tell', nImg: 0, meta: {text: 'had oatmeal'}})`), false, 'nothing understood: the usual message stays');
+    assert.equal(run(`limitFallback({id: 'jf4', kind: 'food', meta: {text: 'slept 7 hours'}})`), false);
+  } finally { run(`remove('jobs/jf1'); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxF.includes(k)).forEach(k => remove(k))`); }
+});
+
+test('a request refused for today\'s limit waits until the server\'s next day instead of failing', async () => {
+  assert.equal(run(`new Date(nextServerDay(Date.UTC(2026, 10, 20, 23, 30))).toISOString()`), '2026-11-21T00:01:00.000Z');
+  run(`globalThis.cfgQ = {...CFG}; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; globalThis.authQ = AUTH; globalThis.mQ = meta().aiConsent; globalThis.afQ = apiFetch;
+    AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'}; setMeta({aiConsent: 'x'}); AI.downUntil = {};
+    apiFetch = async () => ({ok: false, status: 429, json: async () => ({code: 'daily_limit', used: 20, limit: 20})});
+    globalThis.inboxQ = Object.keys(S.docs).filter(k => k.startsWith('inbox/'));
+    save('jobs/jq1', {id: 'jq1', kind: 'tell', status: 'queued', json: true, nImg: 0, provider: 'auto', prompt: 'x', meta: {date: todayISO(), text: 'had pasta with friends'}, created: new Date().toISOString()})`);
+  try {
+    await run(`processQueue()`);
+    const j = JSON.parse(run(`JSON.stringify(S.docs['jobs/jq1'])`));
+    assert.deepEqual([j.status, j.code], ['queued', 'daily_limit'], 'kept in the queue');
+    assert.ok(run(`AI.downUntil.kai`) >= run(`nextServerDay() - 1`), 'KAI\'s AI is not asked again until the next day');
+    run(`SH = {jobId: 'jq1', outId: 'tellOut'}`);
+    assert.equal(run(`pickProvider(S.docs['jobs/jq1'])`), null);
+  } finally { run(`remove('jobs/jq1'); SH = null; apiFetch = afQ; AI.downUntil = {}; setMeta({aiConsent: mQ}); AUTH = authQ; Object.assign(CFG, cfgQ); CFG.supabaseUrl = ''; CFG.supabaseKey = ''; Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxQ.includes(k)).forEach(k => remove(k))`); }
+});

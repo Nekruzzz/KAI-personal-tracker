@@ -2543,4 +2543,6 @@ window.I18N_EN = {
 "Войди через Google, и KAI поймёт любые сообщения и фото. Короткие сообщения читаются прямо на телефоне и не тратят запросы к ИИ.":"Sign in with Google and KAI understands any message or photo. Short messages are read on the phone itself and don't use AI requests.",
 "Пары можно менять, а в «Неделе вперёд» они идут по названиям. Накладку в расписании теперь можно исправить в одно касание.":"Classes can be edited, and the week ahead lists them by name. A clash in the schedule can now be fixed in one tap.",
 "Здоровье → Тело: KAI возьмёт шаги, сон и вес со снимка и покажет, прежде чем записать.":"Health → Body: KAI takes steps, sleep and weight from the picture and shows you before saving.",
+"Запросы к ИИ на сегодня закончились, поэтому разобрал на телефоне. Проверь и подтверди.":"Today's AI requests have run out, so I read this on the phone. Check and confirm.",
+"Запросы к ИИ на сегодня закончились. Запрос сохранён и отправится завтра сам, а ответ придёт в раздел «ИИ». Ничего не изменится без твоего подтверждения.":"Today's AI requests have run out. The request is saved and goes out by itself tomorrow; the answer will come to the AI section. Nothing changes until you confirm.",
 };

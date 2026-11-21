@@ -2388,7 +2388,7 @@ function tellLines0(r, date){
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
   cleanTodoDone(r.todo_done).forEach(t => lines.push('✓ ' + t.title));
-  cleanBed(r.bed).forEach(x => { const h = bedSleepH(x); lines.push(trf('Отбой {d}: {t} вместо {o}', {d: fmtShort(x.date), t: hmStr(x.at % 1440), o: hmStr(x.base % 1440)}) + (h != null && h < 7 ? ' · ' + trf('на сон останется {h} ч', {h: num(h, h % 1 ? 1 : 0)}) : '')); });
+  cleanBed(r.bed).forEach(x => { const h = bedSleepH(x, cleanWake(r.wake)); lines.push(trf('Отбой {d}: {t} вместо {o}', {d: fmtShort(x.date), t: hmStr(x.at % 1440), o: hmStr(x.base % 1440)}) + (h != null && h < 7 ? ' · ' + trf('на сон останется {h} ч', {h: num(h, h % 1 ? 1 : 0)}) : '')); });
   cleanWake(r.wake).forEach(x => lines.push(trf('Подъём {d}: {t} вместо {o}', {d: fmtShort(x.date), t: x.at, o: hmStr(x.base)})));
   cleanClassOff(r.class_off).forEach(x => { const t = classesOn(x.date, true).filter(c => x.keys.includes('*') || x.keys.includes(clsKey(c))).map(c => c.title).join(', '); if (t) lines.push(trf('Отмена: {t}, {d}', {t, d: fmtShort(x.date)})); });
   cleanGoals(r.goals).forEach(g => lines.push(g.due ? trf('+ цель: {t}, до {d}', {t: g.title, d: fmtShort(g.due)}) : trf('+ цель: {t}', {t: g.title})));
@@ -7379,7 +7379,7 @@ function localBed(c, date){
 }
 const cleanBed = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && +x.at >= 18 * 60 && +x.at <= 30 * 60).map(x => ({...x, at: +x.at, base: dayBlocks(x.date).find(b => b.kind === 'sleep')?.s})).filter(x => x.base != null && x.at !== x.base && Math.abs(x.at - x.base) <= 6 * 60).slice(0, 7);
 // hours of sleep left with that bedtime, until the next morning's wake-up (moved or not)
-const bedSleepH = x => { const n = addDays(x.date, 1), w = applyShifts(dayBlocks(n), S.docs['days/' + n] || {}).find(b => b.kind === 'wake'); return w ? Math.round((w.s + 1440 - x.at) / 6) / 10 : null; };
+const bedSleepH = (x, wakes = []) => { const n = addDays(x.date, 1), moved = wakes.find(w => w.date === n), w = moved ? {s: hm(moved.at)} : applyShifts(dayBlocks(n), S.docs['days/' + n] || {}).find(b => b.kind === 'wake'); return w ? Math.round((w.s + 1440 - x.at) / 6) / 10 : null; }; // a wake-up moved in the same message counts
 
 /* ---- one class off on one day: kept on that day as days/<date>.clsOff, keys "time|title" or "*" for all; the timetable itself is unchanged ---- */
 const clsKey = c => c.time + '|' + String(c.title).trim().toLowerCase();

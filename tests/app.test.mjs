@@ -3976,3 +3976,9 @@ test('gym sets in more shapes: "bench 60kg 8 8 6", "squats 3x10 at 50 kg", "pull
     assert.equal(s('did 3 sets of 10 pushups')[0][0] !== 'pullup', true);
   } finally { run(`save('app/plan', plS)`); }
 });
+
+test('the sleep left after a late bedtime counts a wake-up moved in the same message', () => {
+  const r = JSON.parse(run(`JSON.stringify(localTellParse('going to bed at 3 tonight, I will wake up at 9 tomorrow', todayISO()).r)`));
+  const line = JSON.parse(run(`JSON.stringify(tellLines(${JSON.stringify(JSON.stringify(r))} && JSON.parse(${JSON.stringify(JSON.stringify(r))}), todayISO()))`)).find(l => /^Bedtime/.test(l));
+  assert.match(line, /6 h of sleep left/, line);
+});

@@ -4040,3 +4040,22 @@ test('voice-style run-on messages: "then" and "потом" separate the things s
   assert.deepEqual(p('потратил 500 на обед купил зарядку за 1500').money.map(m => m.amount), [500, 1500]);
   assert.equal(p('went to bed at 23 woke up at 7').sleep_h, 8, 'a night told in one breath stays one night');
 });
+
+test('"I\'m running 20 minutes late" moves the rest of today, shown first, with Undo', () => {
+  run(`globalThis.dayL = S.docs['days/' + todayISO()]; globalThis.inboxL2 = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse("I'm running 20 minutes late", todayISO()).r.late)`)), 20);
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('опаздываю на полчаса', todayISO()).r.late)`)), 30);
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('the bus was 20 minutes late', todayISO()).r.late ?? null)`)), null, 'someone else being late is not a plan change');
+    const sum = () => run(`(() => { const d = getDay(todayISO()); return [...Object.values(d.ext || {}), ...Object.values(d.shift || {})].reduce((a, b) => a + b, 0); })()`);
+    const movable = run(`(() => { const {nowM, bl, st, endOf} = tlState(todayISO()); return !!(bl.find(b => b.kind !== 'sleep' && b.kind !== 'wake' && b.s <= nowM && nowM < endOf(b) && st(b) !== 'skip' && b.e != null) || bl.find(b => b.s > nowM && st(b) !== 'skip' && b.kind !== 'sleep')); })()`);
+    const before = sum();
+    run(`SH = {}; tellLocal("I'm running 20 minutes late", todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).includes("Today's schedule moves by 20 min"));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    if (movable) assert.ok(sum() >= before + 20, 'something moved by 20 minutes');
+    run(`A.undoApply()`);
+    assert.equal(sum(), before, 'Undo puts it back');
+  } finally { run(`closeSheetQuiet(); if (dayL) save('days/' + todayISO(), dayL); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxL2.includes(k)).forEach(k => remove(k))`); }
+});

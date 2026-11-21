@@ -2590,4 +2590,5 @@ window.I18N_EN = {
 "Что у меня завтра?":"What do I have tomorrow?",
 "Когда следующая пара?":"When is my next class?",
 "Спросить ИИ":"Ask the AI instead",
+"Расписание на сегодня сдвинется на {m} мин":"Today's schedule moves by {m} min",
 };

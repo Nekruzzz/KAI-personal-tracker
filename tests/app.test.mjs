@@ -4021,3 +4021,12 @@ test('when the AI also reads a goal message, its to-do for the goal gives way to
   assert.equal(out.goals.length, 1);
   assert.deepEqual(out.new_tasks.map(t => t.title), ['Buy pens']);
 });
+
+test('coursework with a date is a deadline: "эссе в пятницу", "project in 3 days"; with a time, a talk is an event', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.events || [])`)).map(e => [e.title, e.kind]);
+  assert.deepEqual(p('эссе в пятницу'), [['Эссе', 'deadline']]);
+  assert.deepEqual(p('project in 3 days'), [['Project', 'deadline']]);
+  assert.deepEqual(p('курсовая в понедельник'), [['Курсовая', 'deadline']]);
+  assert.deepEqual(p('доклад в четверг в 10'), [['Доклад', 'event']]);
+  assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('write the essay on Friday', todayISO()).r)`)).new_tasks.length, 1, 'a to-do verb keeps it a to-do');
+});

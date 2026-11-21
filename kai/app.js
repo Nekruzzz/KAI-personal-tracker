@@ -4811,7 +4811,7 @@ const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|uti
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
 const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|renew|submit|fix|wash|позвонить|купить|оплатить|заплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать|продлить|подать|отнести|починить|постирать|помыть|забронировать|сходить)/i;
 const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул(?:ся|ась|ись)|встал[аи]?(?![а-яё])/i;
-const EVENT_RE = /защит[аеуы]|презентац|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован|\bmeet\b|flight|рейс|вылет|самол[её]т|wedding|свадьб|exhibition|выставк|матч/i;
+const EVENT_RE = /защит[аеуы]|презентац|доклад|выступлени|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован|\bmeet\b|flight|рейс|вылет|самол[её]т|wedding|свадьб|exhibition|выставк|матч/i;
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
 const AMT = '(?:[$€£₽]\\s*)?(\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d{1,3}(?:,\\d{3})+(?![\\d])|\\d+)(?:[.,](\\d{1,2}))?(?!\\d)\\s*(?:\\$|€|£|₽|р\\.?(?![а-яё])|руб[а-яё.]*|rm\\b|usd\\b|eur\\b|dollars?\\b|bucks\\b|euros?\\b)?';
 const amountOf = (whole, cents) => +(whole.replace(/[\s ,]/g, '') + (cents ? '.' + cents : ''));
@@ -4914,7 +4914,7 @@ function localTellParse(text, date, opts = {}){
       // a to-do verb may come after the date: "завтра заплатить 2000 за зал"
       if (t && t.due){ if (hasDateWord(cq)) ctxDate = t.due; else if (ctxDate && t.time && !t.every) t.due = ctxDate; }
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
-        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
+        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = (!t.time && WORK_DUE_RE.test(c) && !TODO_RE.test(c)) || /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         const cl = !exam && !deadline ? localClass(c, t, sn, until) : null; // "Physics lecture every Wednesday 10:00-11:30" goes to the timetable
@@ -7358,6 +7358,8 @@ function localTodoDone(c){
   return best.length && (best.length === 1 || best[0].n > best[1].n) ? [best[0].t.id] : []; // only when one to-do clearly fits
 }
 const cleanTodoDone = list => (Array.isArray(list) ? list : []).map(id => smartTasks().find(t => t.id === id && !t.done)).filter(Boolean).slice(0, 5);
+// coursework with a date and no time is due that day: "эссе в пятницу", "project in 3 days"
+const WORK_DUE_RE = /(?:^|\s)(?:essay|coursework|assignment|project|thesis|report|paper|lab report|эссе|курсов[а-яё]+|реферат[а-яё]*|проект[а-яё]*|диплом[а-яё]*|отч[её]т[а-яё]*|лабораторн[а-яё]+|лаба|домашк[а-яё]*)(?![a-zа-яё])/i;
 const PLAN_CUE_RE = /(?:^|\s)(?:need to|have to|going to|plan to|want to|will|should|gonna|надо|нужно|хочу|планирую|буду|собираюсь|должен|должна)(?![a-zа-яё])|every day|каждый день/i;
 // a date said in words: today, tomorrow, a weekday, "20 December", "the 15th", "the weekend"
 const hasDateWord = x => /(?:^|\s)(?:today|tomorrow|tonight|yesterday|сегодня|завтра|послезавтра|вчера|позавчера)(?![a-zа-яё])/i.test(x) || WD_RU.some(([re]) => new RegExp('(?:^|\\s)' + re + '(?![a-zа-яё])', 'i').test(x)) || MONTH_DATE.test(' ' + x + ' ') || DOM_RE.test(' ' + x + ' ') || SOFT_DATE_RE.test(' ' + x + ' ') || /\d{4}-\d\d-\d\d/.test(x);

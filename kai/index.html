@@ -117,6 +117,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important} /* a class's display must never undo hidden */
 html,body{height:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%} /* no text inflation when the iPhone turns sideways */
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 input,textarea,select{font:inherit;color:var(--text)}
@@ -299,7 +300,7 @@ textarea.in{min-height:96px;resize:vertical;line-height:1.45}
 .fxl .spark{position:absolute;border-radius:50%;will-change:transform,opacity}
 .fxl .spark.sq{border-radius:2px}
 .fxl canvas.confetti{position:absolute;inset:0;width:100%;height:100%}
-button{-webkit-tap-highlight-color:transparent}
+button,a,label,[data-act]{-webkit-tap-highlight-color:transparent} /* photo and file buttons are labels: no grey flash on them either */
 .btn,.pill,.mini,.iconbtn,.actions button,.seg button,.shelf-b,.streak,.seasonchip,.ava{transition:transform .14s cubic-bezier(.3,.7,.4,1),background-color .2s,color .2s,opacity .2s}
 .btn:active,.pill:active,.mini:active,.iconbtn:active,.actions button:active,.seg button:active,.shelf-b:active,.streak:active,.seasonchip:active{transform:scale(.95)}
 .chk:active{transform:scale(.86)}

@@ -3693,6 +3693,8 @@ test('a weekly class typed into Tell KAI goes to the timetable, and is shown wit
     assert.deepEqual(p('новая пара: химия в четверг с 14 до 16').classes, [{day: 4, time: '14:00', end: '16:00', title: 'Химия'}]);
     assert.equal(p('lecture tomorrow at 9').classes, undefined, 'a one-off stays a to-do');
     assert.equal(p('gym every Monday at 18:00').classes, undefined, 'not a class');
+    for (const t of ['gym every Monday after class at 18:00', 'call mom every Sunday at 19:00 after the lecture', 'review lecture notes every Friday at 17:00', 'повторять лекции каждую пятницу в 17:00', 'зал каждый понедельник после пар в 18:00']) assert.equal(p(t).classes, undefined, t);
+    assert.equal(p('History seminar every Thursday at 12:00').classes[0].title, 'History seminar');
     run(`SH = {}; tellLocal('Physics lecture every Wednesday 10:00-11:30', todayISO())`);
     const id = run(`SH.jobId`), it = `S.docs['inbox/${id}']`;
     assert.ok(JSON.parse(run(`JSON.stringify(tellLines(${it}.result, todayISO()))`)).some(l => /class: Physics lecture, Wednesday at 10:00–11:30/.test(l)));

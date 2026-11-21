@@ -7354,6 +7354,8 @@ function localClass(c, t, sn, until){
   const newCls = /^\s*(?:new class|новая пара)\s*:/i.test(c);
   if (!t?.time || !(newCls || (CLASS_RE.test(c) && t.every === 'week' && !(t.n > 1)))) return null;
   const sp = sn.note ? {title: t.title, note: sn.note} : splitNote(t.title);
+  // the class word names the thing itself ("Physics lecture", "пара по математике"), not what it comes after ("gym after class") or a chore about it ("review lecture notes")
+  if (!newCls){ const w = sp.title.toLowerCase().match(/[a-zа-яё]+/g) || [], i = w.findIndex(x => CLASS_RE.test(' ' + x)); if (i < 0 || i > 2 || /^(?:after|before|from|после|перед|до|с|от)$/.test(w[i - 1] || '') || /^(?:notes?|homework|report|конспект[а-яё]*|домашк[а-яё]*|отч[её]т[а-яё]*)$/.test(w[i + 1] || '') || TODO_RE.test(sp.title) || /^(?:review|revise|repeat|prepare|read|go|повтор[а-яё]*|подготов[а-яё]*|почитать|читать|звонить|ходить)/i.test(w[0] || '')) return null; }
   let title = (/^(?:new class|новая пара)$/i.test(sp.title) && sp.note ? sp.note : sp.title).replace(/^(?:i have|i've got|у меня(?:\s+есть)?)\s+/i, '').trim();
   if (!title) return null;
   return {day: dow(t.due), time: t.time, ...(until && until > t.time ? {end: until} : {}), title: title[0].toUpperCase() + title.slice(1)};

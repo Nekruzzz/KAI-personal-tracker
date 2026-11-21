@@ -4832,7 +4832,7 @@ function localMoney(c){
   m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for|at|в|во)\\s+(.+))?$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
-  m = c.replace(/^(?:had|drank|got|ate|выпил[аи]?|съел[аи]?|взял[аи]?)\s+(?:a\s+|an\s+)?/i, '').match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
+  m = c.replace(/^(?:had|drank|got|ate|took|выпил[аи]?|съел[аи]?|взял[аи]?)\s+(?:a\s+|an\s+|the\s+)?/i, '').match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
   if (m && (/(?:^|\s)(?:в|во|к|at|by)$/i.test(m[1].trim()) || /(?:^|\s)(?:завтра|послезавтра|tomorrow|tonight)(?![a-zа-яё])/i.test(m[1]))) m = null; // "обед завтра в 1" is a time, not 1 spent on lunch
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); } // "gift for mom 30", "lunch for 12", "билет на поезд 1200"
   // "$5 coffee", "300р такси": the amount first, but only with a currency, so "2 pizzas" stays food
@@ -4857,6 +4857,10 @@ function localTellParse(text, date, opts = {}){
     if (h > 14 && !bed[3] && +bed[1] >= 7 && +bed[1] <= 12) h = span(+bed[1] + 12); // "slept 11 to 7": 11 at night
     if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(bed[0], ' '); }
   }
+  // "woke up at 7, went to bed at midnight": the same night, told the other way round
+  if (r.sleep_h == null){ const wb = rest.match(/(?:woke(?: up)?|got up|встал[аи]?|проснул(?:ся|ась|ись))\s+(?:at\s+|в\s+|около\s+)?(\d{1,2})(?:[:.](\d\d))?\s*(am)?\D{1,40}?(?:went to bed|fell asleep|лёг|лег|легла|уснул[аи]?|заснул[аи]?)\s+(?:at\s+|в\s+|около\s+)?(\d{1,2}|midnight|полночь)(?:[:.](\d\d))?\s*(am|pm)?/i);
+    if (wb){ let b = /midnight|полночь/i.test(wb[4]) ? 0 : +wb[4]; if (/pm/i.test(wb[6] || '') && b < 12) b += 12; else if (!wb[6] && b >= 7 && b <= 11) b += 12; else if (b === 12 && !wb[6]) b = 0;
+      const h = ((+wb[1] * 60 + +(wb[2] || 0)) - (b * 60 + +(wb[5] || 0)) + 1440) % 1440 / 60; if (h >= 2 && h <= 14){ r.sleep_h = Math.round(h * 10) / 10; rest = rest.replace(wb[0], ' '); } } }
   if (sets.length) r.sets = sets;
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before

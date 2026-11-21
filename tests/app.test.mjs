@@ -3955,3 +3955,12 @@ test('"завтра заплатить 2000 за зал" is a to-do, and "мам
   assert.equal(p('я скинул 2000 Саше').money.filter(m => m.type === 'in').length, 0, 'what I sent is not income');
   assert.equal(p('скинул 2000 Саше').money.filter(m => m.type === 'in').length, 0);
 });
+
+test('"woke up at 7, went to bed at midnight" is 7 hours of sleep, and "took the bus 2.80" is spending', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.equal(p('woke up at 7, went to bed at midnight').sleep_h, 7);
+  assert.equal(p('проснулся в 6:30, лёг в 23').sleep_h, 7.5);
+  assert.equal(p('went to bed at 23, woke up at 7').sleep_h, 8, 'the usual order still works');
+  assert.equal(p('woke up at 7, will go to bed at 23').sleep_h, undefined, 'a bedtime to come is not last night');
+  assert.deepEqual(p('took the bus 2.80').money.map(m => m.amount), [2.8]);
+});

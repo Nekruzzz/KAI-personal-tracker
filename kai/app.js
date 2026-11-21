@@ -4976,7 +4976,7 @@ function localDone(c, date){
 }
 /* sets for exercises in the plan, today's workout first; returns the text with them taken out */
 function localSets(text, date, out){
-  const today = (plan().workouts[workoutFor(date)]?.ex || []), all = [...today, ...Object.values(plan().workouts).flatMap(w => w.ex)];
+  const pl = plan(), today = (pl.workouts[workoutFor(date)]?.ex || []), all = [...today, ...programKeys().flatMap(k => pl.workouts[k]?.ex || []), ...Object.values(pl.workouts).flatMap(w => w.ex)]; // today's first, then the program the person follows: at home, push-ups are the home ones
   const findEx = name => { const ws = wordsOf(name); return ws.length ? all.filter(e => e.id !== 'dips' || /брус|dip/i.test(name)).find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too; plain "отжимания" are push-ups, not dips
   const kg = (n, u) => { const v = toN(n); return (u ? /lb|фунт/i.test(u) : isUS()) ? Math.round(v / LB * 10) / 10 : v; };
   text = text.replace(/(\d)\s*(?:sets?|подход(?:а|ов)?)\s*(?:of|по)\s*(\d{1,3})\s*(?:reps?\s*(?:of\s*)?|раз\s*)?([a-zа-яё][a-zа-яё'-]{2,30}(?:\s+[a-zа-яё][a-zа-яё'-]{2,30})?)(?:\s+(?:at|with|с|по)?\s*(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*))?/gi, (m, n, rp, name, w, u) => {

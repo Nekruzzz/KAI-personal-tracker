@@ -3793,3 +3793,13 @@ test('"What can I write?" shows class examples that work on the phone, using a c
     }
   } finally { run(`save('app/plan', plH); save('app/profile', pfH)`); }
 });
+
+test('on the home program, push-ups told to KAI go to the home push-ups, not the gym machine', () => {
+  run(`globalThis.plU = clone(plan()); { const pl = clone(plan()); useProgram(pl, 'home3'); save('app/plan', pl); }`);
+  try {
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('did 3 sets of 10 pushups', addDays(todayISO(), 1)).r.sets)`))[0].ex, 'hpush');
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('отжимания 3х15', addDays(todayISO(), 1)).r.sets)`))[0].ex, 'hpush');
+    run(`{ const pl = clone(plan()); useProgram(pl, 'easy4'); save('app/plan', pl); }`);
+    assert.notEqual(JSON.parse(run(`JSON.stringify(localTellParse('squats 40 kg for 8', addDays(todayISO(), 1)).r.sets)`))[0].ex, 'hsquat', 'at the gym, the gym squat');
+  } finally { run(`save('app/plan', plU)`); }
+});

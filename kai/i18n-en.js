@@ -2581,7 +2581,7 @@ window.I18N_EN = {
 "Отбой {d}: {t} вместо {o}":"Bedtime on {d}: {t} instead of {o}",
 "на сон останется {h} ч":"{h} h of sleep left",
 "KAI понимает больше":"KAI understands more",
-"«Дописал эссе» отметит задачу, «завтра встану в 6» сдвинет утро, «сегодня лягу в час» покажет, сколько останется на сон, а «отличный день» поставит оценку дню. Всё это разбирается прямо на телефоне.":"“Finished the essay” ticks off the to-do, “I'll wake up at 6 tomorrow” moves the morning, “going to bed at 1 tonight” shows how much sleep is left, and “great day” rates the day. All of it is read on the phone itself.",
+"«Дописал эссе» отметит задачу, «завтра встану в 6» сдвинет утро, «опаздываю на 20 минут» сдвинет день, «сажусь за учёбу» включит таймер, а «что у меня завтра?» покажет план. Всё это разбирается прямо на телефоне.":"“Finished the essay” ticks off the to-do, “I'll wake up at 6 tomorrow” moves the morning, “running 20 minutes late” moves the day, “starting to study” starts the timer, and “what do I have tomorrow?” shows the plan. All of it is read on the phone itself.",
 "Следующая пара: {t}, {d} в {h}":"Next class: {t}, {d} at {h}",
 "На ближайшую неделю пар нет.":"No classes in the coming week.",
 "В расписании пока нет пар. Добавь их: Ещё → Расписание пар, или напиши KAI «лекция по физике каждую среду в 10».":"No classes in the timetable yet. Add them in More → Class timetable, or tell KAI “physics lecture every Wednesday at 10”.",

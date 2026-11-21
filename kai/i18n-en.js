@@ -2562,4 +2562,5 @@ window.I18N_EN = {
 "Отмена: {t}, {d}":"Cancelled: {t}, {d}",
 "Пара вернулась в расписание":"The class is back in the schedule",
 "Отменена: {d}":"Cancelled: {d}",
+"Anthropic (Claude), через сервер KAI.":"Anthropic (Claude), through KAI's server.",
 };

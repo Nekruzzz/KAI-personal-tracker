@@ -4274,6 +4274,7 @@ async function callKai(prompt, imgs, json, kind){
 const REMOTE_AI = ['kai', 'claude', 'openai'];
 const aiAgreed = () => S.inClaude || !!meta().aiConsent;
 let consentDone = null;
+const consentWho = () => provConfigured('openai') || aiStatus().p !== 'kai' ? tr('Anthropic (Claude), или OpenAI, если ты сам подключил ChatGPT.') : tr('Anthropic (Claude), через сервер KAI.');
 function askConsent(){
   if (aiAgreed()) return Promise.resolve(true);
   if (consentDone) return consentDone.p;
@@ -4281,7 +4282,7 @@ function askConsent(){
   root.innerHTML = `<div class="scrim" style="z-index:1000"><div class="sheet" role="dialog" aria-modal="true" aria-label="${tr('Отправка данных ИИ')}"><div class="sh-h"><h3>${tr('Отправка данных ИИ')}</h3></div><div class="sh-b" style="display:flex;flex-direction:column;gap:14px">
     <div>${tr('Чтобы ИИ понимал твои сообщения, они отправляются внешнему сервису ИИ.')}</div>
     <div class="hint"><b>${tr('Что отправляется:')}</b> ${tr('текст сообщения, фото и скриншоты, которые ты выбрал, а также твой профиль, цели и расписание, чтобы ответ подходил именно тебе.')}</div>
-    <div class="hint"><b>${tr('Кому:')}</b> ${tr('Anthropic (Claude), или OpenAI, если ты сам подключил ChatGPT.')}</div>
+    <div class="hint"><b>${tr('Кому:')}</b> ${consentWho()}</div>
     <div class="hint">${tr('Текст запросов не хранится на серверах KAI. Без согласия работает всё, кроме ИИ. Разрешение можно отозвать в разделе «Ещё».')}</div>
     <button class="btn block" data-act="consentYes">${tr('Разрешаю')}</button><button class="btn ghost block" data-act="consentNo">${tr('Не сейчас')}</button></div></div></div>`;
   document.body.append(root);

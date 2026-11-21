@@ -3746,3 +3746,12 @@ test('the AI is told which classes are cancelled in the next two weeks', () => {
     assert.ok(run(`planContext(todayISO())`).includes('Отменённые пары (в эти дни их нет): ' + run(`tmP`) + ' 09:00 Maths'));
   } finally { run(`save('app/plan', plP); if (dayP) save('days/' + tmP, dayP); else remove('days/' + tmP)`); }
 });
+
+test('the AI permission screen names who gets the data in this setup', () => {
+  run(`globalThis.cfgC = {...CFG}; globalThis.authC = AUTH`);
+  try {
+    assert.match(run(`consentWho()`), /or OpenAI if you connected ChatGPT yourself/);
+    run(`CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'}`);
+    assert.equal(run(`consentWho()`), "Anthropic (Claude), through KAI's server.");
+  } finally { run(`AUTH = authC; Object.assign(CFG, cfgC); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

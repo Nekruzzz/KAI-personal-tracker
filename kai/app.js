@@ -4849,6 +4849,7 @@ function localTellParse(text, date, opts = {}){
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c0 of parts){
+    { const mv = localClassMove(c0, date); if (mv){ (r.class_off = r.class_off || []).push(mv.off); r.events.push(mv.ev); continue; } } // "maths moved to 14:00 tomorrow": off at the old time, an event at the new one
     { const co = localClassOff(c0, date); if (co){ (r.class_off = r.class_off || []).push(co); continue; } } // "no maths tomorrow", "пары по физике в среду не будет"
     { const g = localGoal(c0, date); if (g){ (r.goals = r.goals || []).push(g); continue; } } // "goal: 100 hours of study by 20 December"
     const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study
@@ -7322,6 +7323,15 @@ function localClassOff(c, date){
   const words = wordsOf(c), hit = on.filter(x => wordsOf(x.title).some(w => words.some(v => sameWord(w, v))));
   if (hit.length) return {date: day, keys: hit.map(clsKey)};
   return CLASS_RE.test(c) || /(?:^|\s)(?:пар(?![а-яё])|занятий|classes|uni|school|универ[а-яё]*|учёб[ыа]|учеб[ыа])/i.test(c) ? {date: day, keys: ['*']} : null; // "no classes tomorrow"
+}
+const CLASS_MOVE_RE = /(?:^|\s)(?:moved|moves|rescheduled|instead|will be at|is at|перенесли|перенесл[аи]|перенесен[аы]?|перенесён[аы]?|переносится|вместо|будет в)(?![a-zа-яё])/i;
+function localClassMove(c, date){
+  if (!CLASS_MOVE_RE.test(c) || !(plan().classes || []).length) return null;
+  const q = parseQuick(c); if (!q?.due || !q.time || q.every || q.due < date) return null;
+  const words = wordsOf(c), hit = classesOn(q.due).filter(x => wordsOf(x.title).some(w => words.some(v => sameWord(w, v))));
+  if (hit.length !== 1 || hit[0].time === q.time) return null;
+  const x = hit[0], len = x.end ? hm(x.end) - hm(x.time) : 90, end = hm(q.time) + len;
+  return {off: {date: q.due, keys: [clsKey(x)]}, ev: {title: x.title, date: q.due, from: q.time, until: end < 1440 ? hmStr(end) : null, kind: 'event', note: trf('Пара перенесена с {t}', {t: x.time})}};
 }
 const cleanClassOff = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && Array.isArray(x.keys) && x.keys.length && classesOn(x.date).length).slice(0, 7);
 

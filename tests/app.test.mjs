@@ -3755,3 +3755,22 @@ test('the AI permission screen names who gets the data in this setup', () => {
     assert.equal(run(`consentWho()`), "Anthropic (Claude), through KAI's server.");
   } finally { run(`AUTH = authC; Object.assign(CFG, cfgC); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('"maths moved to 14:00 tomorrow" takes the class off at 9 and puts it in at 14:00 for that day', () => {
+  run(`globalThis.plM = clone(plan()); globalThis.tmM = addDays(todayISO(), 1); globalThis.dayM = S.docs['days/' + tmM];
+    { const pl = clone(plan()); pl.classes = [{day: dow(tmM), time: '09:00', end: '10:30', title: 'Maths'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }
+    globalThis.inboxM = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    run(`SH = {}; tellLocal('maths moved to 14:00 tomorrow', todayISO())`);
+    const id = run(`SH.jobId`), lines = JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`));
+    assert.ok(lines.some(l => /^Cancelled: Maths/.test(l)) && lines.some(l => /Maths.*14:00/.test(l)), lines.join(' | '));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    const t = JSON.parse(run(`JSON.stringify(timedOn(tmM).map(x => [x.k, x.title, hmStr(x.s), hmStr(x.e)]))`));
+    assert.deepEqual(t, [['ev', 'Maths', '14:00', '15:30']], 'only the moved one, 90 minutes long like the class');
+    assert.equal(run(`plan().classes[0].time`), '09:00', 'the timetable keeps 9:00 for other weeks');
+    assert.equal(run(`localClassMove('dentist moved to 14:00 tomorrow', todayISO())`), null);
+    assert.equal(run(`localClassMove('maths tomorrow at 9', todayISO())`), null, 'same time: nothing moved');
+    run(`A.undoApply()`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(timedOn(tmM).map(x => x.k))`)), ['cls'], 'Undo restores both');
+  } finally { run(`closeSheetQuiet(); save('app/plan', plM); if (dayM) save('days/' + tmM, dayM); else remove('days/' + tmM); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxM.includes(k)).forEach(k => remove(k))`); }
+});

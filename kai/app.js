@@ -6950,7 +6950,13 @@ function localAnswer(text){
   return scheduleAnswer(t); // "what do I have tomorrow?", "когда следующая пара?": after the other questions, so "what did I eat today?" stays a food question
 
 }
-const answerCard = a => `<section class="card" role="status" style="display:flex;flex-direction:column;gap:8px"><div class="ai-out">${esc(a)}</div><div class="hint">${tr('Посчитано на телефоне по твоим записям.')}</div></section>`;
+const answerCard = a => `<section class="card" role="status" style="display:flex;flex-direction:column;gap:8px"><div class="ai-out">${esc(a)}</div><div class="hint">${tr('Посчитано на телефоне по твоим записям.')}</div></section>${aiStatus().ok ? `<button class="link" style="align-self:flex-start" data-act="tellAsk">${ic('spark', 'link-ic')}${tr('Спросить ИИ')}</button>` : ''}`;
+/* the phone's answer wasn't the one wanted: the same question goes to the AI */
+A.tellAsk = async () => {
+  const text = val('tellT') || SH?.tellText; if (!text || !aiStatus().ok) return;
+  const date = todayISO(), id = await submitJob('tell', {prompt: tellPrompt(text, date), meta: {date, text}, provider: SH?.prov || 'auto', label: tr('Разбор · ') + fmtShort(date)});
+  queueNow(id, 'tellOut');
+};
 
 /* ============ care: more of the ways people say they're in crisis, and plans to eat dangerously little ============ */
 // said in many ways; these are common ones from crisis-line guidance, in both languages

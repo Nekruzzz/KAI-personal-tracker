@@ -3994,3 +3994,10 @@ test('"what do I have tomorrow?" and "when is my next class?" are answered from 
     assert.doesNotMatch(String(run(`localAnswer('how much did I spend this week?')`)), /Maths|Workout/);
   } finally { run(`save('app/plan', plQ); saveTasks(tkQ)`); }
 });
+
+test('a phone answer offers "Ask the AI instead" when an AI is on', () => {
+  assert.doesNotMatch(run(`answerCard('x')`), /tellAsk/, 'no AI: no link');
+  run(`globalThis.cfgK = {...CFG}; globalThis.authK = AUTH; CFG.supabaseUrl = 'https://example.test'; CFG.supabaseKey = 'k'; AUTH = {access: 'a', refresh: 'r', exp: Date.now() + 3e6, id: 'u', email: 'user@example.com'}`);
+  try { assert.match(run(`answerCard('x')`), /data-act="tellAsk".*Ask the AI instead/s); }
+  finally { run(`AUTH = authK; Object.assign(CFG, cfgK); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
+});

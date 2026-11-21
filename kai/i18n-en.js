@@ -2589,4 +2589,5 @@ window.I18N_EN = {
 "{d} ничего не запланировано.":"{d}: nothing planned.",
 "Что у меня завтра?":"What do I have tomorrow?",
 "Когда следующая пара?":"When is my next class?",
+"Спросить ИИ":"Ask the AI instead",
 };

@@ -4856,6 +4856,7 @@ function localTellParse(text, date, opts = {}){
   if (sets.length) r.sets = sets;
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
+  let ctxDate = null; // "tomorrow dentist at 10 and gym at 18": the gym is tomorrow too
   for (const c0 of parts){
     { const wk = localWake(c0, date); if (wk){ (r.wake = r.wake || []).push(wk); continue; } }
     { const bd = localBed(c0, date); if (bd){ (r.bed = r.bed || []).push(bd); continue; } } // "going to bed at 1 tonight" moves tonight's bedtime // "I'll wake up at 6 tomorrow" moves that morning, it isn't a to-do at 18:00
@@ -4863,6 +4864,7 @@ function localTellParse(text, date, opts = {}){
     { const co = localClassOff(c0, date); if (co){ (r.class_off = r.class_off || []).push(co); continue; } } // "no maths tomorrow", "пары по физике в среду не будет"
     { const g = localGoal(c0, date); if (g){ (r.goals = r.goals || []).push(g); continue; } } // "goal: 100 hours of study by 20 December"
     const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study
+    const planned = PLAN_CUE_RE.test(c); // "need to study 2 hours" is a plan, not two hours done
     let m, hit = false;
     if ((m = c.match(new RegExp('(?:спал[аи]?|поспал[аи]?|slept|sleep)\\D{0,12}?' + NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)(?![a-zа-яё])', 'i'))) || (m = c.match(new RegExp(NUM + '\\s*(?:ч|час[а-яё]*|h|hrs?|hours?)\\s*(?:of\\s+)?(?:сна|sleep)', 'i')))){ const h = toN(m[1]); if (h > 0 && h <= 16){ r.sleep_h = h; hit = true; } }
     else if ((m = c.match(/(?:спал[аи]?|поспал[аи]?|slept)\D{0,12}?(\d{3})\s*(?:мин|min)/i)) && +m[1] >= 120 && +m[1] <= 960){ r.sleep_h = Math.round(+m[1] / 6) / 10; hit = true; } // "slept 6h 30m" arrives here as 390 minutes
@@ -4873,9 +4875,9 @@ function localTellParse(text, date, opts = {}){
     if (/(?:i.?m|i am|feeling|got|feel)\s+(?:sick|ill|unwell)(?!\s+of)|заболел[аи]?|болею|приболел[аи]?|простыл[аи]?|температур[аы]\s+\d/i.test(c)){ r.sick = true; hit = true; }
     if ((m = c.match(/(?:rate (?:the |my )?day|day was|rating|оценка(?: дня)?|день на)\D{0,6}([1-5])\s*(?:\/\s*5|из 5|out of 5|★)?/i)) || (m = c.match(/(?:^|\s)([1-5])\s*(?:\/\s*5|из 5|out of 5)\b/i))){ r.rating = +m[1]; hit = true; }
     if ((m = c.match(/(\d[\d\s.,]*\d|\d)\s*(?:steps|шаг[а-яё]*)/i))){ const n = +m[1].replace(/[\s.,]/g, ''); if (n > 0 && n < 100000){ r.steps = n; hit = true; } }
-    if ((m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|дош[её]л|дошла|пешком|прош[её]лся|прошлась|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,22}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework|revised|revising|reviewed|reviewing|practi[cs]ed|повторял[аи]?|готовил(?:ся|ась|ись)|решал[аи]?|домашк[а-яё]*|домашнее|дз(?![а-яё]))\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
-    else if ((m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|качал(?:ся|ась|ись)|силов[а-яё]+|в зале|зал|workout|worked out|trained|lifted|lifting|weights|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
+    if (!planned && (m = c.match(new RegExp('(?:гулял[аи]?|погулял[аи]?|дош[её]л|дошла|пешком|прош[её]лся|прошлась|прогулк[а-яё]*|(?:^|\\s)ходил[аи]?|walked|walk(?:ing)?|went for a walk)\\D{0,22}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'walk', min: asMin(m[1], m[2])}); hit = true; }
+    else if (!planned && (m = c.match(new RegExp('(?:учил[аи]?(?:сь)?|позанимал[аи]?сь|занимал[аи]?сь|учёба|учеба|studied|study|studying|homework|revised|revising|reviewed|reviewing|practi[cs]ed|повторял[аи]?|готовил(?:ся|ась|ись)|решал[аи]?|домашк[а-яё]*|домашнее|дз(?![а-яё]))\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'study', min: asMin(m[1], m[2])}); hit = true; }
+    else if (!planned && (m = c.match(new RegExp('(?:тренировк[а-яё]*|тренировал[аи]?(?:сь)?|качал(?:ся|ась|ись)|силов[а-яё]+|в зале|зал|workout|worked out|trained|lifted|lifting|weights|gym|' + CARDIO + ')' + DIST + '\\D{0,14}?' + NUM + '\\s*' + MIN_U + '(?![a-zа-яё])', 'i')))){ r.time_log.push({kind: 'gym', min: asMin(m[1], m[2])}); hit = true; }
     if (!r.time_log.some(x => x.kind === 'walk') && (m = c.match(/(?:walked|прош[её]л|прошла|прошли|гулял[аи]?|погулял[аи]?)\D{0,12}?(\d+(?:[.,]\d+)?)\s*(?:km|км)(?![a-zа-яё])/i))){ const km = toN(m[1]); if (km >= 0.5 && km <= 30){ r.time_log.push({kind: 'walk', min: Math.round(km * 12)}); hit = true; } } // "walked 3 km": about 12 minutes a kilometre
     if (!hit){ const tk = localTrack(c); if (tk){ (r.track = r.track || []).push(tk); hit = true; } } // "worked 3 hours", "читал 30 минут", "guitar 40 min"
     if ((m = c.match(new RegExp('(?:вес(?![а-яё])|вешу|взвесил[аи]?сь|weigh(?:t|ed|ing)?)\\D{0,8}?' + NUM + '\\s*(кг|kg|lbs?|pounds?|фунт[а-яё]*)?', 'i')))){
@@ -4898,6 +4900,7 @@ function localTellParse(text, date, opts = {}){
       const sn0 = splitNote(c), sn = sn0.note && parseQuick(sn0.title)?.due ? sn0 : {title: c}, cq = sn.note ? sn.title : c; // a note after the date isn't read for dates or times; "exam: physics on Friday" keeps its date
       const range = cq.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? cq.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : cq);
+      if (t && t.due){ if (hasDateWord(cq)) ctxDate = t.due; else if (ctxDate && t.time && !t.every) t.due = ctxDate; }
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
         const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
@@ -7313,6 +7316,9 @@ async function tellPhotoGo(text){
   SH.tellFile = null; SH.tellUrl = '';
   queueNow(id, 'tellOut');
 }
+const PLAN_CUE_RE = /(?:^|\s)(?:need to|have to|going to|plan to|want to|will|should|gonna|надо|нужно|хочу|планирую|буду|собираюсь|должен|должна)(?![a-zа-яё])|every day|каждый день/i;
+// a date said in words: today, tomorrow, a weekday, "20 December", "the 15th", "the weekend"
+const hasDateWord = x => /(?:^|\s)(?:today|tomorrow|tonight|yesterday|сегодня|завтра|послезавтра|вчера|позавчера)(?![a-zа-яё])/i.test(x) || WD_RU.some(([re]) => new RegExp('(?:^|\\s)' + re + '(?![a-zа-яё])', 'i').test(x)) || MONTH_DATE.test(' ' + x + ' ') || DOM_RE.test(' ' + x + ' ') || SOFT_DATE_RE.test(' ' + x + ' ') || /\d{4}-\d\d-\d\d/.test(x);
 /* ---- a different wake-up for one day: "I'll wake up at 6 tomorrow", "завтра встану в 6"; the morning moves with it ---- */
 const WAKE_RE = /(?:^|\s)(?:wake up|get up|getting up|waking up|wake me(?: up)?|alarm(?: for| at)?|встану|встаю|вставать|подъ[её]м|проснуться|просыпаться|разбуди(?:ть)?(?: меня)?|будильник)(?![a-zа-яё])/i;
 function localWake(c, date){

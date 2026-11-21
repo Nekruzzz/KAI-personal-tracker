@@ -3916,3 +3916,13 @@ test('"slept 6h 30m", "walked 3 km" and "заплатить за квартир�
   const t = p('заплатить за квартиру 1-го').new_tasks[0];
   assert.equal(t.title, 'Заплатить за квартиру'); assert.match(t.date, /-01$/);
 });
+
+test('a date said once carries to the next plan in the message, and "need to study 2 hours" is a plan, not study done', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`)), tm = run(`addDays(todayISO(), 1)`);
+  const a = p('tomorrow dentist at 10 and gym at 18');
+  assert.equal(a.events[0].date, tm); assert.equal(a.new_tasks[0].date, tm, 'the gym is tomorrow too');
+  assert.equal(p('завтра стоматолог в 10 и зал в 18').new_tasks[0].date, tm);
+  assert.equal(p('need to study 2 hours every day').time_log.length, 0);
+  assert.equal(p('надо учиться по 2 часа каждый день').time_log.length, 0);
+  assert.deepEqual(p('studied 2 hours').time_log, [{kind: 'study', min: 120}], 'done is still done');
+});

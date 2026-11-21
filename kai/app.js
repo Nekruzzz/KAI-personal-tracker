@@ -2388,6 +2388,8 @@ function tellLines0(r, date){
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
   cleanTodoDone(r.todo_done).forEach(t => lines.push('✓ ' + t.title));
+  if (r.timer?.start && allActs().includes(r.timer.start)) lines.push(trf('Таймер: {a}, с этой минуты', {a: actOf(r.timer.start).name}));
+  if (r.timer?.stop && TRACK) lines.push(trf('Остановить таймер: {a}', {a: actOf(TRACK.a).name}));
   if (lateOK(r.late)) lines.push(trf('Расписание на сегодня сдвинется на {m} мин', {m: r.late}));
   cleanBed(r.bed).forEach(x => { const h = bedSleepH(x, cleanWake(r.wake)); lines.push(trf('Отбой {d}: {t} вместо {o}', {d: fmtShort(x.date), t: hmStr(x.at % 1440), o: hmStr(x.base % 1440)}) + (h != null && h < 7 ? ' · ' + trf('на сон останется {h} ч', {h: num(h, h % 1 ? 1 : 0)}) : '')); });
   cleanWake(r.wake).forEach(x => lines.push(trf('Подъём {d}: {t} вместо {o}', {d: fmtShort(x.date), t: x.at, o: hmStr(x.base)})));
@@ -2433,6 +2435,8 @@ A.tellApply = el => {
   cleanTodoDone(r.todo_done).forEach(t => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }); // the same as ticking it: a repeating one gets its next date
   cleanClassOff(r.class_off).forEach(x => classOff(x.date, x.keys));
   if (lateOK(r.late)) lateApply(+r.late);
+  if (r.timer?.stop && TRACK) setTimeout(trackStop, 400); // after the "done" toast, so its own toast with Undo is the one seen
+  else if (r.timer?.start && allActs().includes(r.timer.start) && !FOCUS) setTimeout(() => trackStart(r.timer.start), 400);
   cleanBed(r.bed).forEach(x => mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.sleep = x.at - x.base; if (!d.shift.sleep) delete d.shift.sleep; }));
   cleanWake(r.wake).forEach(x => { let dropped = []; mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.wake = hm(x.at) - x.base; if (!d.shift.wake) delete d.shift.wake; dropped = reflowDay(x.date, d, 'wake'); }); schedToast(dropped); });
   { const adds = cleanGoalAdds(r.goal_add); if (adds.length){ const doc = goalsDoc(); save('app/goals', {...doc, list: (doc.list || []).map(g => { const n = adds.filter(x => x.g.id === g.id).reduce((a, x) => a + x.n, 0); return n ? {...g, count: Math.round(((+g.count || 0) + n) * 100) / 100} : g; })}); } }
@@ -4811,7 +4815,7 @@ const MIN_U = '(мин[а-яё]*|min(?:ute)?s?|h|hrs?|hours?|ч|час[а-яё]*
 const asMin = (n, u) => Math.round(/^(h|hr|hrs|hour|hours|ч|час)/i.test(u) ? toN(n) * 60 : toN(n));
 const MONEY_CAT = [[/аренд|квартплат|коммунал|\brent\b|utilities|electricity|электричеств/i, 'Жильё и коммуналка'], [/подписк|subscription|netflix|spotify|icloud|youtube premium|apple music/i, 'Подписки'], [/phone bill|phone plan|mobile plan|за телефон|за связь/i, 'Связь и интернет'], [/обед|ужин|завтрак|кофе|кафе|ресторан|lunch|dinner|breakfast|coffee|cafe|restaurant|pizza|пицц/i, 'Кафе и рестораны'], [/продукт|магазин|супермаркет|grocer|supermarket|shop/i, 'Супермаркеты'], [/такси|автобус|метро|бензин|taxi|uber|lyft|bolt|bus|metro|subway|fuel|gas\b|train|поезд/i, 'Транспорт'], [/аптек|pharmacy|drugstore|лекарств|medicine|gym membership|абонемент|спортзал/i, 'Спорт и здоровье'], [/книг|books?\b|textbook|учебник|tuition|course|курс[ыа]?\b|printing|печать|распечат/i, 'Учёба'], [/телефон|phone|ноутбук|laptop|наушник|headphones|зарядк|charger|планшет|tablet/i, 'Электроника'], [/связь|интернет|internet|тариф|мобильн/i, 'Связь и интернет']];
 const INTENT_RE = /^(?:i\s+)?(?:need to|have to|must|remind me to|don.?t forget to|надо|нужно|не забыть|напомни(?: мне)?|мне надо|мне нужно)\s+/i;
-const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|pick up|return|renew|submit|fix|wash|позвонить|купить|оплатить|заплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать|продлить|подать|отнести|починить|постирать|помыть|забронировать|сходить)/i;
+const TODO_RE = /надо|нужно|не забыть|напомни|должен|должна|need to|have to|must|remind|don.?t forget|^(?:call|buy|pay|send|email|book|clean|write|finish|start|begin|pick up|return|renew|submit|fix|wash|начать|позвонить|купить|оплатить|заплатить|отправить|написать|записаться|забрать|сдать|вернуть|убрать|заказать|продлить|подать|отнести|починить|постирать|помыть|забронировать|сходить)/i;
 const LOCAL_SKIP = /\bgot an?\b|получил[аи]? (?:\d|оценк|пят|четв|тройк)|перен[её]с|перенеси|отмен|вместо|сдвин|теперь в|moved?\b|cancel|instead|now at|resched|postpone|skip\b|didn.?t|did\b|не успел|сделал|забыл|woke(?: up)?\b|got up\b|проснул(?:ся|ась|ись)|встал[аи]?(?![а-яё])/i;
 const EVENT_RE = /защит[аеуы]|презентац|доклад|выступлени|presentation|встреч|врач|стоматолог|дантист|концерт|день рождения|вечеринк|свидани|приём|meeting|doctor|dentist|appointment|concert|party|birthday|date with|interview|собеседован|\bmeet\b|flight|рейс|вылет|самол[её]т|wedding|свадьб|exhibition|выставк|матч/i;
 /* money: "spent $12 on lunch", "потратил 1 200 руб на продукты", "lunch 12", "кофе 150 руб", "got paid 400" */
@@ -4871,6 +4875,7 @@ function localTellParse(text, date, opts = {}){
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   let ctxDate = null; // "tomorrow dentist at 10 and gym at 18": the gym is tomorrow too
   for (const c0 of parts){
+    { const tm = date === todayISO() && localTimer(c0); if (tm){ r.timer = tm; continue; } } // "starting to study now": the Study timer
     { const lt = date === todayISO() && localLate(c0); if (lt){ r.late = lt; continue; } } // "running 20 minutes late": the rest of today moves
     { const wk = localWake(c0, date); if (wk){ (r.wake = r.wake || []).push(wk); continue; } }
     { const bd = localBed(c0, date); if (bd){ (r.bed = r.bed || []).push(bd); continue; } } // "going to bed at 1 tonight" moves tonight's bedtime // "I'll wake up at 6 tomorrow" moves that morning, it isn't a to-do at 18:00
@@ -7368,6 +7373,16 @@ const WORK_DUE_RE = /(?:^|\s)(?:essay|coursework|assignment|project|thesis|repor
 const PLAN_CUE_RE = /(?:^|\s)(?:need to|have to|going to|plan to|want to|will|should|gonna|надо|нужно|хочу|планирую|буду|собираюсь|должен|должна)(?![a-zа-яё])|every day|каждый день/i;
 // a date said in words: today, tomorrow, a weekday, "20 December", "the 15th", "the weekend"
 const hasDateWord = x => /(?:^|\s)(?:today|tomorrow|tonight|yesterday|сегодня|завтра|послезавтра|вчера|позавчера)(?![a-zа-яё])/i.test(x) || WD_RU.some(([re]) => new RegExp('(?:^|\\s)' + re + '(?![a-zа-яё])', 'i').test(x)) || MONTH_DATE.test(' ' + x + ' ') || DOM_RE.test(' ' + x + ' ') || SOFT_DATE_RE.test(' ' + x + ' ') || /\d{4}-\d\d-\d\d/.test(x);
+/* ---- "starting to study", "сажусь за учёбу": the timer starts; "done studying" stops one that runs ---- */
+function localTimer(c){
+  if (/\d/.test(c)) return null; // with a time or a duration it's a log or a plan, read elsewhere
+  if (TRACK && /(?:^|\s)(?:stop(?:ped)?|finished|done with|done|закончил[аи]?|заканчиваю|хватит|стоп)(?:\s+(?:the\s+)?(?:timer|studying|working|reading|учиться|работать|читать|учёбу|учебу|работу|таймер))?\s*$/i.test(c.trim()) && /timer|studying|working|reading|учиться|работать|читать|учёбу|учебу|работу|таймер|stop|стоп|хватит/i.test(c)) return {stop: true};
+  const m = c.match(/(?:^|\s)(?:(?:i'?m\s+|i am\s+)?start(?:ing)?|begin(?:ning)?|начинаю|сажусь|приступаю(?:\s+к)?|иду)\s+(?:to\s+|за\s+)?([a-zа-яё]+)/i);
+  if (!m) return null;
+  const w = m[1].toLowerCase();
+  const a = /^(?:study|studying|учиться|учёбу|учебу|уроки|домашку|заниматься)$/.test(w) ? 'study' : /^(?:work|working|работать|работу|работе)$/.test(w) ? 'work' : /^(?:read|reading|читать|чтение|чтению)$/.test(w) ? 'read' : (meta().acts || []).find(x => !x.off && x.name.length >= 3 && sameWord(stem(w), stem(x.name.split(/\s+/)[0])))?.id;
+  return a && allActs().includes(a) ? {start: a} : null;
+}
 /* ---- "running 20 minutes late", "опаздываю на полчаса": what's on now runs longer, or what's next starts later, as the buttons on Day do ---- */
 function localLate(c){
   const m = c.match(/(?:running|i'?m|i am|am|be)\s+(?:about\s+)?(\d{1,3})\s*(?:min(?:ute)?s?|мин)\s+late|late by\s+(\d{1,3})\s*(?:min(?:ute)?s?|мин)|(?:опаздываю|опоздаю|задерживаюсь|задержусь|задержался|задержалась)\s+(?:на\s+)?(\d{1,3})\s*мин/i);

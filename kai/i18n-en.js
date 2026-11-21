@@ -2591,4 +2591,6 @@ window.I18N_EN = {
 "Когда следующая пара?":"When is my next class?",
 "Спросить ИИ":"Ask the AI instead",
 "Расписание на сегодня сдвинется на {m} мин":"Today's schedule moves by {m} min",
+"Таймер: {a}, с этой минуты":"Timer: {a}, starting now",
+"Остановить таймер: {a}":"Stop the timer: {a}",
 };

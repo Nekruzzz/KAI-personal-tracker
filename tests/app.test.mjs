@@ -4059,3 +4059,23 @@ test('"I\'m running 20 minutes late" moves the rest of today, shown first, with 
     assert.equal(sum(), before, 'Undo puts it back');
   } finally { run(`closeSheetQuiet(); if (dayL) save('days/' + todayISO(), dayL); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxL2.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"starting to study" starts the Study timer after confirming; "done studying" stops it', async () => {
+  run(`globalThis.inboxT2 = Object.keys(S.docs).filter(k => k.startsWith('inbox/')); globalThis.trT = TRACK; TRACK = null`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.timer ?? null)`));
+    assert.deepEqual(p("I'm starting to study"), {start: 'study'});
+    assert.deepEqual(p('сажусь за учёбу'), {start: 'study'});
+    assert.deepEqual(p('приступаю к работе'), {start: 'work'});
+    assert.equal(p('started studying at 9'), null, 'with a time it is a log, not a timer');
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('start the essay tomorrow', todayISO()).r.new_tasks.length)`)), 1, '"start the essay tomorrow" is a to-do');
+    run(`SH = {}; tellLocal('starting to study', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).includes('Timer: Study, starting now'));
+    assert.equal(run(`TRACK`), null, 'nothing starts before confirming');
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    await new Promise(r => setTimeout(r, 500));
+    assert.equal(run(`TRACK?.a`), 'study');
+    assert.deepEqual(p('done studying'), {stop: true});
+  } finally { run(`closeSheetQuiet(); TRACK = trT; trackSave(); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxT2.includes(k)).forEach(k => remove(k))`); }
+});

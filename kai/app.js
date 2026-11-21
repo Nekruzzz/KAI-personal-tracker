@@ -2382,7 +2382,7 @@ function tellLines0(r, date){
   if (okBody('steps', r.steps)) lines.push(tr('Шаги: ')+num(r.steps)); if (okBody('sleep', r.sleep_h)) lines.push(tr('Сон: ')+r.sleep_h+tr(' ч')); if (okBody('weight', r.weight)) lines.push(tr('Вес: ')+W(r.weight)+' '+kgU());
   (r.supps_taken||[]).forEach(s=>lines.push(tr('БАД принят: ')+s));
   (r.sets||[]).forEach(s=>lines.push(`${tr("Подход:")} ${allEx.find(e=>e.id===s.ex)?.name||s.ex} ${s.w?W(s.w)+' '+kgU()+' × ':''}${s.r}`));
-  (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}`));
+  (r.money||[]).forEach(m=>lines.push(`${m.type==='in'?tr('Доход'):tr('Расход')}: ${money(m.amount)} · ${tr(m.cat)}${m.note?' · '+m.note:''}${m.rep?' · '+tr('каждый месяц'):''}${DATE_RE.test(m.date || '') && m.date !== date ? ' · ' + (m.date === todayISO() ? tr('сегодня') : fmtShort(m.date)) : ''}`));
   if (r.sick) lines.push(tr('Статус: болеешь')); if (r.rating) lines.push(tr('Оценка дня: ')+r.rating);
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
@@ -2409,6 +2409,7 @@ A.tellApply = el => {
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   cleanClassOff(r.class_off).forEach(x => touched.add('days/' + x.date));
   cleanWake(r.wake).forEach(x => touched.add('days/' + x.date));
+  (r.money || []).forEach(m => { if (DATE_RE.test(m?.date || '')) touched.add('money/' + m.date.slice(0, 7)); }); // money on another day may be in another month
   cleanBed(r.bed).forEach(x => touched.add('days/' + x.date));
   touched.add('days/' + todayISO()); // a to-do ticked off can add study time to today
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
@@ -2434,7 +2435,7 @@ A.tellApply = el => {
   cleanWake(r.wake).forEach(x => { let dropped = []; mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.wake = hm(x.at) - x.base; if (!d.shift.wake) delete d.shift.wake; dropped = reflowDay(x.date, d, 'wake'); }); schedToast(dropped); });
   { const adds = cleanGoalAdds(r.goal_add); if (adds.length){ const doc = goalsDoc(); save('app/goals', {...doc, list: (doc.list || []).map(g => { const n = adds.filter(x => x.g.id === g.id).reduce((a, x) => a + x.n, 0); return n ? {...g, count: Math.round(((+g.count || 0) + n) * 100) / 100} : g; })}); } }
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
-  if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
+  if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date: DATE_RE.test(m.date || '') && m.date <= todayISO() ? m.date : date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
   save('inbox/'+it.id, {...it, done:true});
   if (SH?.jobId === it.id) closeSheet(); else drawSheet();
   haptic('success'); toast(tr('Готово, всё отмечено'), {icon:'checkc', tone:'good', ms: 6000, action: {label: tr('Вернуть'), act: 'undoApply'}});
@@ -4893,8 +4894,9 @@ function localTellParse(text, date, opts = {}){
       if (lb) w = Math.round(w / LB * 10) / 10;
       if (w >= 25 && w <= 300){ r.weight = w; hit = true; }
     }
-    const mo = (r.savings || []).length && hit ? null : localMoney(c) || (r.money.length && !hit ? moneyMore(c) : null);
-    if (mo){ r.money.push(mo); hit = true; }
+    const dw = c.match(/^(?:а\s+|and\s+|but\s+)?(сегодня|вчера|позавчера|today|yesterday)(?:\s+|,\s*)/i) || c.match(/[,\s]+(сегодня|вчера|позавчера|today|yesterday)\s*$/i), cm = dw ? c.replace(dw[0], ' ').trim() : c; // "…, а сегодня 400 на такси", "and 20 on taxi today": that part's own day
+    const mo = (r.savings || []).length && hit ? null : localMoney(c) || (r.money.length && !hit ? moneyMore(cm) : null);
+    if (mo){ if (dw){ const k = /сегодня|today/i.test(dw[1]) ? todayISO() : /позавчера/i.test(dw[1]) ? addDays(todayISO(), -2) : addDays(todayISO(), -1); if (k !== date) mo.date = k; } r.money.push(mo); hit = true; }
     const future = !/(?:^|\s)(?:ate|had|съел[аи]?|выпил[аи]?|поел[аи]?|перекусил[аи]?)(?![a-zа-яё])/i.test(c) && (() => { const q = parseQuick(c); return !!q && !!q.due && (q.due > date || !!q.time); })(); // "buy 2 bananas tomorrow" is a to-do, not a meal; "вечером съел…" already happened
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }

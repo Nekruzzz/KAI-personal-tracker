@@ -4001,3 +4001,17 @@ test('a phone answer offers "Ask the AI instead" when an AI is on', () => {
   try { assert.match(run(`answerCard('x')`), /data-act="tellAsk".*Ask the AI instead/s); }
   finally { run(`AUTH = authK; Object.assign(CFG, cfgK); CFG.supabaseUrl = ''; CFG.supabaseKey = ''`); }
 });
+
+test('money for two days in one message: "вчера потратил 2000 на продукты, а сегодня 400 на такси"', () => {
+  run(`globalThis.inboxY = Object.keys(S.docs).filter(k => k.startsWith('inbox/')); globalThis.mY = clone(S.docs['money/' + todayISO().slice(0, 7)] || {tx: []}); globalThis.mY2 = clone(S.docs['money/' + addDays(todayISO(), -1).slice(0, 7)] || {tx: []}); globalThis.modY = meta().modules; setMeta({modules: {...(modY || {}), money: true}})`);
+  try {
+    run(`SH = {}; tellLocal('вчера потратил 2000 на продукты, а сегодня 400 на такси', todayISO())`);
+    const id = run(`SH.jobId`), it = JSON.parse(run(`JSON.stringify(S.docs['inbox/${id}'])`));
+    assert.equal(it.meta.date, run(`addDays(todayISO(), -1)`), 'the message is about yesterday');
+    assert.deepEqual(it.result.money.map(m => [m.amount, m.date || null]), [[2000, null], [400, run(`todayISO()`)]]);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, S.docs['inbox/${id}'].meta.date))`)).some(l => /400.*today$/.test(l)));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.ok(run(`(S.docs['money/' + todayISO().slice(0, 7)]?.tx || []).some(t => t.date === todayISO() && t.amount === 400)`), 'the taxi is today');
+    assert.ok(run(`(S.docs['money/' + addDays(todayISO(), -1).slice(0, 7)]?.tx || []).some(t => t.date === addDays(todayISO(), -1) && t.amount === 2000)`), 'the groceries yesterday');
+  } finally { run(`closeSheetQuiet(); save('money/' + todayISO().slice(0, 7), mY); save('money/' + addDays(todayISO(), -1).slice(0, 7), mY2); setMeta({modules: modY}); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxY.includes(k)).forEach(k => remove(k))`); }
+});

@@ -4036,4 +4036,7 @@ test('voice-style run-on messages: "then" and "потом" separate the things s
   assert.deepEqual(p('slept 7 hours then studied 2 hours then walked 30 minutes').time_log, [{kind: 'study', min: 120}, {kind: 'walk', min: 30}]);
   assert.deepEqual(p('потратил 500 на обед потом купил зарядку за 1500').money.map(m => m.amount), [500, 1500], 'two amounts, not one 1500 for lunch');
   assert.deepEqual(p('I spent 12 on lunch I also bought a charger for 20').money.map(m => m.note), ['lunch', 'a charger']);
+  assert.deepEqual(p('slept 7 hours studied 2 hours walked 30 minutes').time_log, [{kind: 'study', min: 120}, {kind: 'walk', min: 30}], 'no punctuation at all, as voice gives it');
+  assert.deepEqual(p('потратил 500 на обед купил зарядку за 1500').money.map(m => m.amount), [500, 1500]);
+  assert.equal(p('went to bed at 23 woke up at 7').sleep_h, 8, 'a night told in one breath stays one night');
 });

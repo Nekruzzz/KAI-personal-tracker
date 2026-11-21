@@ -348,6 +348,8 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 
 - **Live server, checked with the public key only (12 Nov):** Google sign-in is turned on in the Supabase project and its sign-in address redirects to Google correctly; the AI function is deployed and refuses requests without an account (401). No AI request was made. Not checked: a full Google sign-in in a browser, whether the site address is in Supabase's Redirect URLs, and a real AI answer.
 
+- **Live site and server (21 Nov):** https://kai-personal-tracker.vercel.app serves the version from PR #3 (v246) with the Supabase project connected and loads without errors; this branch's newer work is not live until it is merged. The `ai` and `delete-account` functions answer the browser's cross-site check (CORS) correctly.
+- **The keyboard over a sheet on iPhone:** when a text field in a sheet (Tell KAI, a goal) is tapped, the keyboard may cover the sheet's bottom button until it is scrolled. Not changed, since it needs a real iPhone to get right.
 - Anything on a real iPhone: notification taps, the permissions step, Apple Health, the status bar in light mode.
 - The RevenueCat webhook against real RevenueCat events, and the Supabase function itself (only its logic and the SQL were tested).
 - Real Supabase, real Claude and Apple sign-in, as before.

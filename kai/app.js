@@ -2387,6 +2387,7 @@ function tellLines0(r, date){
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
+  cleanWake(r.wake).forEach(x => lines.push(trf('Подъём {d}: {t} вместо {o}', {d: fmtShort(x.date), t: x.at, o: hmStr(x.base)})));
   cleanClassOff(r.class_off).forEach(x => { const t = classesOn(x.date, true).filter(c => x.keys.includes('*') || x.keys.includes(clsKey(c))).map(c => c.title).join(', '); if (t) lines.push(trf('Отмена: {t}, {d}', {t, d: fmtShort(x.date)})); });
   cleanGoals(r.goals).forEach(g => lines.push(g.due ? trf('+ цель: {t}, до {d}', {t: g.title, d: fmtShort(g.due)}) : trf('+ цель: {t}', {t: g.title})));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
@@ -2405,6 +2406,7 @@ A.tellApply = el => {
   const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts', 'app/savings', 'app/goals']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   cleanClassOff(r.class_off).forEach(x => touched.add('days/' + x.date));
+  cleanWake(r.wake).forEach(x => touched.add('days/' + x.date));
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
@@ -2423,6 +2425,7 @@ A.tellApply = el => {
   cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
   goalsAddMany(cleanGoals(r.goals));
   cleanClassOff(r.class_off).forEach(x => classOff(x.date, x.keys));
+  cleanWake(r.wake).forEach(x => { let dropped = []; mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.wake = hm(x.at) - x.base; if (!d.shift.wake) delete d.shift.wake; dropped = reflowDay(x.date, d, 'wake'); }); schedToast(dropped); });
   { const adds = cleanGoalAdds(r.goal_add); if (adds.length){ const doc = goalsDoc(); save('app/goals', {...doc, list: (doc.list || []).map(g => { const n = adds.filter(x => x.g.id === g.id).reduce((a, x) => a + x.n, 0); return n ? {...g, count: Math.round(((+g.count || 0) + n) * 100) / 100} : g; })}); } }
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
@@ -3863,7 +3866,7 @@ function warningsFor(date){
     if (gymOpen && (!ex.from || !gym || gym.s < evEnd(ex))) out.push({id:['gymday', date, ex.id].join('_'), date, level:'warn', text:`${tr("В день экзамена «")}${ex.title}${tr("» стоит тренировка. Лучше сохранить силы для экзамена.")}`, fix:moveFix(date)});
     allEvents().filter(o => o.kind === 'exam' && o.id !== ex.id && (o.date === next || (o.date === date && o.id > ex.id))).forEach(o => out.push({id:['exams', ex.id, o.id].join('_'), date, level:'warn', text:`${tr("Экзамены «")}${ex.title}${tr("» и «")}${o.title}${tr("» идут почти подряд. Начни готовиться к обоим заранее.")}`}));
   });
-  const wake = dayBlocks(next).find(b => b.kind === 'wake');
+  const wake = applyShifts(dayBlocks(next), S.docs['days/' + next] || {}).find(b => b.kind === 'wake'); // a wake-up moved for that day counts
   if (wake && !allEvents().some(x => x.kind === 'exam' && x.date === next)) eventsFor(date).filter(e => e.from).forEach(e => {
     const h = (wake.s + 1440 - evEnd(e)) / 60;
     if (h < 7) out.push({id:['sleep', date, e.id].join('_'), date, level:'warn', text: trf('После «{e}» на сон останется всего {h} ч: подъём в {w}.', {e: e.title, h: num(Math.max(0, h), h % 1 ? 1 : 0), w: hmStr(wake.s)})});
@@ -4601,7 +4604,7 @@ function buildReminders(now = Date.now()){
     const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym);
     if (gym && remindOn('gym') && !getDay(date).tasks.some(t => t.id === 'gym' && t.done)) add(`g${date}`, atMin(date, gym.s - 30), tr('Скоро тренировка'), tr('Через 30 минут'), false, 'train');
     if (remindOn('bills')) billsOn(date).forEach(b => add(`p${date}_${b.id}`, atMin(date, 10 * 60), trf('Сегодня платёж: {b}', {b: b.title}), trf('{s}. Отметь в KAI, когда оплатишь.', {s: money(b.amount)}), false, 'money'));
-    if (i < 7 && remindOn('morning')){ const wk = dayBlocks(date).find(b => b.id === 'wake'), line = morningLine(date); if (wk && line) add(`m${date}`, atMin(date, wk.s + 5), tr('План на день'), line); }
+    if (i < 7 && remindOn('morning')){ const wk = applyShifts(dayBlocks(date), S.docs['days/' + date] || {}).find(b => b.id === 'wake'), line = morningLine(date); if (wk && line) add(`m${date}`, atMin(date, wk.s + 5), tr('План на день'), line); }
     if (i < 7 && remindOn('evening')){ const e = eveningNudge(date); if (e) add(`v${date}`, e.at, e.title, e.body); }
     const bed = i < 7 && remindOn('bed') && bedMin(date);
     if (bed != null && bed !== false) add(`b${date}`, atMin(date, bed - 30), tr('Скоро отбой'), tr('Через 30 минут по расписанию сон. Пора откладывать телефон.'));
@@ -4850,6 +4853,7 @@ function localTellParse(text, date, opts = {}){
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c0 of parts){
+    { const wk = localWake(c0, date); if (wk){ (r.wake = r.wake || []).push(wk); continue; } } // "I'll wake up at 6 tomorrow" moves that morning, it isn't a to-do at 18:00
     { const mv = localClassMove(c0, date); if (mv){ (r.class_off = r.class_off || []).push(mv.off); r.events.push(mv.ev); continue; } } // "maths moved to 14:00 tomorrow": off at the old time, an event at the new one
     { const co = localClassOff(c0, date); if (co){ (r.class_off = r.class_off || []).push(co); continue; } } // "no maths tomorrow", "пары по физике в среду не будет"
     { const g = localGoal(c0, date); if (g){ (r.goals = r.goals || []).push(g); continue; } } // "goal: 100 hours of study by 20 December"
@@ -5981,6 +5985,7 @@ function enrichTell(r, text, date){
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
   if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.wake || []).length && !out.wake){ out.wake = lp.wake; out.new_tasks = out.new_tasks.filter(t => !/wake|get up|встат|встан|подъ[её]м|просну/i.test(t.title || '')); } // the AI may make the wake-up a to-do
   if ((lp.class_off || []).length && !out.class_off){ out.class_off = lp.class_off; out.new_tasks = out.new_tasks.filter(t => !/(?:^|\s)(?:no|cancel|отмен|не будет)/i.test(t.title || '')); } // "no maths tomorrow" is not a to-do
   if ((lp.classes || []).length && !(out.classes || []).length){ // a weekly class read on the phone; the AI may have made it a repeating to-do
     out.classes = lp.classes;
@@ -7299,6 +7304,19 @@ async function tellPhotoGo(text){
   SH.tellFile = null; SH.tellUrl = '';
   queueNow(id, 'tellOut');
 }
+/* ---- a different wake-up for one day: "I'll wake up at 6 tomorrow", "завтра встану в 6"; the morning moves with it ---- */
+const WAKE_RE = /(?:^|\s)(?:wake up|get up|getting up|waking up|wake me(?: up)?|alarm(?: for| at)?|встану|встаю|вставать|подъ[её]м|проснуться|просыпаться|разбуди(?:ть)?(?: меня)?|будильник)(?![a-zа-яё])/i;
+function localWake(c, date){
+  if (!WAKE_RE.test(c) || /(?:^|\s)(?:woke|got up|встал[аи]?|проснул(?:ся|ась|ись))(?![a-zа-яё])/i.test(c)) return null;
+  const m = c.match(/(?:^|\s)(?:at|в|на)\s*(\d{1,2})(?:[:.](\d\d))?\s*(am|pm|утра)?(?![\d:])/i); if (!m) return null;
+  let h = +m[1]; const min = +(m[2] || 0);
+  if (/pm/i.test(m[3] || '') && h < 12) h += 12; if (/am/i.test(m[3] || '') && h === 12) h = 0;
+  if (!(h >= 3 && h <= 13) || min > 59) return null; // a wake-up, not "at 18"
+  const at = pad(h) + ':' + pad(min), q = parseQuick('x ' + c.replace(m[0], ' ')), due = q?.due && !q.time ? q.due : (at > nowHM() ? date : addDays(date, 1));
+  return due >= date ? {date: due, at} : null;
+}
+const cleanWake = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && HM_RE.test(x.at || '')).map(x => ({...x, base: dayBlocks(x.date).find(b => b.id === 'wake')?.s})).filter(x => x.base != null && hm(x.at) !== x.base).slice(0, 7);
+
 /* ---- one class off on one day: kept on that day as days/<date>.clsOff, keys "time|title" or "*" for all; the timetable itself is unchanged ---- */
 const clsKey = c => c.time + '|' + String(c.title).trim().toLowerCase();
 function classesOn(date, withOff, off0){

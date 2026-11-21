@@ -3854,3 +3854,22 @@ test('a finished daily list folds into one line next time, stays open while bein
     assert.doesNotMatch(run(`viewDay()`), /daily-fold/, 'a tap opens it');
   } finally { run(`delete S.open.daily_all; S.dailyTouched = tF; save('days/' + todayISO(), dF)`); }
 });
+
+test('"I\'ll wake up at 6 tomorrow" moves that morning instead of making a to-do at 18:00', () => {
+  run(`globalThis.tmW = addDays(todayISO(), 1); globalThis.dayW = S.docs['days/' + tmW]; remove('days/' + tmW); globalThis.inboxW = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+    assert.deepEqual(p('I will wake up at 6 tomorrow').wake, [{date: run(`tmW`), at: '06:00'}]);
+    assert.equal(p('I will wake up at 6 tomorrow').new_tasks.length, 0, 'not a to-do');
+    assert.deepEqual(p('завтра встану в 6').wake, [{date: run(`tmW`), at: '06:00'}]);
+    assert.equal(p('woke up at 6:30').wake, undefined, 'the past is not a plan');
+    const base = run(`hmStr(dayBlocks(tmW).find(b => b.id === 'wake').s)`);
+    run(`SH = {}; tellLocal('I will wake up at 6 tomorrow', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).some(l => l.includes('06:00 instead of ' + base)));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`hmStr(applyShifts(dayBlocks(tmW), getDay(tmW)).find(b => b.id === 'wake').s)`), '06:00');
+    run(`A.undoApply()`);
+    assert.equal(run(`hmStr(applyShifts(dayBlocks(tmW), getDay(tmW)).find(b => b.id === 'wake').s)`), base, 'Undo puts it back');
+  } finally { run(`closeSheetQuiet(); if (dayW) save('days/' + tmW, dayW); else remove('days/' + tmW); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxW.includes(k)).forEach(k => remove(k))`); }
+});

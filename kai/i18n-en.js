@@ -2577,4 +2577,5 @@ window.I18N_EN = {
 "Всё сделано: {n} из {n}":"All done: {n} of {n}",
 "День засчитан. Нажми, чтобы посмотреть список":"The day counts. Tap to see the list",
 ": получилось позаниматься?":": did you get to it?",
+"Подъём {d}: {t} вместо {o}":"Wake-up on {d}: {t} instead of {o}",
 };

@@ -2593,4 +2593,7 @@ window.I18N_EN = {
 "Расписание на сегодня сдвинется на {m} мин":"Today's schedule moves by {m} min",
 "Таймер: {a}, с этой минуты":"Timer: {a}, starting now",
 "Остановить таймер: {a}":"Stop the timer: {a}",
+"Опаздываю на 20 минут":"Running 20 minutes late",
+"Сажусь за учёбу":"Starting to study",
+"Завтра встану в 6":"I'll wake up at 6 tomorrow",
 };

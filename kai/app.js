@@ -3393,8 +3393,8 @@ function parseQuick(raw, defDue){
     time = pad(at.getHours()) + ':' + pad(at.getMinutes()); due = at.getFullYear() + '-' + pad(at.getMonth() + 1) + '-' + pad(at.getDate()); t = t.replace(m[0], ' '); parsed = true;
   }
   else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})\s*(?:час[а-яё]*|ч)(?![а-яё])/i)) && +m[1] < 24){ time = pad(+m[1]) + ':00'; t = t.replace(m[0], ' '); parsed = true; }
-  else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 1 && +m[1] < 24){ const h = +m[1] <= 6 ? +m[1] + 12 : +m[1]; time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day; "в 5" is the afternoon
-  else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; if (!m[2] && (h >= 1 && h <= 6 || h >= 7 && h <= 11 && EVENING_RE.test(t))) h += 12; /* "at 5" means the afternoon; "dinner at 8" the evening */ if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
+  else if ((m = t.match(/\s(?:в|к)\s+(\d{1,2})(?=[\s,.!?]|$)(?!\s*(?:мин|ч|час|раз|кг|км|г\s|%|класс|кабинет|аудитор|корпус))/i)) && +m[1] >= 1 && +m[1] < 24){ const n = +m[1], morn = MORNING_RE.test(t), h = morn ? n : n <= 6 || (n <= 11 && EVENING_RE.test(t)) ? n + 12 : n; time = pad(h) + ':00'; if (morn) t = t.replace(MORNING_WORD_RE, ' '); t = t.replace(m[0], ' '); parsed = true; } // "в 12": an hour of the day; "в 5" is the afternoon
+  else if ((m = t.match(/\b(?:at\s+)?(\d{1,2})\s*(am|pm)\b|\bat\s+(\d{1,2})(?![\d:.])/i))){ let h = +(m[1] || m[3]); if (/pm/i.test(m[2] || '') && h < 12) h += 12; if (/am/i.test(m[2] || '') && h === 12) h = 0; const morn = !m[2] && MORNING_RE.test(t); if (!m[2] && !morn && (h >= 1 && h <= 6 || h >= 7 && h <= 11 && EVENING_RE.test(t))) h += 12; if (morn) t = t.replace(MORNING_WORD_RE, ' '); /* "run at 6 tomorrow morning" is 06:00 */ /* "at 5" means the afternoon; "dinner at 8" the evening */ if (h < 24){ time = pad(h) + ':00'; t = t.replace(m[0], ' '); parsed = true; } }
   if (/послезавтра(?![а-яё])|\bday after tomorrow\b/i.test(t)){ due = addDays(today, 2); t = t.replace(/послезавтра(?![а-яё])|(?:\bthe\s+)?\bday after tomorrow\b/ig, ' '); }
   else if (/завтра(?![а-яё])|\btomorrow\b/i.test(t)){ due = addDays(today, 1); t = t.replace(/завтра(?![а-яё])|\btomorrow\b/ig, ' '); } // not "завтрак", breakfast
   else if (/сегодня|\btoday\b/i.test(t)){ due = today; t = t.replace(/сегодня|\btoday\b/ig, ' '); }
@@ -4829,6 +4829,7 @@ function localMoney(c){
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
   // "lunch 12", "кофе 150 руб": a spending word straight before an amount, and not grams, minutes or calories
   m = c.replace(/^(?:had|drank|got|ate|выпил[аи]?|съел[аи]?|взял[аи]?)\s+(?:a\s+|an\s+)?/i, '').match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
+  if (m && (/(?:^|\s)(?:в|во|к|at|by)$/i.test(m[1].trim()) || /(?:^|\s)(?:завтра|послезавтра|tomorrow|tonight)(?![a-zа-яё])/i.test(m[1]))) m = null; // "обед завтра в 1" is a time, not 1 spent on lunch
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); } // "gift for mom 30", "lunch for 12", "билет на поезд 1200"
   // "$5 coffee", "300р такси": the amount first, but only with a currency, so "2 pizzas" stays food
   m = c.match(new RegExp('^(' + AMT + ')\\s+((?:' + SPEND_WORDS + ')(?![a-zа-яё]).{0,30})$', 'i'));
@@ -6233,6 +6234,7 @@ function debtAns(a, id, mark){
 }
 
 /* ============ "dinner at 8" is 20:00 ============ */
+const MORNING_RE = /\bmorning\b|утром(?![а-яё])|breakfast|завтрак/i, MORNING_WORD_RE = /\b(?:in the |this )?morning\b|(?:^|\s)утром(?![а-яё])/i;
 const EVENING_RE = /dinner|supper|party|movie|cinema|concert|\bbar\b|club|ужин|вечеринк|кино|концерт|клуб|бар(?![а-яё])/i;
 
 /* ============ the month before, in one card, during a month's first days ============ */

@@ -3891,3 +3891,16 @@ test('"going to bed at 1 tonight" moves tonight\'s bedtime and says how much sle
     assert.notEqual(run(`applyShifts(dayBlocks(todayISO()), getDay(todayISO())).find(b => b.kind === 'sleep').s`), 27 * 60);
   } finally { run(`closeSheetQuiet(); if (dayB) save('days/' + todayISO(), dayB); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxB.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('times in plans: "morning" keeps the morning, dinner is in the evening, "обед завтра в 1" is a time, not money', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  const t1 = p('run at 6 tomorrow morning').new_tasks[0];
+  assert.deepEqual([t1.title, t1.time], ['Run', '06:00']);
+  assert.equal(p('ужин с друзьями завтра в 8').new_tasks[0].time, '20:00');
+  assert.equal(p('завтрак с мамой завтра в 9').new_tasks[0].time, '09:00');
+  const o = p('обед завтра в 1');
+  assert.equal(o.money.length, 0, 'not 1 spent on lunch');
+  assert.equal(o.new_tasks[0].time, '13:00');
+  assert.equal(p('обед 300').money[0].amount, 300, '"lunch 300" is still spending');
+  assert.equal(p('meeting at 3 tomorrow').events[0].from, '15:00');
+});

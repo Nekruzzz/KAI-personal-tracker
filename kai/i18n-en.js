@@ -2564,4 +2564,6 @@ window.I18N_EN = {
 "Отменена: {d}":"Cancelled: {d}",
 "Anthropic (Claude), через сервер KAI.":"Anthropic (Claude), through KAI's server.",
 "Пара перенесена с {t}":"Class moved from {t}",
+"Отменены":"Cancelled",
+"Вернуть пару":"Bring back",
 };

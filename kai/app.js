@@ -4969,12 +4969,12 @@ function localMeal(c, opts){
   const WORD_N = {a: 1, an: 1, one: 1, two: 2, three: 3, 'один': 1, 'одна': 1, 'одно': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'трёх': 3, 'трех': 3};
   const dn = !g && c.match(/(?:^|\s)(\d{1,2})\s+([a-zа-яё]{3,})/i), wn = !g && !dn && c.match(/(?:^|\s)(a|an|one|two|three|один|одна|одно|одну|два|две|три|трёх|трех)\s+([a-zа-яё]{3,})/i);
   // "съел банан": Russian has no "a", so eating words count as one piece
-  const eaten = !g && /(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?)(?![a-zа-яё])/i.test(c);
+  const eaten = !g && /(?:^|\s)(?:ate|had|съел[аи]?|поел[аи]?|перекусил[аи]?|выпил[аи]?)(?![a-zа-яё])/i.test(c);
   const bare = bareOk && !g && !dn && !wn && !eaten && !por && !/\d/.test(c) && (c.replace(/(?:^|\s)(?:for breakfast|for lunch|for dinner|на завтрак|на обед|на ужин|today|сегодня|вчера|yesterday)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]+/gi) || []).length <= 3; // "today: oatmeal for breakfast" is one food // "яблоко", "protein shake": one piece
   const n = dn ? dn : wn ? [0, WORD_N[wn[1].toLowerCase()]] : eaten || bare ? [0, 1] : null;
   if (!g && !n) return null;
   // with a count, the food is the word right after it: "2 eggs", not "by 25 January"
-  const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and', 'mediu', 'large', 'small', 'regul', 'big', 'средн', 'больш', 'мален', 'today', 'сегод', 'вчера', 'yeste'].includes(w)); // sizes and days aren't foods: "medium fries", "today: oatmeal"
+  const words = dn || wn ? [stem((dn || wn)[2])] : (c.replace(/(?:^|\s)(?:ate|had|съел[аи]?|поел[аи]?|перекусил[аи]?|выпил[аи]?|на завтрак|на обед|на ужин|for breakfast|for lunch|for dinner|snack)(?![a-zа-яё])/gi, ' ').match(/[a-zа-яё]{3,}/gi) || []).map(stem).filter(w => !['грам', 'gram', 'съел', 'ate ', 'have', 'had', 'with', 'and', 'mediu', 'large', 'small', 'regul', 'big', 'средн', 'больш', 'мален', 'today', 'сегод', 'вчера', 'yeste'].includes(w)); // sizes and days aren't foods: "medium fries", "today: oatmeal"
   if (words.length && !(c.match(/[a-zа-яё]{3,}/gi) || []).some(w => !WATER_WORDS.has(w.toLowerCase()) && !/^(?:drank|drink|had|выпил[аи]?|пил[аи]?|glass(?:es)?|cups?|liters?|litres?|стакан[а-яё]*|литр[а-яё]*|кружк[а-яё]*)$/i.test(w) && !/^\d/.test(w))) return null; // "drank 3 glasses of water" isn't watermelon or oatmeal
   let best = null;
   PRODUCTS.forEach((p, i) => {

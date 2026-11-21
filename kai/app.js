@@ -4882,7 +4882,9 @@ function localTellParse(text, date, opts = {}){
         const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
-        if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
+        const cl = !exam && !deadline ? localClass(c, t, sn, until) : null; // "Physics lecture every Wednesday 10:00-11:30" goes to the timetable
+        if (cl) (r.classes = r.classes || []).push(cl);
+        else if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
         else if (t.time || t.every || TODO_RE.test(c)){ const sp = sn.note ? {title: t.title, note: sn.note} : splitNote(t.title); r.new_tasks.push({title: sp.title, date: t.due, time: t.time || null, ...(sp.note ? {note: sp.note} : {}), ...(t.every ? {every: t.every, ...(t.n ? {n: t.n} : {})} : {})}); }
         else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;
@@ -5967,6 +5969,10 @@ function enrichTell(r, text, date){
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
   if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.classes || []).length && !(out.classes || []).length){ // a weekly class read on the phone; the AI may have made it a repeating to-do
+    out.classes = lp.classes;
+    out.new_tasks = out.new_tasks.filter(t => !(t.every && lp.classes.some(c => wordsOf(c.title).some(w => wordsOf(t.title || '').some(v => sameWord(w, v))))));
+  }
   if ((lp.goal_add || []).length && !out.goal_add) out.goal_add = lp.goal_add; // goals are read on the phone; the AI's answer has no place for them
   if ((lp.track || []).length && !out.track) out.track = lp.track; // the AI's answer has no place for work, reading or the person's own activities
   if ((lp.savings || []).length && !out.savings){ out.savings = lp.savings; const sum = lp.savings.reduce((a, x) => a + x.amount, 0); out.money = out.money.filter(m => !(m.type !== 'in' && Math.abs(+m.amount - sum) < 0.01)); } // the AI may read it as spending
@@ -7276,6 +7282,16 @@ async function tellPhotoGo(text){
   if (!id) return;
   SH.tellFile = null; SH.tellUrl = '';
   queueNow(id, 'tellOut');
+}
+/* a weekly class typed into Tell KAI: a class word and a weekly time, or "new class: …" */
+const CLASS_RE = /(?:^|\s)(?:лекци[яиюей]|пар[аыу]|семинар[а-яё]*|практик[аиуе]|лаб(?:а|ы|у|оратор[а-яё]*)?|lectures?|class(?:es)?|seminars?|tutorials?|labs?|practicals?)(?![a-zа-яё])/i;
+function localClass(c, t, sn, until){
+  const newCls = /^\s*(?:new class|новая пара)\s*:/i.test(c);
+  if (!t?.time || !(newCls || (CLASS_RE.test(c) && t.every === 'week' && !(t.n > 1)))) return null;
+  const sp = sn.note ? {title: t.title, note: sn.note} : splitNote(t.title);
+  let title = (/^(?:new class|новая пара)$/i.test(sp.title) && sp.note ? sp.note : sp.title).replace(/^(?:i have|i've got|у меня(?:\s+есть)?)\s+/i, '').trim();
+  if (!title) return null;
+  return {day: dow(t.due), time: t.time, ...(until && until > t.time ? {end: until} : {}), title: title[0].toUpperCase() + title.slice(1)};
 }
 function cleanClasses(list, have){
   const key = c => [c.day, c.time, String(c.title).trim().toLowerCase()].join('|'), seen = new Set((have || []).map(key)), out = [];

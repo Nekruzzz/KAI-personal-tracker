@@ -3684,3 +3684,23 @@ test('a goal set today is not called behind pace', () => {
   assert.match(run(`goalPace(${g})`), /^3 a week needed until/);
   assert.match(run(`goalPace({...${g}, start: addDays(todayISO(), -7)})`), /^Behind pace/);
 });
+
+test('a weekly class typed into Tell KAI goes to the timetable, and is shown with clashes before it is added', () => {
+  run(`globalThis.plK = clone(plan()); { const pl = clone(plan()); pl.classes = [{day: 3, time: '10:30', end: '12:00', title: 'Maths'}]; save('app/plan', pl); } globalThis.inboxK = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+    assert.deepEqual(p('Physics lecture every Wednesday 10:00-11:30').classes, [{day: 3, time: '10:00', end: '11:30', title: 'Physics lecture'}]);
+    assert.deepEqual(p('новая пара: химия в четверг с 14 до 16').classes, [{day: 4, time: '14:00', end: '16:00', title: 'Химия'}]);
+    assert.equal(p('lecture tomorrow at 9').classes, undefined, 'a one-off stays a to-do');
+    assert.equal(p('gym every Monday at 18:00').classes, undefined, 'not a class');
+    run(`SH = {}; tellLocal('Physics lecture every Wednesday 10:00-11:30', todayISO())`);
+    const id = run(`SH.jobId`), it = `S.docs['inbox/${id}']`;
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(${it}.result, todayISO()))`)).some(l => /class: Physics lecture, Wednesday at 10:00–11:30/.test(l)));
+    assert.ok(JSON.parse(run(`JSON.stringify(previewWarnings(${it}.result).map(w => w.text))`)).some(t => /Physics lecture.*Maths|Maths.*Physics lecture/.test(t)), 'the clash with Maths is shown first');
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`plan().classes.length`), 2);
+    assert.equal(run(`smartTasks().some(t => t.title === 'Physics lecture')`), false, 'not also a to-do');
+    const ai = JSON.parse(run(`JSON.stringify(enrichTell({new_tasks: [{title: 'Physics lecture', date: todayISO(), time: '10:00', every: 'week'}], money: []}, 'Physics lecture every Wednesday 10:00-11:30', todayISO()))`));
+    assert.equal(ai.classes.length, 1); assert.equal(ai.new_tasks.length, 0, 'the AI\'s repeating to-do gives way to the class');
+  } finally { run(`closeSheetQuiet(); save('app/plan', plK); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxK.includes(k)).forEach(k => remove(k))`); }
+});

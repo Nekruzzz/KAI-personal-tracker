@@ -3736,3 +3736,13 @@ test('"no maths tomorrow" cancels that one class on that day, shown first, with 
     assert.equal(run(`getDay(tmO).tasks.some(t => t.id === 'study')`), false, 'no classes left: no study task that day');
   } finally { run(`closeSheetQuiet(); S.tab = 'day'; delete S.open.acc_classes; save('app/plan', plO); if (dayO) save('days/' + tmO, dayO); else remove('days/' + tmO); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxO.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('the AI is told which classes are cancelled in the next two weeks', () => {
+  run(`globalThis.plP = clone(plan()); globalThis.tmP = addDays(todayISO(), 1); globalThis.dayP = S.docs['days/' + tmP];
+    { const pl = clone(plan()); pl.classes = [{day: dow(tmP), time: '09:00', title: 'Maths'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }`);
+  try {
+    assert.doesNotMatch(run(`planContext(todayISO())`), /Отменённые пары/);
+    run(`classOff(tmP, ['09:00|maths'])`);
+    assert.ok(run(`planContext(todayISO())`).includes('Отменённые пары (в эти дни их нет): ' + run(`tmP`) + ' 09:00 Maths'));
+  } finally { run(`save('app/plan', plP); if (dayP) save('days/' + tmP, dayP); else remove('days/' + tmP)`); }
+});

@@ -4031,7 +4031,7 @@ function planContext(today){
   const pl = plan(), days = [...Array(21)].map((_, i) => addDays(today, i));
   return `Календарь: ${days.slice(0, 14).map(k => k + ' ' + DOW[dow(k)]).join(', ')}.
 События (id | дата | время | тип | название): ${allEvents().filter(e => (e.toDate || e.date) >= today).map(e => [e.id, e.date, e.from ? e.from + (e.until ? '-' + e.until : '') : 'без времени', e.kind || 'event', e.title].join(' | ')).join('; ') || 'нет'}
-Занятия по дням недели: ${(pl.classes || []).map(c => DOW[c.day] + ' ' + c.time + (c.end ? '-' + c.end : '') + ' ' + c.title).join('; ') || 'нет'}
+Занятия по дням недели: ${(pl.classes || []).map(c => DOW[c.day] + ' ' + c.time + (c.end ? '-' + c.end : '') + ' ' + c.title).join('; ') || 'нет'}${(() => { const off = days.slice(0, 14).flatMap(k => classesOn(k, true).filter(c => c.off).map(c => k + ' ' + c.time + ' ' + c.title)); return off.length ? '\nОтменённые пары (в эти дни их нет): ' + off.join('; ') : ''; })()}
 Дни с тренировкой: ${days.filter(k => workoutFor(k)).join(', ') || 'нет'}
 Открытые задачи со сроком: ${smartTasks().filter(t => !t.done && t.due).slice(0, 30).map(t => t.title + ' ' + t.due + (t.time ? ' ' + t.time : '')).join('; ') || 'нет'}`;
 }

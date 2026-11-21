@@ -4877,6 +4877,7 @@ function localTellParse(text, date, opts = {}){
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
+    if (!hit && !r.rating){ const rt = localDayRating(c); if (rt){ r.rating = rt; hit = true; } } // "great day", "день был тяжёлый"
     { const ga = localGoalAdd(c, r); if (ga){ (r.goal_add = r.goal_add || []).push(ga); hit = true; } } // "ran 5 km" also counts toward "Run 100 km"
     if (!hit && (LOCAL_SKIP.test(c) || pastStart(c))){ left.push(c); continue; } // "went to bed at 1am" happened; it isn't a to-do
     if (!hit && PAST_DAY_RE.test(c)){ left.push(c); continue; }
@@ -7508,6 +7509,16 @@ function localGoal(c, date){
 const cleanGoals = list => (Array.isArray(list) ? list : []).filter(g => g && ['time', 'days', 'count'].includes(g.kind) && String(g.title || '').trim() && +g.target > 0 && +g.target <= (g.kind === 'days' ? 730 : 100000))
   .map(g => ({kind: g.kind, title: String(g.title).trim().slice(0, 60), target: +g.target, due: DATE_RE.test(g.due || '') && g.due >= todayISO() ? g.due : '', ...(g.kind === 'time' ? {act: allActs().includes(g.act) ? g.act : 'study'} : {}), ...(g.kind === 'count' ? {unit: String(g.unit || '').slice(0, 12)} : {})}))
   .filter(g => !(goalsDoc().list || []).some(x => !x.hidden && sameTitle(x.title, g.title))).slice(0, 3); // a goal already set isn't added twice
+/* how the day went, in words: only "<word> day" / "day was <word>" / "день <слово>", so "a great book" or "bad weather" don't count */
+const DAY_MOOD = [[5, 'great|amazing|awesome|perfect|fantastic|excellent|wonderful|отличн[а-яё]*|прекрасн[а-яё]*|супер|шикарн[а-яё]*|идеальн[а-яё]*|замечательн[а-яё]*'], [4, 'good|nice|productive|хорош[а-яё]*|продуктивн[а-яё]*|удачн[а-яё]*'], [3, 'ok|okay|fine|normal|average|so-so|нормальн[а-яё]*|норм|обычн[а-яё]*|так себе'], [2, 'bad|rough|hard|tough|tiring|exhausting|плох[а-яё]*|тяж[её]л[а-яё]*|трудн[а-яё]*|утомительн[а-яё]*|неудачн[а-яё]*'], [1, 'terrible|awful|horrible|the worst|ужасн[а-яё]*|кошмарн[а-яё]*|худш[а-яё]*']];
+function localDayRating(c){
+  const t = String(c).trim();
+  for (const [n, w] of DAY_MOOD){
+    const re = new RegExp(`^(?:(?:it was|it's|today was|what|had)\\s+(?:a|an)?\\s*)?(?:really\\s+|very\\s+|pretty\\s+)?(?:${w})\\s+day(?:\\s+today)?[.!]*$|^(?:the\\s+)?day\\s+(?:was|is)\\s+(?:really\\s+|very\\s+|pretty\\s+)?(?:${w})[.!]*$|^(?:сегодня\\s+)?(?:был\\s+)?(?:очень\\s+|довольно\\s+)?(?:${w})\\s+день(?:\\s+сегодня)?[.!]*$|^(?:сегодня\\s+)?день\\s+(?:был\\s+)?(?:очень\\s+|довольно\\s+)?(?:${w})[.!]*$`, 'i');
+    if (re.test(t)) return n;
+  }
+  return null;
+}
 /* progress toward a counter goal from the same message: "ran 5 km" for "Run 100 km", "прочитал книгу" for "Прочитать 12 книг" */
 function localGoalAdd(c, r){
   if ((r.money || []).some(m => c.includes(String(m.note || '\u0000'))) || /(?:потратил|spent|paid|bought|купил|заплатил|получил|got paid|earned)/i.test(c)) return null; // "bought 2 books" is spending

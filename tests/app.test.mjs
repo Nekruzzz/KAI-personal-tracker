@@ -3815,3 +3815,16 @@ test('a photo of a notice can cancel a class: the AI names it, the app finds it 
     assert.equal(run(`cleanClassOff([{date: tmN, title: 'Chemistry'}]).length`), 0, 'a class that is not in the timetable: nothing');
   } finally { run(`save('app/plan', plN2); if (dayN) save('days/' + tmN, dayN); else remove('days/' + tmN)`); }
 });
+
+test('"great day" or "день был тяжёлый" rates the day on the phone; "a great book" does not', () => {
+  const r = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.rating ?? null)`));
+  assert.equal(r('9000 steps today, great day'), 5);
+  assert.equal(r('had a really tough day'), 2);
+  assert.equal(r('the day was okay'), 3);
+  assert.equal(r('сегодня был тяжёлый день'), 2);
+  assert.equal(r('день был очень продуктивный'), 4);
+  assert.equal(r('read a great book'), null);
+  assert.equal(r('плохая погода'), null);
+  assert.equal(r('rate the day 4'), 4, 'a number still wins');
+  assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('great day, I want to die', todayISO()).r)`)).care, 'crisis', 'the support check comes first');
+});

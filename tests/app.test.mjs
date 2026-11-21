@@ -3904,3 +3904,15 @@ test('times in plans: "morning" keeps the morning, dinner is in the evening, "о
   assert.equal(p('обед 300').money[0].amount, 300, '"lunch 300" is still spending');
   assert.equal(p('meeting at 3 tomorrow').events[0].from, '15:00');
 });
+
+test('"slept 6h 30m", "walked 3 km" and "заплатить за квартиру 1-го" are read on the phone', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.equal(p('slept 6h 30m').sleep_h, 6.5);
+  assert.equal(p('спал 6 ч 30 мин').sleep_h, 6.5);
+  assert.deepEqual(p('walked 3 km').time_log, [{kind: 'walk', min: 36}]);
+  assert.deepEqual(p('прошёл 3 км').time_log, [{kind: 'walk', min: 36}]);
+  assert.equal(p('walk 5 km tomorrow').time_log.length, 0, 'a plan is not a walk done');
+  assert.deepEqual(p('walked 40 minutes').time_log, [{kind: 'walk', min: 40}], 'minutes still win');
+  const t = p('заплатить за квартиру 1-го').new_tasks[0];
+  assert.equal(t.title, 'Заплатить за квартиру'); assert.match(t.date, /-01$/);
+});

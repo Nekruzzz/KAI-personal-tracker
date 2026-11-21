@@ -12,3 +12,6 @@ server/eval/results/
 # secrets
 .env
 .env.*
+
+# logs from local test runs
+*.log

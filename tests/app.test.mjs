@@ -3873,3 +3873,21 @@ test('"I\'ll wake up at 6 tomorrow" moves that morning instead of making a to-do
     assert.equal(run(`hmStr(applyShifts(dayBlocks(tmW), getDay(tmW)).find(b => b.id === 'wake').s)`), base, 'Undo puts it back');
   } finally { run(`closeSheetQuiet(); if (dayW) save('days/' + tmW, dayW); else remove('days/' + tmW); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxW.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"going to bed at 1 tonight" moves tonight\'s bedtime and says how much sleep is left', () => {
+  run(`globalThis.dayB = S.docs['days/' + todayISO()]; globalThis.inboxB = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+    assert.deepEqual(p('going to bed at 1 tonight').bed, [{date: run(`todayISO()`), at: 25 * 60}]);
+    assert.equal(p('going to bed at 1 tonight').new_tasks.length, 0, 'not a to-do at 13:00');
+    assert.deepEqual(p('лягу спать в 22').bed, [{date: run(`todayISO()`), at: 22 * 60}]);
+    assert.equal(p('went to bed at 1am').bed, undefined, 'the past is not a plan');
+    run(`SH = {}; tellLocal('going to bed at 3 tonight', todayISO())`);
+    const id = run(`SH.jobId`), lines = JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`));
+    assert.ok(lines.some(l => /^Bedtime on .*: 03:00 instead of .* h of sleep left/.test(l)), lines.join(' | '));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`applyShifts(dayBlocks(todayISO()), getDay(todayISO())).find(b => b.kind === 'sleep').s`), 27 * 60);
+    run(`A.undoApply()`);
+    assert.notEqual(run(`applyShifts(dayBlocks(todayISO()), getDay(todayISO())).find(b => b.kind === 'sleep').s`), 27 * 60);
+  } finally { run(`closeSheetQuiet(); if (dayB) save('days/' + todayISO(), dayB); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxB.includes(k)).forEach(k => remove(k))`); }
+});

@@ -2578,4 +2578,6 @@ window.I18N_EN = {
 "День засчитан. Нажми, чтобы посмотреть список":"The day counts. Tap to see the list",
 ": получилось позаниматься?":": did you get to it?",
 "Подъём {d}: {t} вместо {o}":"Wake-up on {d}: {t} instead of {o}",
+"Отбой {d}: {t} вместо {o}":"Bedtime on {d}: {t} instead of {o}",
+"на сон останется {h} ч":"{h} h of sleep left",
 };

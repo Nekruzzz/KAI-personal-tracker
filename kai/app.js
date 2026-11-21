@@ -2387,6 +2387,7 @@ function tellLines0(r, date){
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
+  cleanBed(r.bed).forEach(x => { const h = bedSleepH(x); lines.push(trf('Отбой {d}: {t} вместо {o}', {d: fmtShort(x.date), t: hmStr(x.at % 1440), o: hmStr(x.base % 1440)}) + (h != null && h < 7 ? ' · ' + trf('на сон останется {h} ч', {h: num(h, h % 1 ? 1 : 0)}) : '')); });
   cleanWake(r.wake).forEach(x => lines.push(trf('Подъём {d}: {t} вместо {o}', {d: fmtShort(x.date), t: x.at, o: hmStr(x.base)})));
   cleanClassOff(r.class_off).forEach(x => { const t = classesOn(x.date, true).filter(c => x.keys.includes('*') || x.keys.includes(clsKey(c))).map(c => c.title).join(', '); if (t) lines.push(trf('Отмена: {t}, {d}', {t, d: fmtShort(x.date)})); });
   cleanGoals(r.goals).forEach(g => lines.push(g.due ? trf('+ цель: {t}, до {d}', {t: g.title, d: fmtShort(g.due)}) : trf('+ цель: {t}', {t: g.title})));
@@ -2407,6 +2408,7 @@ A.tellApply = el => {
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
   cleanClassOff(r.class_off).forEach(x => touched.add('days/' + x.date));
   cleanWake(r.wake).forEach(x => touched.add('days/' + x.date));
+  cleanBed(r.bed).forEach(x => touched.add('days/' + x.date));
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
@@ -2425,6 +2427,7 @@ A.tellApply = el => {
   cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
   goalsAddMany(cleanGoals(r.goals));
   cleanClassOff(r.class_off).forEach(x => classOff(x.date, x.keys));
+  cleanBed(r.bed).forEach(x => mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.sleep = x.at - x.base; if (!d.shift.sleep) delete d.shift.sleep; }));
   cleanWake(r.wake).forEach(x => { let dropped = []; mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.wake = hm(x.at) - x.base; if (!d.shift.wake) delete d.shift.wake; dropped = reflowDay(x.date, d, 'wake'); }); schedToast(dropped); });
   { const adds = cleanGoalAdds(r.goal_add); if (adds.length){ const doc = goalsDoc(); save('app/goals', {...doc, list: (doc.list || []).map(g => { const n = adds.filter(x => x.g.id === g.id).reduce((a, x) => a + x.n, 0); return n ? {...g, count: Math.round(((+g.count || 0) + n) * 100) / 100} : g; })}); } }
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
@@ -4853,7 +4856,8 @@ function localTellParse(text, date, opts = {}){
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c0 of parts){
-    { const wk = localWake(c0, date); if (wk){ (r.wake = r.wake || []).push(wk); continue; } } // "I'll wake up at 6 tomorrow" moves that morning, it isn't a to-do at 18:00
+    { const wk = localWake(c0, date); if (wk){ (r.wake = r.wake || []).push(wk); continue; } }
+    { const bd = localBed(c0, date); if (bd){ (r.bed = r.bed || []).push(bd); continue; } } // "going to bed at 1 tonight" moves tonight's bedtime // "I'll wake up at 6 tomorrow" moves that morning, it isn't a to-do at 18:00
     { const mv = localClassMove(c0, date); if (mv){ (r.class_off = r.class_off || []).push(mv.off); r.events.push(mv.ev); continue; } } // "maths moved to 14:00 tomorrow": off at the old time, an event at the new one
     { const co = localClassOff(c0, date); if (co){ (r.class_off = r.class_off || []).push(co); continue; } } // "no maths tomorrow", "пары по физике в среду не будет"
     { const g = localGoal(c0, date); if (g){ (r.goals = r.goals || []).push(g); continue; } } // "goal: 100 hours of study by 20 December"
@@ -5985,6 +5989,7 @@ function enrichTell(r, text, date){
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
   if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.bed || []).length && !out.bed){ out.bed = lp.bed; out.new_tasks = out.new_tasks.filter(t => !/bed|sleep|лечь|лягу|ложусь|отбой|спать/i.test(t.title || '')); }
   if ((lp.wake || []).length && !out.wake){ out.wake = lp.wake; out.new_tasks = out.new_tasks.filter(t => !/wake|get up|встат|встан|подъ[её]м|просну/i.test(t.title || '')); } // the AI may make the wake-up a to-do
   if ((lp.class_off || []).length && !out.class_off){ out.class_off = lp.class_off; out.new_tasks = out.new_tasks.filter(t => !/(?:^|\s)(?:no|cancel|отмен|не будет)/i.test(t.title || '')); } // "no maths tomorrow" is not a to-do
   if ((lp.classes || []).length && !(out.classes || []).length){ // a weekly class read on the phone; the AI may have made it a repeating to-do
@@ -7316,6 +7321,22 @@ function localWake(c, date){
   return due >= date ? {date: due, at} : null;
 }
 const cleanWake = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && HM_RE.test(x.at || '')).map(x => ({...x, base: dayBlocks(x.date).find(b => b.id === 'wake')?.s})).filter(x => x.base != null && hm(x.at) !== x.base).slice(0, 7);
+
+/* ---- a different bedtime for one night: "going to bed at 1 tonight", "сегодня лягу в час"; times after midnight belong to the evening before ---- */
+const BED_RE = /(?:^|\s)(?:go(?:ing)? to (?:bed|sleep)|go to bed|bed at|bedtime|sleep at|лягу|ложусь|лечь|ложиться|отбой|спать в|пойду спать)(?![a-zа-яё])/i;
+function localBed(c, date){
+  if (!BED_RE.test(c) || /(?:^|\s)(?:went|slept|fell asleep|лёг|лег|легла|уснул[аи]?|заснул[аи]?|спал[аи]?)(?![a-zа-яё])/i.test(c)) return null;
+  const m = c.match(/(?:^|\s)(?:at|в|около|around)\s*(\d{1,2})(?:[:.](\d\d))?\s*(am|pm|ночи|вечера)?(?![\d:])/i); if (!m) return null;
+  let h = +m[1]; const min = +(m[2] || 0), mk = (m[3] || '').toLowerCase(); if (min > 59) return null;
+  if (mk === 'pm' || mk === 'вечера'){ if (h < 12) h += 12; } else if (mk === 'am' || mk === 'ночи'){ if (h === 12) h = 0; h += 24; }
+  else if (h <= 5) h += 24; else if (h <= 11) h += 12; else if (h === 12) h = 24;
+  if (!(h >= 18 && h <= 29)) return null; // an evening or a night, not "at 14"
+  const q = parseQuick('x ' + c.replace(m[0], ' ')), day = q?.due && !q.time ? q.due : date;
+  return day >= date ? {date: day, at: h * 60 + min} : null;
+}
+const cleanBed = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && +x.at >= 18 * 60 && +x.at <= 30 * 60).map(x => ({...x, at: +x.at, base: dayBlocks(x.date).find(b => b.kind === 'sleep')?.s})).filter(x => x.base != null && x.at !== x.base && Math.abs(x.at - x.base) <= 6 * 60).slice(0, 7);
+// hours of sleep left with that bedtime, until the next morning's wake-up (moved or not)
+const bedSleepH = x => { const n = addDays(x.date, 1), w = applyShifts(dayBlocks(n), S.docs['days/' + n] || {}).find(b => b.kind === 'wake'); return w ? Math.round((w.s + 1440 - x.at) / 6) / 10 : null; };
 
 /* ---- one class off on one day: kept on that day as days/<date>.clsOff, keys "time|title" or "*" for all; the timetable itself is unchanged ---- */
 const clsKey = c => c.time + '|' + String(c.title).trim().toLowerCase();

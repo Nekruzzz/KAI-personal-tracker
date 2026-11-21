@@ -2580,4 +2580,6 @@ window.I18N_EN = {
 "Подъём {d}: {t} вместо {o}":"Wake-up on {d}: {t} instead of {o}",
 "Отбой {d}: {t} вместо {o}":"Bedtime on {d}: {t} instead of {o}",
 "на сон останется {h} ч":"{h} h of sleep left",
+"KAI понимает больше":"KAI understands more",
+"«Дописал эссе» отметит задачу, «завтра встану в 6» сдвинет утро, «сегодня лягу в час» покажет, сколько останется на сон, а «отличный день» поставит оценку дню. Всё это разбирается прямо на телефоне.":"“Finished the essay” ticks off the to-do, “I'll wake up at 6 tomorrow” moves the morning, “going to bed at 1 tonight” shows how much sleep is left, and “great day” rates the day. All of it is read on the phone itself.",
 };

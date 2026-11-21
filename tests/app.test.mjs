@@ -3715,6 +3715,9 @@ test('"no maths tomorrow" cancels that one class on that day, shown first, with 
     assert.deepEqual(p('завтра пар нет')[0].keys, ['*']);
     assert.equal(p('no milk tomorrow'), null);
     assert.equal(p('cancel the dentist tomorrow'), null);
+    assert.equal(p('no time for maths tomorrow'), null, 'the class must sit next to the cue');
+    assert.equal(p('завтра не будет времени на математику'), null);
+    assert.deepEqual(p('the maths class is cancelled tomorrow')[0].keys, ['09:00|maths'], 'only the named class');
     run(`SH = {}; tellLocal('no maths tomorrow', todayISO())`);
     const id = run(`SH.jobId`);
     assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).some(l => /^Cancelled: Maths, /.test(l)));

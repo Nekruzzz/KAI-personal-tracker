@@ -7324,9 +7324,15 @@ function localClassOff(c, date){
   const q = parseQuick(c); if (!q?.due || q.time || q.every) return null;
   const day = q.due < date ? null : q.due; if (!day) return null;
   const on = classesOn(day); if (!on.length) return null;
-  const words = wordsOf(c), hit = on.filter(x => wordsOf(x.title).some(w => words.some(v => sameWord(w, v))));
+  // the class has to sit right next to the cue: "no maths tomorrow", "математики не будет"; not "no time for maths tomorrow"
+  const toks = (c.toLowerCase().match(/[a-zа-яё]+/g) || []).map(w => w.replace(/ё/g, 'е')), cue = new Set();
+  toks.forEach((w, i) => { if (/^(?:no|cancel(?:l?ed)?|off|нет|отменил[аи]?|отменен[аы]?|отмена)$/.test(w) || (w === 'будет' && toks[i - 1] === 'не') || (w === 'called' && toks[i + 1] === 'off')) cue.add(i); });
+  const near = test => toks.some((w, i) => test(w) && [...cue].some(j => Math.abs(i - j) <= 2 && i !== j));
+  const hit = on.filter(x => wordsOf(x.title).some(t => near(w => w.length >= 3 && sameWord(stem(w), t))));
   if (hit.length) return {date: day, keys: hit.map(clsKey)};
-  return CLASS_RE.test(c) || /(?:^|\s)(?:пар(?![а-яё])|занятий|classes|uni|school|универ[а-яё]*|учёб[ыа]|учеб[ыа])/i.test(c) ? {date: day, keys: ['*']} : null; // "no classes tomorrow"
+  if (!near(w => /^(?:пар[аыу]?|занятий|занятия|лекци[йия]|classes|class|lectures?|uni|school|seminars?)$/.test(w))) return null;
+  const named = on.filter(x => wordsOf(x.title).some(t => toks.some(w => w.length >= 3 && sameWord(stem(w), t)))); // "the maths class is cancelled": only maths
+  return {date: day, keys: named.length ? named.map(clsKey) : ['*']}; // "no classes tomorrow"
 }
 const CLASS_MOVE_RE = /(?:^|\s)(?:moved|moves|rescheduled|instead|will be at|is at|перенесли|перенесл[аи]|перенесен[аы]?|перенесён[аы]?|переносится|вместо|будет в)(?![a-zа-яё])/i;
 function localClassMove(c, date){

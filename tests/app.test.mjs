@@ -3804,3 +3804,14 @@ test('on the home program, push-ups told to KAI go to the home push-ups, not the
     assert.notEqual(JSON.parse(run(`JSON.stringify(localTellParse('squats 40 kg for 8', addDays(todayISO(), 1)).r.sets)`))[0].ex, 'hsquat', 'at the gym, the gym squat');
   } finally { run(`save('app/plan', plU)`); }
 });
+
+test('a photo of a notice can cancel a class: the AI names it, the app finds it in the timetable', () => {
+  run(`globalThis.plN2 = clone(plan()); globalThis.tmN = addDays(todayISO(), 1); globalThis.dayN = S.docs['days/' + tmN];
+    { const pl = clone(plan()); pl.classes = [{day: dow(tmN), time: '09:00', title: 'Maths, room 204'}, {day: dow(tmN), time: '11:00', title: 'Physics'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }`);
+  try {
+    assert.match(run(`tellPhotoPrompt('', todayISO())`), /"class_off"/);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(cleanClassOff([{date: tmN, title: 'Maths'}]))`)), [{date: run(`tmN`), keys: ['09:00|maths, room 204']}]);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(cleanClassOff([{date: tmN, title: '*'}]))`))[0].keys, ['*']);
+    assert.equal(run(`cleanClassOff([{date: tmN, title: 'Chemistry'}]).length`), 0, 'a class that is not in the timetable: nothing');
+  } finally { run(`save('app/plan', plN2); if (dayN) save('days/' + tmN, dayN); else remove('days/' + tmN)`); }
+});

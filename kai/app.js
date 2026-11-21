@@ -7284,7 +7284,8 @@ A.tellFileOff = () => { SH.tellText = val('tellT'); SH.tellFile = null; SH.tellU
 function tellPhotoPrompt(text, date){
   return tellPrompt(text || 'Посмотри фото и внеси то, что на нём.', date) + `
 К сообщению приложено фото: расписание занятий, объявление, записка, чек или снимок экрана. Прочитай его и внеси всё, что на нём есть, по тем же правилам и в том же JSON. Не выдумывай того, чего на фото не видно; неразборчивое пропусти и скажи об этом в reply.
-Если на фото недельное расписание занятий, верни каждое повторяющееся занятие в дополнительном поле "classes": [{"day": 1-7 (1 — понедельник), "time": "ЧЧ:ММ", "end": "ЧЧ:ММ" или null, "title": "предмет, аудитория"}], а не в events. Разовые события с датой (экзамен, дедлайн, встреча) — в events.`;
+Если на фото недельное расписание занятий, верни каждое повторяющееся занятие в дополнительном поле "classes": [{"day": 1-7 (1 — понедельник), "time": "ЧЧ:ММ", "end": "ЧЧ:ММ" или null, "title": "предмет, аудитория"}], а не в events. Разовые события с датой (экзамен, дедлайн, встреча) — в events.
+Если на фото объявление, что пара из расписания выше отменена в конкретный день, верни "class_off": [{"date": "YYYY-MM-DD", "title": "предмет как в расписании" или "*" если отменены все пары дня}]. Если пару перенесли на другое время в тот же день, верни её и в class_off, и в events с новым временем.`;
 }
 async function tellPhotoGo(text){
   if (!imgCapable()) return toast(cloudOn() ? tr('Чтобы KAI читал фото, войди в аккаунт: Ещё → Аккаунт') : ownKeysAllowed() ? tr('Чтобы KAI читал фото, подключи ИИ: Ещё → ИИ') : tr('Разбор фото пока не включён'), {ms: 5000});
@@ -7346,7 +7347,8 @@ function localClassMove(c, date){
   const x = hit[0], len = x.end ? hm(x.end) - hm(x.time) : 90, end = hm(q.time) + len;
   return {off: {date: q.due, keys: [clsKey(x)]}, ev: {title: x.title, date: q.due, from: q.time, until: end < 1440 ? hmStr(end) : null, kind: 'event', note: trf('Пара перенесена с {t}', {t: x.time})}};
 }
-const cleanClassOff = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && Array.isArray(x.keys) && x.keys.length && classesOn(x.date).length).slice(0, 7);
+// the AI names a class by its title; the app finds it in the timetable
+const cleanClassOff = list => (Array.isArray(list) ? list : []).map(x => x && !Array.isArray(x.keys) && typeof x.title === 'string' && DATE_RE.test(x.date || '') ? {date: x.date, keys: x.title.trim() === '*' ? ['*'] : classesOn(x.date).filter(c => sameTitle(c.title, x.title) || wordsOf(c.title).some(t => wordsOf(x.title).some(w => sameWord(w, t)))).map(clsKey)} : x).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && Array.isArray(x.keys) && x.keys.length && classesOn(x.date).length).slice(0, 7);
 
 /* a weekly class typed into Tell KAI: a class word and a weekly time, or "new class: …" */
 const CLASS_RE = /(?:^|\s)(?:лекци[яиюей]|пар[аыу]|семинар[а-яё]*|практик[аиуе]|лаб(?:а|ы|у|оратор[а-яё]*)?|lectures?|class(?:es)?|seminars?|tutorials?|labs?|practicals?)(?![a-zа-яё])/i;

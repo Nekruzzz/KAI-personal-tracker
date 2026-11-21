@@ -3772,6 +3772,7 @@ test('"maths moved to 14:00 tomorrow" takes the class off at 9 and puts it in at
     assert.deepEqual(t, [['ev', 'Maths', '14:00', '15:30']], 'only the moved one, 90 minutes long like the class');
     assert.equal(run(`plan().classes[0].time`), '09:00', 'the timetable keeps 9:00 for other weeks');
     assert.equal(run(`localClassMove('dentist moved to 14:00 tomorrow', todayISO())`), null);
+    assert.equal(run(`localClassMove('dinner moved to 19:00 tomorrow, after the long day of maths', todayISO())`), null, 'the class must sit next to the cue');
     assert.equal(run(`localClassMove('maths tomorrow at 9', todayISO())`), null, 'same time: nothing moved');
     run(`A.undoApply()`);
     assert.deepEqual(JSON.parse(run(`JSON.stringify(timedOn(tmM).map(x => x.k))`)), ['cls'], 'Undo restores both');

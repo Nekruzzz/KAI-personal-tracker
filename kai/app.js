@@ -7338,7 +7338,10 @@ const CLASS_MOVE_RE = /(?:^|\s)(?:moved|moves|rescheduled|instead|will be at|is 
 function localClassMove(c, date){
   if (!CLASS_MOVE_RE.test(c) || !(plan().classes || []).length) return null;
   const q = parseQuick(c); if (!q?.due || !q.time || q.every || q.due < date) return null;
-  const words = wordsOf(c), hit = classesOn(q.due).filter(x => wordsOf(x.title).some(w => words.some(v => sameWord(w, v))));
+  // the class sits next to the cue ("maths moved", "перенесли физику"), not anywhere ("dinner moved to 19:00 after maths")
+  const toks = (c.toLowerCase().match(/[a-zа-яё]+/g) || []).map(w => w.replace(/ё/g, 'е'));
+  const cue = toks.map((w, i) => /^(?:moved|moves|rescheduled|instead|will|is|перенесли|перенесл[аи]|перенесен[аы]?|переносится|вместо|будет)$/.test(w) ? i : -1).filter(i => i >= 0);
+  const hit = classesOn(q.due).filter(x => wordsOf(x.title).some(t => toks.some((w, i) => w.length >= 3 && sameWord(stem(w), t) && cue.some(j => Math.abs(i - j) <= 3 && i !== j))));
   if (hit.length !== 1 || hit[0].time === q.time) return null;
   const x = hit[0], len = x.end ? hm(x.end) - hm(x.time) : 90, end = hm(q.time) + len;
   return {off: {date: q.due, keys: [clsKey(x)]}, ev: {title: x.title, date: q.due, from: q.time, until: end < 1440 ? hmStr(end) : null, kind: 'event', note: trf('Пара перенесена с {t}', {t: x.time})}};

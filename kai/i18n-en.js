@@ -2576,4 +2576,5 @@ window.I18N_EN = {
 "«Цель: 100 часов учёбы до 20 декабря» создаст цель, а «пробежал 5 км» добавится к цели «Пробежать 100 км».":"“Goal: 100 hours of study by 20 December” sets a goal, and “ran 5 km” adds to a “Run 100 km” goal.",
 "Всё сделано: {n} из {n}":"All done: {n} of {n}",
 "День засчитан. Нажми, чтобы посмотреть список":"The day counts. Tap to see the list",
+": получилось позаниматься?":": did you get to it?",
 };

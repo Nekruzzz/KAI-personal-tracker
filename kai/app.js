@@ -3523,7 +3523,7 @@ function checkins(){
   if (modOn('timeline') && plan().routine){
     const {bl, st, endOf} = tlState(date);
     const from = meta().startedOn === date ? meta().startedAt : 0;
-    bl.filter(b => ['walk', 'gym', 'project', 'study'].includes(b.kind) && !st(b) && endOf(b) <= n - 20 && b.s > 6 * 60 && endOf(b) > from).slice(-2).reverse().forEach(b => q('b_' + b.id, {type: 'block', id: b.id, text: b.gym ? tr('Тренировка была?') : `${b.title}${tr(": сделал?")}`}));
+    bl.filter(b => ['walk', 'gym', 'project', 'study'].includes(b.kind) && !st(b) && endOf(b) <= n - 20 && b.s > 6 * 60 && endOf(b) > from).slice(-2).reverse().forEach(b => q('b_' + b.id, {type: 'block', id: b.id, text: b.gym ? tr('Тренировка была?') : `${b.title}${b.kind === 'project' ? tr(': получилось позаниматься?') : tr(": сделал?")}`}));
   }
   const dwk = dow(date), wkKey = 'wk_' + addDays(date, 1 - dwk);
   if (dwk >= 6 && activeProgram()?.start && date >= activeProgram().start && !meta().weeklyChecks?.[wkKey] && dayKeys().some(k => k > addDays(date, -7) && S.docs['days/' + k].tasks?.some(t => t.id === 'gym' && t.done))) out.push({k: wkKey, type: 'weekly', text: tr('Недельная проверка усталости. Отметь то, что про тебя')});

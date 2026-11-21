@@ -3840,3 +3840,17 @@ test('goals on Day: open ones first with the nearest deadline on top, reached on
     assert.ok(at('Soon') < at('Later') && at('Later') < at('No deadline') && at('No deadline') < at('Done one'), h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
   } finally { run(`save('app/goals', gO)`); }
 });
+
+test('a finished daily list folds into one line next time, stays open while being checked off, and opens on tap', () => {
+  run(`globalThis.dF = clone(getDay(todayISO())); globalThis.tF = S.dailyTouched; S.dailyTouched = null; mutDay(todayISO(), d => { d.tasks = [{id: 'a1', title: 'One', done: true}, {id: 'a2', title: 'Two', done: false}]; })`);
+  try {
+    assert.doesNotMatch(run(`viewDay()`), /daily-fold/, 'not all done: the list');
+    run(`A.toggleTask({dataset: {id: 'a2'}})`);
+    assert.equal(run(`getDay(todayISO()).tasks.every(t => t.done)`), true);
+    assert.doesNotMatch(run(`viewDay()`), /daily-fold/, 'just finished: still open, so the last tick can be undone');
+    run(`S.dailyTouched = null`);
+    assert.match(run(`viewDay()`), /daily-fold.*All done: 2 of 2/s, 'next time: one line');
+    run(`A.toggleOpen({dataset: {k: 'daily_all'}, closest: () => null})`);
+    assert.doesNotMatch(run(`viewDay()`), /daily-fold/, 'a tap opens it');
+  } finally { run(`delete S.open.daily_all; S.dailyTouched = tF; save('days/' + todayISO(), dF)`); }
+});

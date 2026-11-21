@@ -2574,4 +2574,6 @@ window.I18N_EN = {
 "Напиши KAI «лекция по физике каждую среду в 10», «завтра математики не будет» или «математику перенесли на 14:00»: расписание поменяется, а накладки KAI покажет сразу. Накладку можно исправить в одно касание.":"Tell KAI “physics lecture every Wednesday at 10”, “no maths tomorrow” or “maths moved to 14:00”: the schedule changes, and KAI shows any clash right away. A clash can be fixed in one tap.",
 "Цели сообщением":"Goals by message",
 "«Цель: 100 часов учёбы до 20 декабря» создаст цель, а «пробежал 5 км» добавится к цели «Пробежать 100 км».":"“Goal: 100 hours of study by 20 December” sets a goal, and “ran 5 km” adds to a “Run 100 km” goal.",
+"Всё сделано: {n} из {n}":"All done: {n} of {n}",
+"День засчитан. Нажми, чтобы посмотреть список":"The day counts. Tap to see the list",
 };

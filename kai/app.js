@@ -1299,7 +1299,7 @@ function viewDay(){
   h += checkinCard();
   // the daily list decides whether the day counts, so it comes before the rest of the day
   h += `<div class="sec-h" id="dailyH"><h2 tabindex="-1">${modOn('tasks') ? tr('Ежедневное') : tr('Сегодня, ') + fmtShort(date)}</h2>${modOn('tasks') ? `<span class="hint">${fmtShort(date)}</span>` : `<button class="link" data-act="addTask">${tr("+ Задача")}</button>`}</div>
-  <section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`;
+  ${dailyFolded(d) ? `<button class="card navrow daily-fold" data-act="toggleOpen" data-k="daily_all" aria-expanded="false"><span class="ic">${ic('checkc')}</span><div class="mid"><div class="t">${trf('Всё сделано: {n} из {n}', {n: d.tasks.length})}</div><div class="s">${tr('День засчитан. Нажми, чтобы посмотреть список')}</div></div>${ic('chevR')}</button>` : `<section class="card" style="padding:4px 18px"><div class="list">${d.tasks.map(t=>taskRow(t, d)).join('') || emptyState('day',tr('На сегодня задач нет'))}</div></section>`}`;
   h += goalsCard();
   h += taskCard();
   h += timelineCard();
@@ -2238,6 +2238,7 @@ A.closeSheet = closeSheet; A.scrim = closeSheet;
 A.toggleOpen = el => { const k = el.dataset.k; S.open[k] = !S.open[k]; if (SH && el.closest('.sheet')) drawSheet(); else render(); };
 A.openTask = el => { const k = 't_'+el.dataset.id; S.open[k] = !S.open[k]; render(); };
 A.toggleTask = el => {
+  S.dailyTouched = todayISO(); // the list stays open while it's being checked off; it folds the next time the app opens
   const t0 = getDay(todayISO()).tasks.find(x=>x.id===el.dataset.id); if (!t0) return;
   if (!t0.done){ S.fx = {...(S.fx||{}), task: t0.id, t: Date.now()}; burstAt(el); xpPop(el); haptic('light'); sound('pop'); }
   else haptic('selection');
@@ -7521,6 +7522,8 @@ function localDayRating(c){
   }
   return null;
 }
+/* a finished daily list folds into one line, so the rest of the day is closer; tapping opens it again */
+const dailyFolded = d => d.tasks.length >= 2 && d.tasks.every(t => t.done) && !S.open.daily_all && S.dailyTouched !== d.date;
 /* progress toward a counter goal from the same message: "ran 5 km" for "Run 100 km", "прочитал книгу" for "Прочитать 12 книг" */
 function localGoalAdd(c, r){
   if ((r.money || []).some(m => c.includes(String(m.note || '\u0000'))) || /(?:потратил|spent|paid|bought|купил|заплатил|получил|got paid|earned)/i.test(c)) return null; // "bought 2 books" is spending

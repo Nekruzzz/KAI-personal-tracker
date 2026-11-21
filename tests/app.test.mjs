@@ -3926,3 +3926,23 @@ test('a date said once carries to the next plan in the message, and "need to stu
   assert.equal(p('надо учиться по 2 часа каждый день').time_log.length, 0);
   assert.deepEqual(p('studied 2 hours').time_log, [{kind: 'study', min: 120}], 'done is still done');
 });
+
+test('"finished the history essay" ticks off that to-do, shown first, with Undo; "started the essay" does not', () => {
+  run(`globalThis.tkT = clone(smartTasks()); saveTasks([{id: 'e1', title: 'History essay', due: addDays(todayISO(), 2), done: false, pri: 2}, {id: 'l1', title: 'Laundry', due: todayISO(), done: false, pri: 2, every: 'week'}, {id: 'b1', title: 'Buy milk', due: null, done: false, pri: 2}]); globalThis.inboxT = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.todo_done || null)`));
+    assert.deepEqual(p('finished the history essay'), ['e1']);
+    assert.deepEqual(p('essay done'), ['e1']);
+    assert.deepEqual(p('bought milk'), ['b1']);
+    assert.equal(p('started the essay'), null);
+    assert.equal(p("didn't finish the essay"), null, 'not done is not done');
+    run(`SH = {}; tellLocal('did the laundry', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).includes('✓ Laundry'));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`smartTasks().find(t => t.id === 'l1').done`), true);
+    assert.ok(run(`smartTasks().some(t => t.title === 'Laundry' && !t.done && t.due > todayISO())`), 'a repeating one gets its next date');
+    run(`A.undoApply()`);
+    assert.equal(run(`smartTasks().find(t => t.id === 'l1').done`), false, 'Undo');
+  } finally { run(`closeSheetQuiet(); saveTasks(tkT); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxT.includes(k)).forEach(k => remove(k))`); }
+});

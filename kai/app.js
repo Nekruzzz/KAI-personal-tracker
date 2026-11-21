@@ -2387,6 +2387,7 @@ function tellLines0(r, date){
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
+  cleanTodoDone(r.todo_done).forEach(t => lines.push('✓ ' + t.title));
   cleanBed(r.bed).forEach(x => { const h = bedSleepH(x); lines.push(trf('Отбой {d}: {t} вместо {o}', {d: fmtShort(x.date), t: hmStr(x.at % 1440), o: hmStr(x.base % 1440)}) + (h != null && h < 7 ? ' · ' + trf('на сон останется {h} ч', {h: num(h, h % 1 ? 1 : 0)}) : '')); });
   cleanWake(r.wake).forEach(x => lines.push(trf('Подъём {d}: {t} вместо {o}', {d: fmtShort(x.date), t: x.at, o: hmStr(x.base)})));
   cleanClassOff(r.class_off).forEach(x => { const t = classesOn(x.date, true).filter(c => x.keys.includes('*') || x.keys.includes(clsKey(c))).map(c => c.title).join(', '); if (t) lines.push(trf('Отмена: {t}, {d}', {t, d: fmtShort(x.date)})); });
@@ -2409,6 +2410,7 @@ A.tellApply = el => {
   cleanClassOff(r.class_off).forEach(x => touched.add('days/' + x.date));
   cleanWake(r.wake).forEach(x => touched.add('days/' + x.date));
   cleanBed(r.bed).forEach(x => touched.add('days/' + x.date));
+  touched.add('days/' + todayISO()); // a to-do ticked off can add study time to today
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
@@ -2426,6 +2428,7 @@ A.tellApply = el => {
   if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
   cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
   goalsAddMany(cleanGoals(r.goals));
+  cleanTodoDone(r.todo_done).forEach(t => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }); // the same as ticking it: a repeating one gets its next date
   cleanClassOff(r.class_off).forEach(x => classOff(x.date, x.keys));
   cleanBed(r.bed).forEach(x => mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.sleep = x.at - x.base; if (!d.shift.sleep) delete d.shift.sleep; }));
   cleanWake(r.wake).forEach(x => { let dropped = []; mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.wake = hm(x.at) - x.base; if (!d.shift.wake) delete d.shift.wake; dropped = reflowDay(x.date, d, 'wake'); }); schedToast(dropped); });
@@ -4891,6 +4894,7 @@ function localTellParse(text, date, opts = {}){
     if (!hit && !future){ const ms = foodPrep(c).split(/\s+(?:with|plus|с|со)\s+/i).map(x => localMeal(x, opts)).filter(Boolean); if (ms.length){ (r.meals = r.meals || []).push(...ms); hit = true; } }
     if (!hit){ const k = localDone(c, date); if (k){ (r[k.key] = r[k.key] || []).push(k.id); hit = true; } }
     // changing or cancelling what is already planned is for the AI: guessing could duplicate or delete
+    if (!hit){ const td = localTodoDone(c); if (td.length){ r.todo_done = [...new Set([...(r.todo_done || []), ...td])]; hit = true; } } // "finished the history essay" ticks off that to-do
     if (!hit && !r.rating){ const rt = localDayRating(c); if (rt){ r.rating = rt; hit = true; } } // "great day", "день был тяжёлый"
     { const ga = localGoalAdd(c, r); if (ga){ (r.goal_add = r.goal_add || []).push(ga); hit = true; } } // "ran 5 km" also counts toward "Run 100 km"
     if (!hit && (LOCAL_SKIP.test(c) || pastStart(c))){ left.push(c); continue; } // "went to bed at 1am" happened; it isn't a to-do
@@ -5995,6 +5999,7 @@ function enrichTell(r, text, date){
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
   if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.todo_done || []).length && !out.todo_done) out.todo_done = lp.todo_done; // the AI's answer has no place for to-dos done
   if ((lp.bed || []).length && !out.bed){ out.bed = lp.bed; out.new_tasks = out.new_tasks.filter(t => !/bed|sleep|лечь|лягу|ложусь|отбой|спать/i.test(t.title || '')); }
   if ((lp.wake || []).length && !out.wake){ out.wake = lp.wake; out.new_tasks = out.new_tasks.filter(t => !/wake|get up|встат|встан|подъ[её]м|просну/i.test(t.title || '')); } // the AI may make the wake-up a to-do
   if ((lp.class_off || []).length && !out.class_off){ out.class_off = lp.class_off; out.new_tasks = out.new_tasks.filter(t => !/(?:^|\s)(?:no|cancel|отмен|не будет)/i.test(t.title || '')); } // "no maths tomorrow" is not a to-do
@@ -7316,6 +7321,17 @@ async function tellPhotoGo(text){
   SH.tellFile = null; SH.tellUrl = '';
   queueNow(id, 'tellOut');
 }
+/* "finished the history essay", "did the laundry", "постирал": an open to-do whose words match, with a word for done (or the verb itself) */
+const TODO_DONE_RE = /(?:^|\s)(?:finished|done|did|completed|submitted|sent|paid|bought|called|cleaned|сделал[аи]?|сделано|дописал[аи]?|закончил[аи]?|готово|готов[аы]?|выполнил[аи]?|сдал[аи]?|отправил[аи]?|оплатил[аи]?|купил[аи]?|позвонил[аи]?|убрал(?:ся|ась|и)?|постирал[аи]?|помыл[аи]?|написал[аи]?|забрал[аи]?|вернул[аи]?|заказал[аи]?)(?![a-zа-яё])/i;
+function localTodoDone(c){
+  if (!TODO_DONE_RE.test(c) || /(?:^|\s)(?:not|didn.?t|haven.?t|не)(?:\s|$)/i.test(c) || PLAN_CUE_RE.test(c)) return [];
+  const ws = wordsOf(c); if (!ws.length) return [];
+  const open = smartTasks().filter(t => !t.done && t.due && t.due <= addDays(todayISO(), 7) || (!t.done && !t.due));
+  const score = t => wordsOf(t.title).filter(a => ws.some(b => sameWord(a, b))).length;
+  const best = open.map(t => ({t, n: score(t), all: wordsOf(t.title).length})).filter(x => x.n && (x.n >= 2 || x.all <= 2)).sort((a, b) => b.n - a.n);
+  return best.length && (best.length === 1 || best[0].n > best[1].n) ? [best[0].t.id] : []; // only when one to-do clearly fits
+}
+const cleanTodoDone = list => (Array.isArray(list) ? list : []).map(id => smartTasks().find(t => t.id === id && !t.done)).filter(Boolean).slice(0, 5);
 const PLAN_CUE_RE = /(?:^|\s)(?:need to|have to|going to|plan to|want to|will|should|gonna|надо|нужно|хочу|планирую|буду|собираюсь|должен|должна)(?![a-zа-яё])|every day|каждый день/i;
 // a date said in words: today, tomorrow, a weekday, "20 December", "the 15th", "the weekend"
 const hasDateWord = x => /(?:^|\s)(?:today|tomorrow|tonight|yesterday|сегодня|завтра|послезавтра|вчера|позавчера)(?![a-zа-яё])/i.test(x) || WD_RU.some(([re]) => new RegExp('(?:^|\\s)' + re + '(?![a-zа-яё])', 'i').test(x)) || MONTH_DATE.test(' ' + x + ' ') || DOM_RE.test(' ' + x + ' ') || SOFT_DATE_RE.test(' ' + x + ' ') || /\d{4}-\d\d-\d\d/.test(x);

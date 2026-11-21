@@ -4030,3 +4030,10 @@ test('coursework with a date is a deadline: "эссе в пятницу", "proje
   assert.deepEqual(p('доклад в четверг в 10'), [['Доклад', 'event']]);
   assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('write the essay on Friday', todayISO()).r)`)).new_tasks.length, 1, 'a to-do verb keeps it a to-do');
 });
+
+test('voice-style run-on messages: "then" and "потом" separate the things said', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  assert.deepEqual(p('slept 7 hours then studied 2 hours then walked 30 minutes').time_log, [{kind: 'study', min: 120}, {kind: 'walk', min: 30}]);
+  assert.deepEqual(p('потратил 500 на обед потом купил зарядку за 1500').money.map(m => m.amount), [500, 1500], 'two amounts, not one 1500 for lunch');
+  assert.deepEqual(p('I spent 12 on lunch I also bought a charger for 20').money.map(m => m.note), ['lunch', 'a charger']);
+});

@@ -4826,10 +4826,12 @@ function localMoney(c){
   c = c.replace(/^\s*(?:вчера|позавчера|сегодня|yesterday|today)[,\s]+/i, '').replace(/[,\s]+(?:вчера|позавчера|сегодня|yesterday|today)\s*$/i, ''); // "вчера продукты 1200", "spent 40 on groceries yesterday"
   // "netflix 11 every month": the entry, offered as a regular payment too
   const every = MONTHLY_RE.test(c); if (every) c = c.replace(MONTHLY_RE, ' ').replace(/\s+/g, ' ').trim();
+  c = c.replace(/(\d+(?:[.,]\d+)?)(?:k|к)(?![a-zа-яё])|(\d+(?:[.,]\d+)?)\s*(?:тыс\.?|тысяч[аи]?)(?![a-zа-яё])/gi, (m0, a, b) => String(Math.round(toN(a || b) * 1000))); // "1,5к", "2k", "50 тыс"
   const out = x => every ? {...x, rep: true} : x;
   const cat = () => (MONEY_CAT.find(([re]) => re.test(c)) || [0, 'Другое'])[1];
   // income first: "got paid" also contains "paid"
-  let m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод)|заработал[аи]?|зарплат[а-яё]*|аванс|earned|got paid|salary|income)\\D{0,12}?' + AMT, 'i'));
+  let m = c.match(new RegExp('(?:получил[аи]? (?:зарплат[а-яё]*|деньги|аванс|перевод|зп)|заработал[аи]?|зарплат[а-яё]*|(?:^|\\s)(?:зп|з/п)(?![а-яё])|аванс|earned|got paid|salary|income)\\D{0,12}?' + AMT, 'i'))
+    || c.match(new RegExp('(?:got|получил[аи]?)\\s+' + AMT + '\\s+(?:salary|зарплат[а-яё]*|зп)', 'i')); // "got 2k salary"
   if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return out({type: 'in', amount, cat: 'Доход', note: c}); }
   m = c.match(new RegExp('(stipend|scholarship|стипенди[яюи]|refund(?:ed)?|вернули|возврат[а-яё]*|sold|продал[аи]?)(\\D{0,30}?)' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|%|km|км))', 'i'));
   if (m){ const amount = amountOf(m[3], m[4]), note = (m[1] + m[2].replace(/\s*(?:for|за|of|:)\s*$/i, '') + ' ' + c.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(); if (amount > 0) return out({type: 'in', amount, cat: /stipend|scholarship|стипенди/i.test(m[1]) ? 'Доход' : 'Другое', note}); } // "stipend 300", "refund 20 from amazon", "продал велик за 5000"
@@ -4842,6 +4844,9 @@ function localMoney(c){
   m = c.replace(/^(?:had|drank|got|ate|took|выпил[аи]?|съел[аи]?|взял[аи]?)\s+(?:a\s+|an\s+|the\s+)?/i, '').match(new RegExp('^((?:' + SPEND_WORDS + ')(?![a-zа-яё])(?:\\s+[^\\s\\d$€£₽]+){0,3}?)\\s*(?:was|cost|costs|стоил[аио]?|:|—|-)?\\s*(?:for\\s+|за\\s+)?' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|kcal|ккал|%|km|км))\\s*$', 'i'));
   if (m && (/(?:^|\s)(?:в|во|к|at|by)$/i.test(m[1].trim()) || /(?:^|\s)(?:завтра|послезавтра|tomorrow|tonight)(?![a-zа-яё])/i.test(m[1]))) m = null; // "обед завтра в 1" is a time, not 1 spent on lunch
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[1]}); } // "gift for mom 30", "lunch for 12", "билет на поезд 1200"
+  // "скинул маме 1000", "sent mom 50": money sent to someone
+  m = c.match(new RegExp('^(?:скинул[аи]?|перевел[аи]?|перевёл|перевела|отправил[аи]?|sent|transferred)\\s+([a-zа-яё]+)\\s+' + AMT + '$', 'i'));
+  if (m && !/^(?:мне|me)$/i.test(m[1])){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: 'Переводы', note: m[1]}); }
   // "$5 coffee", "300р такси": the amount first, but only with a currency, so "2 pizzas" stays food
   m = c.match(new RegExp('^(' + AMT + ')\\s+((?:' + SPEND_WORDS + ')(?![a-zа-яё]).{0,30})$', 'i'));
   if (m && /[$€£₽]|р\.?$|руб|dollars?|bucks|euros?|usd|eur/i.test(m[1].trim())){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: m[4].trim()}); }

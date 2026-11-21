@@ -4079,3 +4079,14 @@ test('"starting to study" starts the Study timer after confirming; "done studyin
     assert.deepEqual(p('done studying'), {stop: true});
   } finally { run(`closeSheetQuiet(); TRACK = trT; trackSave(); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxT2.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('money shorthand: "1,5к", "2k", "зп 50к", "скинул маме 1000"', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.money || [])`)).map(m => [m.type, m.amount, m.cat]);
+  assert.deepEqual(p('потратил 1,5к на продукты'), [['out', 1500, 'Супермаркеты']]);
+  assert.deepEqual(p('spent 1.5k on rent').map(x => x[1]), [1500]);
+  assert.deepEqual(p('получил зп 50к'), [['in', 50000, 'Доход']]);
+  assert.deepEqual(p('got 2k salary').map(x => [x[0], x[1]]), [['in', 2000]]);
+  assert.deepEqual(p('скинул маме 1000'), [['out', 1000, 'Переводы']]);
+  assert.deepEqual(p('мама скинула 2000').map(x => x[0]), ['in'], 'from mom is still money in');
+  assert.equal(p('эссе к среде').length, 0, '"к" before a weekday is not a thousand');
+});

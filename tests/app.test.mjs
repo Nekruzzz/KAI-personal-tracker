@@ -3560,7 +3560,8 @@ test('Health → Body offers a health-app screenshot only when an AI can read pi
 test('a class can be edited: name, day and hours change in place, with Undo', () => {
   run(`globalThis.plC = clone(plan()); { const pl = clone(plan()); pl.classes = [{day: 1, time: '09:00', end: '10:30', title: 'Maths'}, {day: 2, time: '10:00', title: 'English'}]; save('app/plan', pl); } S.tab = 'more'; S.open.acc_classes = true`);
   try {
-    assert.match(run(`viewMore()`), /data-act="clsEdit" data-i="0"[^>]*aria-label="Edit Maths"/);
+    assert.match(run(`viewMore()`), /data-act="clsEdit" data-i="0"[^>]*aria-label="Edit Maths, Monday"/);
+    assert.match(run(`viewMore()`), /class="hint cls-day">Monday<.*class="hint cls-day">Tuesday</s, 'grouped by day');
     run(`A.clsEdit({dataset: {i: '0'}})`);
     const body = run(`SH.body()`);
     assert.match(body, /id="ceN"[^>]*value="Maths"/); assert.match(body, /value="1" selected/); assert.match(body, /id="ceE"[^>]*value="10:30"/);

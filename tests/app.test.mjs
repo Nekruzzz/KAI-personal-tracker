@@ -3982,3 +3982,15 @@ test('the sleep left after a late bedtime counts a wake-up moved in the same mes
   const line = JSON.parse(run(`JSON.stringify(tellLines(${JSON.stringify(JSON.stringify(r))} && JSON.parse(${JSON.stringify(JSON.stringify(r))}), todayISO()))`)).find(l => /^Bedtime/.test(l));
   assert.match(line, /6 h of sleep left/, line);
 });
+
+test('"what do I have tomorrow?" and "when is my next class?" are answered from the schedule; food and money questions stay theirs', () => {
+  run(`globalThis.plQ = clone(plan()); globalThis.tkQ = clone(smartTasks()); { const tm = addDays(todayISO(), 1); const pl = clone(plan()); pl.classes = [{day: dow(tm), time: '09:00', end: '10:30', title: 'Maths'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); saveTasks([{id: 'q1', title: 'Buy pens', due: tm, done: false, pri: 2}]); }`);
+  try {
+    const a = run(`localAnswer('what do I have tomorrow?')`);
+    assert.match(a, /^Tomorrow:\n09:00–10:30 · Maths\nBuy pens/);
+    assert.match(run(`localAnswer('when is my next class?')`), /^Next class: Maths, tomorrow at 09:00/);
+    assert.match(run(`localAnswer('что у меня завтра?')`), /Maths/);
+    assert.doesNotMatch(String(run(`localAnswer('what did I eat today?')`)), /nothing planned|Maths/, 'a food question stays a food question');
+    assert.doesNotMatch(String(run(`localAnswer('how much did I spend this week?')`)), /Maths|Workout/);
+  } finally { run(`save('app/plan', plQ); saveTasks(tkQ)`); }
+});

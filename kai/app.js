@@ -5078,7 +5078,7 @@ const TELL_HELP = [
   [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку'), tr('Эссе до пятницы'), tr('Выносить мусор по понедельникам')]],
   [tr('Цели'), [tr('Цель: 100 часов учёбы до 20 декабря'), tr('Цель: прочитать 12 книг до конца года')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4'), tr('Вчера гулял час')]],
-  [tr('Вопросы'), [tr('Сколько я потратил на этой неделе?'), tr('Сколько осталось денег?'), tr('Когда следующий экзамен?')]],
+  [tr('Вопросы'), [tr('Что у меня завтра?'), tr('Когда следующая пара?'), tr('Сколько я потратил на этой неделе?'), tr('Сколько осталось денег?'), tr('Когда следующий экзамен?')]],
 ];
 const TELL_HELP_AI = [tr('Перенеси тренировку с пятницы на субботу'), tr('Стоматолога отменили'), tr('На обед суп и салат')];
 function tellHelpHTML(){
@@ -6947,7 +6947,8 @@ function localAnswer(text){
     const n = dayDiff(todayISO(), e.date);
     return trf('Ближайшее: «{t}», {d}{h} — {w}.', {t: e.title, d: fmtShort(e.date), h: e.from ? tr(' в ') + e.from : '', w: n === 0 ? tr('сегодня') : n === 1 ? tr('завтра') : trf('через {n} {u}', {n, u: plural(n, tr('день'), tr('дня'), tr('дней'))})});
   }
-  return null;
+  return scheduleAnswer(t); // "what do I have tomorrow?", "когда следующая пара?": after the other questions, so "what did I eat today?" stays a food question
+
 }
 const answerCard = a => `<section class="card" role="status" style="display:flex;flex-direction:column;gap:8px"><div class="ai-out">${esc(a)}</div><div class="hint">${tr('Посчитано на телефоне по твоим записям.')}</div></section>`;
 
@@ -7606,6 +7607,25 @@ function localDayRating(c){
 }
 /* a finished daily list folds into one line, so the rest of the day is closer; tapping opens it again */
 const dailyFolded = d => d.tasks.length >= 2 && d.tasks.every(t => t.done) && !S.open.daily_all && S.dailyTouched !== d.date;
+/* ---- questions about the schedule, answered from it ---- */
+function scheduleAnswer(t){
+  const today = todayISO(), label = k => k === today ? tr('Сегодня') : k === addDays(today, 1) ? tr('Завтра') : fmtDay(k);
+  const line = x => (x.s ? x.s + ' · ' : '') + x.t;
+  if (/(?:next|следующ[а-яё]*)\s+(?:class|lesson|lecture|пар[аыу]|заняти[ея]|лекци[яи])/i.test(t)){
+    const now = nowMin();
+    for (let i = 0; i <= 7; i++){ const k = addDays(today, i), c = classesOn(k).find(x => i > 0 || hm(x.time) > now); if (c) return trf('Следующая пара: {t}, {d} в {h}', {t: c.title, d: label(k).toLowerCase(), h: c.time}); }
+    return (plan().classes || []).length ? tr('На ближайшую неделю пар нет.') : tr('В расписании пока нет пар. Добавь их: Ещё → Расписание пар, или напиши KAI «лекция по физике каждую среду в 10».');
+  }
+  if (!/(?:what|which|что|какие|какой|какая|anything|есть ли|plans?|план[а-яё]*|schedule|расписани[а-яё]*|have|у меня|classes|пар[аыу]?(?![а-яё])|дела)/i.test(t)) return null;
+  if (/(?:this|next)\s+week|(?:на\s+)?(?:этой|следующей)\s+неделе|на неделю/i.test(t)){
+    const days = weekAheadDays(/next|следующ/i.test(t) ? addDays(today, 8 - dow(today)) : today).filter(d => d.items.length);
+    return days.length ? days.slice(0, 7).map(d => label(d.date) + ': ' + d.items.slice(0, 4).map(x => x.t).join(', ') + (d.items.length > 4 ? '…' : '')).join('\n') : tr('На неделю ничего не запланировано.');
+  }
+  const day = /(?:^|\s)(?:today|сегодня)(?![a-zа-яё])/i.test(t) ? today : hasDateWord(t) ? (parseQuick('x ' + t.replace(/\?/g, ''))?.due || null) : null;
+  if (!day || day < today) return null;
+  const items = weekAheadDays(day)[0].items;
+  return items.length ? label(day) + ':\n' + items.map(line).join('\n') : trf('{d} ничего не запланировано.', {d: label(day)});
+}
 /* progress toward a counter goal from the same message: "ran 5 km" for "Run 100 km", "прочитал книгу" for "Прочитать 12 книг" */
 function localGoalAdd(c, r){
   if ((r.money || []).some(m => c.includes(String(m.note || '\u0000'))) || /(?:потратил|spent|paid|bought|купил|заплатил|получил|got paid|earned)/i.test(c)) return null; // "bought 2 books" is spending

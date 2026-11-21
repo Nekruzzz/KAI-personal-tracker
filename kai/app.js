@@ -7747,7 +7747,7 @@ function ovFix(a, b){
 A.warnEv = el => { A.evSheet(); A.evEdit(el); };
 A.warnTask = el => {
   S.open['tk_' + el.dataset.id] = true; render();
-  setTimeout(() => $(`[data-act=tkOpen][data-id="${CSS.escape(el.dataset.id)}"]`)?.scrollIntoView({block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth'}), 60);
+  setTimeout(() => $(`[data-act=tkOpen][data-id="${String(el.dataset.id).replace(/["\\]/g, '\\$&')}"]`)?.scrollIntoView({block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth'}), 60);
 };
 A.warnCls = () => { A.profile(); S.open.acc_classes = true; render(); };
 

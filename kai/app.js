@@ -7408,7 +7408,9 @@ function goalsCard(){
       <div class="bar" role="progressbar" aria-label="${esc(g.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}"><i style="width:${p}%;background:var(--${done ? 'good' : 'accent'})"></i></div>
       <div class="sv-f"><span class="hint">${done ? tr('Цель достигнута') : pace ? esc(pace) : p + '%'}</span><span style="display:flex;gap:8px;align-items:center">${g.kind === 'count' && !done ? `<button class="btn ghost sm" data-act="goalPlus" data-id="${esc(g.id)}" aria-label="${esc(trf('Плюс один: {t}', {t: g.title}))}">${ic('plus')}1</button>` : ''}<button class="link" data-act="goalEdit" data-id="${esc(g.id)}" aria-label="${esc(trf('Изменить цель: {t}', {t: g.title}))}">${tr('Изменить')}</button></span></div></div>`;
   };
-  return `<div class="sec-h"><h2>${tr('Цели')}</h2><button class="link" data-act="goalNew">${tr('+ Цель')}</button></div><section class="card svs">${list.map(row).join('')}</section>`;
+  // open goals first, the nearest deadline on top; reached ones at the bottom
+  const isDone = g => !!g.doneAt || goalValue(g) >= g.target, order = list.map((g, i) => ({g, i, d: isDone(g)})).sort((a, b) => a.d - b.d || (a.g.due || '9999').localeCompare(b.g.due || '9999') || a.i - b.i).map(x => x.g);
+  return `<div class="sec-h"><h2>${tr('Цели')}</h2><button class="link" data-act="goalNew">${tr('+ Цель')}</button></div><section class="card svs">${order.map(row).join('')}</section>`;
 }
 function goalSheetBody(){
   if (!SH.g){ SH.g = GOAL_INIT.g; SH.gEdit = GOAL_INIT.edit; }

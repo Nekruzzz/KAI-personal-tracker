@@ -3828,3 +3828,15 @@ test('"great day" or "день был тяжёлый" rates the day on the phone
   assert.equal(r('rate the day 4'), 4, 'a number still wins');
   assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('great day, I want to die', todayISO()).r)`)).care, 'crisis', 'the support check comes first');
 });
+
+test('goals on Day: open ones first with the nearest deadline on top, reached ones last', () => {
+  run(`globalThis.gO = clone(goalsDoc()); save('app/goals', {list: [
+    {id: 'a', kind: 'count', title: 'Done one', target: 2, unit: 'x', count: 2, start: todayISO(), doneAt: todayISO()},
+    {id: 'b', kind: 'count', title: 'No deadline', target: 5, unit: 'x', count: 0, start: todayISO()},
+    {id: 'c', kind: 'count', title: 'Soon', target: 5, unit: 'x', count: 0, start: todayISO(), due: addDays(todayISO(), 5)},
+    {id: 'd', kind: 'count', title: 'Later', target: 5, unit: 'x', count: 0, start: todayISO(), due: addDays(todayISO(), 50)}]})`);
+  try {
+    const h = run(`goalsCard()`), at = t => h.indexOf(t);
+    assert.ok(at('Soon') < at('Later') && at('Later') < at('No deadline') && at('No deadline') < at('Done one'), h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
+  } finally { run(`save('app/goals', gO)`); }
+});

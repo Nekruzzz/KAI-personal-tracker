@@ -387,7 +387,7 @@ function buildDay(date){
   const tasks = [];
   const w = workoutFor(date);
   if (w && pl.workouts[w]) tasks.push({id:'gym', title:gymWord()+pl.workouts[w].name.split(' · ')[0], cat:'gym', done:false});
-  const cls = (pl.classes||[]).filter(c=>Number(c.day)===dow(date));
+  const cls = classesOn(date); // without the ones cancelled for this day
   if (cls.length) tasks.push({id:'study', title:tr('Учёба · ')+cls.length+' '+plural(cls.length,tr('пара'),tr('пары'),tr('пар')), cat:'study', done:false});
   const ps = (memo('postsByDate', () => { const m = {}; posts().forEach(p => { if (p.status !== 'Опубликовано') (m[p.date] = m[p.date] || []).push(p); }); return m; })[date] || []);
   if (ps.length && modOn('content')) tasks.push({id:'content', title:tr('Контент · ')+ps.length+' '+plural(ps.length,tr('ролик'),tr('ролика'),tr('роликов')), cat:'content', done:false});
@@ -1344,7 +1344,7 @@ function taskSub(t, d){
   const pl = plan(), tg = targets();
   if (t.cat==='gym'){ const w = pl.workouts[workoutFor(d.date)]; return w ? w.ex.length+tr(' упражнений · ')+w.ex.slice(0,2).map(e=>exShort(e.name)).join(', ')+'…' : ''; }
   if (t.cat==='food'){ const e = eaten(d); return tg.ok ? `${num(e.kcal)} / ${num(tg.kcal)} ${tr("ккал · белок")} ${num(e.p)} / ${tg.p} ${tr("г")}` : tr('заполни профиль для нормы'); }
-  if (t.cat==='study'){ const c = (pl.classes||[]).filter(c=>Number(c.day)===dow(d.date)).sort((a,b)=>a.time.localeCompare(b.time)); return c.map(x=>x.time).join(', '); }
+  if (t.cat==='study'){ return classesOn(d.date).map(x=>x.time).join(', '); }
   if (t.cat==='content'){ const ps = posts().filter(p=>p.date===d.date); return ps.map(p=>p.title).join(' · '); }
   if (t.cat==='supps'){ const n = (pl.supps||[]).length, k = Object.values(d.supps||{}).filter(Boolean).length; return `${k} ${tr("из")} ${n}`; }
   if (t.cat==='steps') return d.steps ? num(d.steps)+tr(' шагов') : '';
@@ -2386,6 +2386,7 @@ function tellLines0(r, date){
   if (r.screen_min > 0) lines.push(trf('Экранное время: {t}', {t: fmtMin(r.screen_min)}));
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
+  cleanClassOff(r.class_off).forEach(x => { const t = classesOn(x.date, true).filter(c => x.keys.includes('*') || x.keys.includes(clsKey(c))).map(c => c.title).join(', '); if (t) lines.push(trf('Отмена: {t}, {d}', {t, d: fmtShort(x.date)})); });
   cleanGoals(r.goals).forEach(g => lines.push(g.due ? trf('+ цель: {t}, до {d}', {t: g.title, d: fmtShort(g.due)}) : trf('+ цель: {t}', {t: g.title})));
   (r.debts || []).forEach(x => lines.push(debtLine(x)));
   (r.savings || []).forEach(x => { const g = savings().find(y => y.id === x.id); if (g) lines.push(trf('В копилку «{t}»: +{s}', {t: g.title, s: money(x.amount)})); });
@@ -2402,6 +2403,7 @@ A.tellApply = el => {
   // everything this answer can change, kept so one tap can undo it
   const touched = new Set(['days/' + date, 'app/plan', 'app/tasks', 'inbox/' + it.id, 'money/' + date.slice(0, 7), 'app/bills', 'app/debts', 'app/savings', 'app/goals']);
   (r.move_workouts || []).forEach(m => { if (DATE_RE.test(m?.from || '')) touched.add('days/' + m.from); if (DATE_RE.test(m?.to || '')) touched.add('days/' + m.to); });
+  cleanClassOff(r.class_off).forEach(x => touched.add('days/' + x.date));
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
@@ -2419,6 +2421,7 @@ A.tellApply = el => {
   if ((r.savings || []).length && modOn('money')) savingsAddMany(r.savings, date);
   cleanTrack(r.track).forEach(x => trackAdd(date, x.a, x.min, ''));
   goalsAddMany(cleanGoals(r.goals));
+  cleanClassOff(r.class_off).forEach(x => classOff(x.date, x.keys));
   { const adds = cleanGoalAdds(r.goal_add); if (adds.length){ const doc = goalsDoc(); save('app/goals', {...doc, list: (doc.list || []).map(g => { const n = adds.filter(x => x.g.id === g.id).reduce((a, x) => a + x.n, 0); return n ? {...g, count: Math.round(((+g.count || 0) + n) * 100) / 100} : g; })}); } }
   if ((r.exam_results || []).length){ const pl = clone(plan()); r.exam_results.forEach(x => { const e = pl.routine?.events?.find(y => y.id === x.id); if (e) e.result = {passed: !!x.passed, grade: x.grade ? String(x.grade).slice(0, 12) : null, at: todayISO()}; }); save('app/plan', pl); }
   if ((r.money||[]).length) addTx(r.money.map(m=>billRep(m, {id:uid(), date, type:m.type==='in'?'in':'out', amount:Math.abs(+m.amount||0), cat:m.cat, note:m.note||m.cat})));
@@ -3015,8 +3018,9 @@ function dayBlocks(date){
     bl = bl.map(b => {
       if (b.id === 'class'){
         if (R.classesStart && date < R.classesStart) return {...b, title:tr('Свободно · занятия ещё не начались'), kind:'free', note:''};
-        const cls = (pl.classes || []).filter(c => Number(c.day) === n).sort((a, b2) => a.time.localeCompare(b2.time));
-        return cls.length ? {...b, note: cls.map(c => c.time + ' ' + c.title).join(' · ')} : b;
+        const all = classesOn(date, true), cls = all.filter(c => !c.off), off = all.filter(c => c.off);
+        if (off.length && !cls.length) return {...b, title: tr('Свободно · пары отменены'), kind: 'free', note: off.map(c => c.title).join(' · ')};
+        return cls.length ? {...b, note: cls.map(c => c.time + ' ' + c.title).join(' · ') + (off.length ? ' · ' + trf('отменено: {t}', {t: off.map(c => c.title).join(', ')}) : '')} : b;
       }
       if (b.id === 'gym'){
         if (gymW) return {...b, title:gymWord() + gymW.name.split(' · ')[0], gym:true, note: gymW.ex.length + tr(' упражнений. Усилие 6 из 10.')};
@@ -3297,7 +3301,7 @@ function viewMore(){
   h += isNative() ? acc('remind', 'bell', tr('Напоминания'), m.remindAsked ? tr('Включены') : tr('Не настроены'), `<button class="btn" data-act="notifSheet">${ic('bell')}${tr('Настроить напоминания')}</button>`) + healthRow() : acc('remind', 'bell', tr('Напоминания'), m.icsAt ? tr('Календарь iPhone настроен') : tr('Не настроены'), `<div class="hint">${tr("Календарь iPhone напомнит о тренировке, еде и сне, даже когда приложение закрыто.")}</div><button class="btn" data-act="ics">${ic('day')}${tr("Настроить напоминания в Календарь")}</button>`);
   if (cls.length || (p.role || 'study') === 'study') h += acc('classes', 'cap', tr('Расписание пар'), cls.length ? cls.length + ' ' + plural(cls.length, tr('пара'), tr('пары'), tr('пар')) : tr('Пока пусто. Впиши, когда придёт расписание'), `<div class="list">${cls.map(c => `<div class="row"><button class="mid" data-act="clsEdit" data-i="${c.i}" style="text-align:left" aria-label="${tr('Изменить')} ${esc(c.title)}"><div class="t">${esc(c.title)}</div><div class="s">${DOW[c.day]} · ${esc(c.time)}${c.end ? '–' + esc(c.end) : ''}</div></button><button class="iconbtn" data-act="clsDel2" data-i="${c.i}" aria-label="${tr("Удалить")} ${esc(c.title)}" style="color:var(--text-3)">${ic('trash')}</button></div>`).join('')}</div>
     <div class="fgrid" style="grid-template-columns:1fr 1fr;gap:8px"><select class="in" id="clD" style="grid-column:1/-1" aria-label="${tr("День")}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<option value="${n}">${DOW[n]}</option>`).join('')}</select><div class="field" style="min-width:0"><label for="clT">${tr("Начало")}</label><input class="in" id="clT" type="time" value="09:00"></div><div class="field" style="min-width:0"><label for="clE">${tr("Конец")}</label><input class="in" id="clE" type="time"></div><input class="in" id="clN" style="grid-column:1/-1" placeholder="${tr("Предмет, ауд.")}" aria-label="${tr("Предмет")}"></div>
-    <div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}${ttPhotoPick()}</div>`);
+    ${classOffList()}<div class="btnrow"><button class="btn" data-act="clsAdd2">${ic('plus')}${tr("Добавить пару")}</button>${icsPick()}${ttPhotoPick()}</div>`);
   h += acc('ai', 'spark', tr('ИИ'), st.ok || ownKeysAllowed() ? esc(st.text) : cloudOn() ? tr('Войди в аккаунт') : tr('Пока не включён'), `<div class="hint">${tr("Разбирает сообщения, фото еды и скриншоты.")}</div><div class="btnrow">${ownKeysAllowed() ? `<button class="btn" data-act="aiConnect">${ic('spark')}${st.ok ? tr('Сменить или добавить') : tr('Подключить')}</button>` : cloudOn() && !signedIn() ? `<button class="btn" data-act="accountSheet">${tr('Войти')}</button>` : ''}<button class="btn ghost" data-act="aiSettingsOpen">${tr("Все настройки ИИ")}</button></div>`);
   h += acc('modules', 'sliders', tr('Модули'), MODULES.filter(x => !modOn(x[0])).length ? tr('Выключено: ') + MODULES.filter(x => !modOn(x[0])).map(x => x[1]).join(', ') : tr('Всё включено'), modulesRows() + `<div class="hint">${tr("Выключенный модуль прячется, но его данные не удаляются.")}</div>` + (modOn('content') ? `<div class="field"><label for="pfWT">${tr("Цель роликов в неделю")}</label><input class="in" id="pfWT" inputmode="numeric" data-ch="wt" value="${content().weeklyTarget || 4}"></div>` : ''));
   h += `<button class="card navrow" data-act="kb"><span class="ic">${ic('book')}</span><div class="mid"><div class="t">${tr("База знаний")}</div><div class="s">${tr("Твои статьи и заметки, ответы ИИ по ним")}</div></div>${ic('chevR')}</button>`;
@@ -3829,7 +3833,7 @@ const evEnd = e => { const s = hm(e.from); let n = e.until ? hm(e.until) : s + 6
 function timedOn(date){
   const out = [], R = plan().routine;
   eventsFor(date).filter(e => e.from).forEach(e => out.push({k:'ev', id:e.id, title:e.title, s:hm(e.from), e:evEnd(e)}));
-  if (!(R?.classesStart && date < R.classesStart)) (plan().classes || []).filter(c => Number(c.day) === dow(date)).forEach((c, i) => out.push({k:'cls', id:'c' + i + '_' + c.time, title:c.title, s:hm(c.time), e:c.end ? hm(c.end) : hm(c.time) + 90}));
+  classesOn(date).forEach(c => out.push({k:'cls', id:'c' + c.i + '_' + c.time, title:c.title, s:hm(c.time), e:c.end ? hm(c.end) : hm(c.time) + 90}));
   smartTasks().filter(t => !t.done && t.due === date && t.time).forEach(t => out.push({k:'task', id:t.id, title:t.title, s:hm(t.time), e:hm(t.time) + 1}));
   return out;
 }
@@ -4844,6 +4848,7 @@ function localTellParse(text, date, opts = {}){
   const parts = rest.replace(/(\d)\s*(?:k|к|тыс\.?)\s+(steps|шаг)/ig, '$1000 $2').split(/[;\n]+|\.\s+|,\s+|\s+(?:и|а ещё|а также|and|also|but|though|но|однако)\s+/i).map(x => x.trim().replace(/^(?:and|also|but|though|а|и|ещё|но|однако)\s+/i, '')).filter(x => x && !/^(?:i\s+|я\s+)?(?:did|done|made|сделал[аи]?|выполнил[аи]?)$/i.test(x))
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   for (const c0 of parts){
+    { const co = localClassOff(c0, date); if (co){ (r.class_off = r.class_off || []).push(co); continue; } } // "no maths tomorrow", "пары по физике в среду не будет"
     { const g = localGoal(c0, date); if (g){ (r.goals = r.goals || []).push(g); continue; } } // "goal: 100 hours of study by 20 December"
     const c = activityRange(c0); // "did homework from 6 to 8" is two hours of study
     let m, hit = false;
@@ -5969,6 +5974,7 @@ function enrichTell(r, text, date){
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
   if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.class_off || []).length && !out.class_off){ out.class_off = lp.class_off; out.new_tasks = out.new_tasks.filter(t => !/(?:^|\s)(?:no|cancel|отмен|не будет)/i.test(t.title || '')); } // "no maths tomorrow" is not a to-do
   if ((lp.classes || []).length && !(out.classes || []).length){ // a weekly class read on the phone; the AI may have made it a repeating to-do
     out.classes = lp.classes;
     out.new_tasks = out.new_tasks.filter(t => !(t.every && lp.classes.some(c => wordsOf(c.title).some(w => wordsOf(t.title || '').some(v => sameWord(w, v))))));
@@ -6175,6 +6181,7 @@ function weekAheadDays(today = todayISO()){
     const date = addDays(today, i), items = [];
     // each class by name, and everything with a time in the order it happens
     timedOn(date).filter(x => x.k === 'cls').forEach(c => items.push({ic: 'cap', t: c.title, s: hmStr(c.s) + '–' + hmStr(c.e), at: c.s}));
+    classesOn(date, true).filter(c => c.off).forEach(c => items.push({ic: 'cap', t: c.title, s: hmStr(hm(c.time)) + ' · ' + tr('отменена'), at: hm(c.time)}));
     const gym = workoutFor(date) && dayBlocks(date).find(b => b.gym); if (gym) items.push({ic: 'gym', t: tr('Тренировка'), s: hmStr(gym.s), at: gym.s});
     eventsFor(date).forEach(e => items.push({ic: e.kind === 'exam' ? 'alert' : e.kind === 'deadline' ? 'list' : 'day', t: e.title, s: [EV_KIND[e.kind]?.[0], e.from].filter(Boolean).join(' · '), warn: e.kind === 'exam' || e.kind === 'deadline', at: e.from ? hm(e.from) : null}));
     smartTasks().filter(t => !t.done && t.due === date && !studyOver(t)).forEach(t => items.push({ic: t.time ? 'bell' : 'checkc', t: t.title, s: [t.time, everyText(t)].filter(Boolean).join(' · '), at: t.time ? hm(t.time) : null}));
@@ -7283,6 +7290,40 @@ async function tellPhotoGo(text){
   SH.tellFile = null; SH.tellUrl = '';
   queueNow(id, 'tellOut');
 }
+/* ---- one class off on one day: kept on that day as days/<date>.clsOff, keys "time|title" or "*" for all; the timetable itself is unchanged ---- */
+const clsKey = c => c.time + '|' + String(c.title).trim().toLowerCase();
+function classesOn(date, withOff, off0){
+  const R = plan().routine; if (R?.classesStart && date < R.classesStart) return [];
+  const off = off0 || S.docs['days/' + date]?.clsOff || [];
+  return (plan().classes || []).filter(c => Number(c.day) === dow(date)).map((c, i) => ({...c, i, off: off.includes('*') || off.includes(clsKey(c))}))
+    .filter(c => withOff || !c.off).sort((a, b) => a.time.localeCompare(b.time));
+}
+function classOff(date, keys){
+  mutDay(date, d => {
+    d.clsOff = [...new Set([...(d.clsOff || []), ...keys])];
+    const left = classesOn(date, false, d.clsOff).length, st = d.tasks.find(t => t.id === 'study');
+    if (st && !st.done){ if (left) st.title = tr('Учёба · ') + left + ' ' + plural(left, tr('пара'), tr('пары'), tr('пар')); else d.tasks = d.tasks.filter(t => t.id !== 'study'); } // a day without classes doesn't ask for them
+  });
+}
+A.classBack = el => withUndo(['days/' + el.dataset.d], () => mutDay(el.dataset.d, d => { d.clsOff = (d.clsOff || []).filter(k => k !== el.dataset.k && k !== '*'); const n = classesOn(el.dataset.d, false, d.clsOff).length; if (n && !d.tasks.some(t => t.id === 'study')) d.tasks.unshift({id: 'study', title: tr('Учёба · ') + n + ' ' + plural(n, tr('пара'), tr('пары'), tr('пар')), cat: 'study', done: false}); }), tr('Пара вернулась в расписание'));
+/* cancelled classes in the next two weeks, each with a way back */
+function classOffList(){
+  const t = todayISO(), rows = [];
+  for (let i = 0; i <= 14; i++){ const k = addDays(t, i); if (!(S.docs['days/' + k]?.clsOff || []).length) continue; classesOn(k, true).filter(c => c.off).forEach(c => rows.push(`<div class="row"><div class="mid"><div class="t">${esc(c.title)}</div><div class="s">${trf('Отменена: {d}', {d: fmtShort(k)})} · ${esc(c.time)}</div></div><button class="link" data-act="classBack" data-d="${k}" data-k="${esc(clsKey(c))}">${tr('Вернуть')}</button></div>`)); }
+  return rows.length ? `<div class="list">${rows.join('')}</div>` : '';
+}
+const CLASS_OFF_RE = /(?:^|\s)(?:no|cancel(?:l?ed)?|called off|off|не будет|отменил[аи]?|отменен[аы]?|отменён[аы]?|отмена|нет)(?![a-zа-яё])/i;
+function localClassOff(c, date){
+  if (!CLASS_OFF_RE.test(c) || !(plan().classes || []).length) return null;
+  const q = parseQuick(c); if (!q?.due || q.time || q.every) return null;
+  const day = q.due < date ? null : q.due; if (!day) return null;
+  const on = classesOn(day); if (!on.length) return null;
+  const words = wordsOf(c), hit = on.filter(x => wordsOf(x.title).some(w => words.some(v => sameWord(w, v))));
+  if (hit.length) return {date: day, keys: hit.map(clsKey)};
+  return CLASS_RE.test(c) || /(?:^|\s)(?:пар(?![а-яё])|занятий|classes|uni|school|универ[а-яё]*|учёб[ыа]|учеб[ыа])/i.test(c) ? {date: day, keys: ['*']} : null; // "no classes tomorrow"
+}
+const cleanClassOff = list => (Array.isArray(list) ? list : []).filter(x => x && DATE_RE.test(x.date || '') && x.date >= todayISO() && Array.isArray(x.keys) && x.keys.length && classesOn(x.date).length).slice(0, 7);
+
 /* a weekly class typed into Tell KAI: a class word and a weekly time, or "new class: …" */
 const CLASS_RE = /(?:^|\s)(?:лекци[яиюей]|пар[аыу]|семинар[а-яё]*|практик[аиуе]|лаб(?:а|ы|у|оратор[а-яё]*)?|lectures?|class(?:es)?|seminars?|tutorials?|labs?|practicals?)(?![a-zа-яё])/i;
 function localClass(c, t, sn, until){

@@ -2556,4 +2556,10 @@ window.I18N_EN = {
 "Войди в аккаунт, чтобы пользоваться ИИ: запросы считаются на аккаунт.":"Sign in to use AI: requests are counted per account.",
 "Новый день у сервера начинается в полночь по UTC.":"The server's day starts at midnight UTC.",
 "Сегодня запросов к ИИ ещё не было. Точный расход: Ещё → Аккаунт → Расход ИИ.":"No AI requests today yet. For exact usage: More → Account → AI usage.",
+"Свободно · пары отменены":"Free · classes cancelled",
+"отменено: {t}":"cancelled: {t}",
+"отменена":"cancelled",
+"Отмена: {t}, {d}":"Cancelled: {t}, {d}",
+"Пара вернулась в расписание":"The class is back in the schedule",
+"Отменена: {d}":"Cancelled: {d}",
 };

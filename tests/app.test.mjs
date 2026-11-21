@@ -3704,3 +3704,35 @@ test('a weekly class typed into Tell KAI goes to the timetable, and is shown wit
     assert.equal(ai.classes.length, 1); assert.equal(ai.new_tasks.length, 0, 'the AI\'s repeating to-do gives way to the class');
   } finally { run(`closeSheetQuiet(); save('app/plan', plK); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxK.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"no maths tomorrow" cancels that one class on that day, shown first, with Undo and a way back', () => {
+  run(`globalThis.plO = clone(plan()); globalThis.tmO = addDays(todayISO(), 1); globalThis.dayO = S.docs['days/' + tmO]; remove('days/' + tmO);
+    { const pl = clone(plan()); pl.classes = [{day: dow(tmO), time: '09:00', end: '10:30', title: 'Maths'}, {day: dow(tmO), time: '11:00', title: 'Physics'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }
+    globalThis.inboxO = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.class_off || null)`));
+    assert.deepEqual(p('no maths tomorrow'), [{date: run(`tmO`), keys: ['09:00|maths']}]);
+    assert.deepEqual(p('завтра пар нет')[0].keys, ['*']);
+    assert.equal(p('no milk tomorrow'), null);
+    assert.equal(p('cancel the dentist tomorrow'), null);
+    run(`SH = {}; tellLocal('no maths tomorrow', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).some(l => /^Cancelled: Maths, /.test(l)));
+    assert.equal(run(`classesOn(tmO).length`), 2, 'nothing changes before confirming');
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(classesOn(tmO).map(c => c.title))`)), ['Physics']);
+    assert.equal(run(`timedOn(tmO).filter(x => x.k === 'cls').length`), 1, 'clash checks see only the class that is on');
+    assert.equal(run(`plan().classes.length`), 2, 'the timetable itself is unchanged');
+    assert.match(run(`getDay(tmO).tasks.find(t => t.id === 'study').title`), /1 class/);
+    assert.ok(JSON.parse(run(`JSON.stringify(weekAheadDays()[1].items)`)).some(x => x.t === 'Maths' && /cancelled/.test(x.s)));
+    run(`S.tab = 'more'; S.open.acc_classes = true`);
+    assert.match(run(`viewMore()`), /data-act="classBack" data-d="[^"]+" data-k="09:00\\|maths"/);
+    run(`A.classBack({dataset: {d: tmO, k: '09:00|maths'}})`);
+    assert.equal(run(`classesOn(tmO).length`), 2, 'brought back');
+    run(`A.undoApply()`);
+    assert.equal(run(`classesOn(tmO).length`), 1);
+    run(`classOff(tmO, ['*'])`);
+    assert.equal(run(`classesOn(tmO).length`), 0);
+    assert.equal(run(`getDay(tmO).tasks.some(t => t.id === 'study')`), false, 'no classes left: no study task that day');
+  } finally { run(`closeSheetQuiet(); S.tab = 'day'; delete S.open.acc_classes; save('app/plan', plO); if (dayO) save('days/' + tmO, dayO); else remove('days/' + tmO); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxO.includes(k)).forEach(k => remove(k))`); }
+});

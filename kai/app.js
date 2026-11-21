@@ -5047,7 +5047,10 @@ const TELL_HELP = [
 const TELL_HELP_AI = [tr('Перенеси тренировку с пятницы на субботу'), tr('Стоматолога отменили'), tr('На обед суп и салат')];
 function tellHelpHTML(){
   const chip = (x, ai) => `<button class="pill" data-act="tellAdd" data-v="${esc(x)}">${esc(x)}${ai ? ` <span class="tag warn">${tr('нужен ИИ')}</span>` : ''}</button>`;
-  return `<section class="card tellhelp" style="display:flex;flex-direction:column;gap:10px">${TELL_HELP.map(([h, xs]) => `<b>${h}</b><div class="ob-goals">${xs.map(x => chip(x)).join('')}</div>`).join('')}
+  // classes: adding one always works; cancelling or moving uses a class that really is on tomorrow, so the example is understood
+  const tm = classesOn(addDays(todayISO(), 1))[0], cls = [tr('Лекция по физике каждую среду 10:00–11:30'), ...(tm ? [trf('Завтра нет пары «{t}»', {t: tm.title}), trf('«{t}» завтра перенесли на {h}', {t: tm.title, h: hmStr(Math.min(hm(tm.time) + 180, 20 * 60))})] : [])];
+  const groups = (profile().role || 'study') === 'study' || (plan().classes || []).length ? [...TELL_HELP.slice(0, -2), [tr('Расписание пар'), cls], ...TELL_HELP.slice(-2)] : TELL_HELP;
+  return `<section class="card tellhelp" style="display:flex;flex-direction:column;gap:10px">${groups.map(([h, xs]) => `<b>${h}</b><div class="ob-goals">${xs.map(x => chip(x)).join('')}</div>`).join('')}
     <b>${tr('С ИИ')}</b><div class="ob-goals">${TELL_HELP_AI.map(x => chip(x, !aiStatus().ok)).join('')}</div></section>`;
 }
 A.tellHelp = () => { SH.tellText = val('tellT'); SH.tellHelp = !SH.tellHelp; drawSheet(); };

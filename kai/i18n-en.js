@@ -2566,4 +2566,9 @@ window.I18N_EN = {
 "Пара перенесена с {t}":"Class moved from {t}",
 "Отменены":"Cancelled",
 "Вернуть пару":"Bring back",
+"Лекция по физике каждую среду 10:00–11:30":"Physics lecture every Wednesday 10:00–11:30",
+"Завтра математики не будет":"No maths tomorrow",
+"Математику завтра перенесли на 14:00":"Maths moved to 14:00 tomorrow",
+"Завтра нет пары «{t}»":"No “{t}” tomorrow",
+"«{t}» завтра перенесли на {h}":"“{t}” moved to {h} tomorrow",
 };

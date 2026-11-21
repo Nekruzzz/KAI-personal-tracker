@@ -3774,3 +3774,16 @@ test('"maths moved to 14:00 tomorrow" takes the class off at 9 and puts it in at
     assert.deepEqual(JSON.parse(run(`JSON.stringify(timedOn(tmM).map(x => x.k))`)), ['cls'], 'Undo restores both');
   } finally { run(`closeSheetQuiet(); save('app/plan', plM); if (dayM) save('days/' + tmM, dayM); else remove('days/' + tmM); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxM.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"What can I write?" shows class examples that work on the phone, using a class that is really on tomorrow', () => {
+  run(`globalThis.plH = clone(plan()); globalThis.tmH = addDays(todayISO(), 1); globalThis.pfH = clone(profile()); save('app/profile', {...profile(), role: 'study'});
+    { const pl = clone(plan()); pl.classes = [{day: dow(tmH), time: '09:00', end: '10:30', title: 'Maths'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }`);
+  try {
+    const h = run(`tellHelpHTML()`);
+    for (const ex of ['Physics lecture every Wednesday 10:00–11:30', 'No “Maths” tomorrow', '“Maths” moved to 12:00 tomorrow']){
+      assert.ok(h.includes(ex.replace(/“|”/g, '&quot;').replace(/&quot;/g, '“')) || h.includes(ex), ex);
+      const r = JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(ex)}, todayISO()))`));
+      assert.ok(r.left.length === 0 && (r.r.classes || r.r.class_off), ex + ' is understood on the phone: ' + JSON.stringify(r));
+    }
+  } finally { run(`save('app/plan', plH); save('app/profile', pfH)`); }
+});

@@ -4826,7 +4826,8 @@ function localMoney(c){
   if (m){ const amount = amountOf(m[1], m[2]); if (amount > 0) return out({type: 'in', amount, cat: 'Доход', note: c}); }
   m = c.match(new RegExp('(stipend|scholarship|стипенди[яюи]|refund(?:ed)?|вернули|возврат[а-яё]*|sold|продал[аи]?)(\\D{0,30}?)' + AMT + '(?!\\s*(?:g\\b|г\\b|гр|шт|мин|min|ч\\b|h\\b|%|km|км))', 'i'));
   if (m){ const amount = amountOf(m[3], m[4]), note = (m[1] + m[2].replace(/\s*(?:for|за|of|:)\s*$/i, '') + ' ' + c.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(); if (amount > 0) return out({type: 'in', amount, cat: /stipend|scholarship|стипенди/i.test(m[1]) ? 'Доход' : 'Другое', note}); } // "stipend 300", "refund 20 from amazon", "продал велик за 5000"
-  m = c.match(new RegExp('(?:got|received|получил[аи]?)\\s+' + AMT + '\\s+(?:from|от)\\s+\\S|(?:скинул[аи]?|перевел[аи]?|перевёл|прислал[аи]?|отправил[аи]?)\\s+мне\\s+' + AMT, 'i'));
+  m = c.match(new RegExp('(?:got|received|получил[аи]?)\\s+' + AMT + '\\s+(?:from|от)\\s+\\S|(?:скинул[аи]?|перевел[аи]?|перевёл|прислал[аи]?|отправил[аи]?)\\s+мне\\s+' + AMT, 'i'))
+    || (() => { const x = c.match(new RegExp('^\\s*([a-zа-яё]+)\\s+(?:скинул[аи]?|перевел[аи]?|перевёл|перевела|прислал[аи]?|sent me|transferred me)\\s+(?:мне\\s+)?' + AMT, 'i')); return x && !/^(?:я|мы|i|we|you|ты|вы)$/i.test(x[1]) ? [x[0], null, null, x[2], x[3]] : null; })(); // "мама скинула 2000": someone sent it to me
   if (m){ const amount = m[1] ? amountOf(m[1], m[2]) : amountOf(m[3], m[4]); if (amount > 0) return out({type: 'in', amount, cat: 'Переводы входящие', note: c}); }
   m = c.match(new RegExp('(?:потратил[аи]?|заплатил[аи]?|купил[аи]?|spent|paid|bought)\\s+(?:(.*?[^\\d\\s])\\s+)?(?:за|на|for|on)?\\s*' + AMT + '\\s*(?:(?:на|за|on|for|at|в|во)\\s+(.+))?$', 'i'));
   if (m){ const amount = amountOf(m[2], m[3]); if (amount > 0) return out({type: 'out', amount, cat: cat(), note: (m[4] || m[1] || c).trim()}); }
@@ -4904,6 +4905,7 @@ function localTellParse(text, date, opts = {}){
       const sn0 = splitNote(c), sn = sn0.note && parseQuick(sn0.title)?.due ? sn0 : {title: c}, cq = sn.note ? sn.title : c; // a note after the date isn't read for dates or times; "exam: physics on Friday" keeps its date
       const range = cq.match(/(?:from\s+|с\s+)?(\d{1,2})(?::(\d\d))?\s*(am|pm)?\s*(?:to|till|until|-|–|до)\s*(\d{1,2}(?::\d\d)?\s*(?:am|pm)?|midnight|полуночи)/i);
       const t = parseQuick(range ? cq.replace(range[0], ' at ' + range[1] + (range[2] ? ':' + range[2] : '') + (range[3] || '')) : cq);
+      // a to-do verb may come after the date: "завтра заплатить 2000 за зал"
       if (t && t.due){ if (hasDateWord(cq)) ctxDate = t.due; else if (ctxDate && t.time && !t.every) t.due = ctxDate; }
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
         const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
@@ -4912,7 +4914,7 @@ function localTellParse(text, date, opts = {}){
         const cl = !exam && !deadline ? localClass(c, t, sn, until) : null; // "Physics lecture every Wednesday 10:00-11:30" goes to the timetable
         if (cl) (r.classes = r.classes || []).push(cl);
         else if (exam || deadline || EVENT_RE.test(c)) r.events.push({title: t.title.replace(/\s+(?:from|till|until)\s*$/i, ''), date: t.due, from: night ? '22:00' : t.time || null, until: night ? '04:00' : until, kind: exam ? 'exam' : deadline ? 'deadline' : 'event', note: ''});
-        else if (t.time || t.every || TODO_RE.test(c)){ const sp = sn.note ? {title: t.title, note: sn.note} : splitNote(t.title); r.new_tasks.push({title: sp.title, date: t.due, time: t.time || null, ...(sp.note ? {note: sp.note} : {}), ...(t.every ? {every: t.every, ...(t.n ? {n: t.n} : {})} : {})}); }
+        else if (t.time || t.every || TODO_RE.test(c) || TODO_RE.test(t.title)){ const sp = sn.note ? {title: t.title, note: sn.note} : splitNote(t.title); r.new_tasks.push({title: sp.title, date: t.due, time: t.time || null, ...(sp.note ? {note: sp.note} : {}), ...(t.every ? {every: t.every, ...(t.n ? {n: t.n} : {})} : {})}); }
         else { left.push(c); continue; } // "Friday is my favourite day" isn't a to-do
         hit = true;
       } else if (INTENT_RE.test(c)){ // "remind me to buy a charger": a to-do without a date

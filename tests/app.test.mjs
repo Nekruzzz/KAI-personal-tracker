@@ -3946,3 +3946,12 @@ test('"finished the history essay" ticks off that to-do, shown first, with Undo;
     assert.equal(run(`smartTasks().find(t => t.id === 'l1').done`), false, 'Undo');
   } finally { run(`closeSheetQuiet(); saveTasks(tkT); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxT.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"завтра заплатить 2000 за зал" is a to-do, and "мама скинула 2000" is money in; "скинул 2000 Саше" is not', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+  const a = p('завтра заплатить 2000 за зал');
+  assert.equal(a.new_tasks[0].title, 'Заплатить 2000 за зал'); assert.equal(a.new_tasks[0].date, run(`addDays(todayISO(), 1)`));
+  assert.deepEqual(p('мама скинула 2000').money.map(m => [m.type, m.amount]), [['in', 2000]]);
+  assert.equal(p('я скинул 2000 Саше').money.filter(m => m.type === 'in').length, 0, 'what I sent is not income');
+  assert.equal(p('скинул 2000 Саше').money.filter(m => m.type === 'in').length, 0);
+});

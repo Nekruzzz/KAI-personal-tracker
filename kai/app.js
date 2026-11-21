@@ -6016,7 +6016,7 @@ function enrichTell(r, text, date){
   });
   if (lp.screen_min > 0 && !(out.screen_min > 0)) out.screen_min = lp.screen_min;
   if ((lp.debts || []).length && !out.debts) out.debts = lp.debts;
-  if ((lp.goals || []).length && !out.goals) out.goals = lp.goals;
+  if ((lp.goals || []).length && !out.goals){ out.goals = lp.goals; out.new_tasks = out.new_tasks.filter(t => !/^(?:goal|target|цель)\b|(?:^|\s)(?:goal|цель)(?:\s|:)/i.test(t.title || '') && !lp.goals.some(g => wordsOf(g.title).filter(w => wordsOf(t.title || '').some(v => sameWord(w, v))).length >= 2)); } // the AI's answer has no place for goals, and may have made one a to-do
   if ((lp.todo_done || []).length && !out.todo_done) out.todo_done = lp.todo_done; // the AI's answer has no place for to-dos done
   if ((lp.bed || []).length && !out.bed){ out.bed = lp.bed; out.new_tasks = out.new_tasks.filter(t => !/bed|sleep|лечь|лягу|ложусь|отбой|спать/i.test(t.title || '')); }
   if ((lp.wake || []).length && !out.wake){ out.wake = lp.wake; out.new_tasks = out.new_tasks.filter(t => !/wake|get up|встат|встан|подъ[её]м|просну/i.test(t.title || '')); } // the AI may make the wake-up a to-do

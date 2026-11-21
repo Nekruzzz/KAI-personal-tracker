@@ -4015,3 +4015,9 @@ test('money for two days in one message: "вчера потратил 2000 на 
     assert.ok(run(`(S.docs['money/' + addDays(todayISO(), -1).slice(0, 7)]?.tx || []).some(t => t.date === addDays(todayISO(), -1) && t.amount === 2000)`), 'the groceries yesterday');
   } finally { run(`closeSheetQuiet(); save('money/' + todayISO().slice(0, 7), mY); save('money/' + addDays(todayISO(), -1).slice(0, 7), mY2); setMeta({modules: modY}); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxY.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('when the AI also reads a goal message, its to-do for the goal gives way to the goal', () => {
+  const out = JSON.parse(run(`JSON.stringify(enrichTell({new_tasks: [{title: '100 hours of study', date: null}, {title: 'Buy pens', date: null}], money: []}, 'goal: 100 hours of study by 20 December, buy pens', todayISO()))`));
+  assert.equal(out.goals.length, 1);
+  assert.deepEqual(out.new_tasks.map(t => t.title), ['Buy pens']);
+});

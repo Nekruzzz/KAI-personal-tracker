@@ -5003,7 +5003,8 @@ function localDone(c, date){
 /* sets for exercises in the plan, today's workout first; returns the text with them taken out */
 function localSets(text, date, out){
   const pl = plan(), today = (pl.workouts[workoutFor(date)]?.ex || []), all = [...today, ...programKeys().flatMap(k => pl.workouts[k]?.ex || []), ...Object.values(pl.workouts).flatMap(w => w.ex)]; // today's first, then the program the person follows: at home, push-ups are the home ones
-  const findEx = name => { const ws = wordsOf(name); return ws.length ? all.filter(e => e.id !== 'dips' || /брус|dip/i.test(name)).find(e => wordsOf(e.name + ' ' + otherLang(e.name)).some(a => ws.some(b => sameWord(a, b)))) : null; }; // "присед" finds "Barbell squats" too; plain "отжимания" are push-ups, not dips
+  // the exercise sharing the most words wins ("pull-ups" is Pull-ups, not "push-ups" by the shared "ups"); on a tie, today's and the program's come first
+  const findEx = name => { const ws = wordsOf(name); if (!ws.length) return null; let best = null, top = 0; all.filter(e => (e.id !== 'dips' || /брус|dip/i.test(name)) && (e.id !== 'deadbug' || /bug|жук/i.test(name))).forEach(e => { const ew = wordsOf(e.name + ' ' + otherLang(e.name)), n = ws.filter(b => ew.some(a => sameWord(a, b))).length; if (n > top){ top = n; best = e; } }); return best; }; // "присед" finds "Barbell squats" too; plain "отжимания" are push-ups, not dips
   const kg = (n, u) => { const v = toN(n); return (u ? /lb|фунт/i.test(u) : isUS()) ? Math.round(v / LB * 10) / 10 : v; };
   text = text.replace(/(\d)\s*(?:sets?|подход(?:а|ов)?)\s*(?:of|по)\s*(\d{1,3})\s*(?:reps?\s*(?:of\s*)?|раз\s*)?([a-zа-яё][a-zа-яё'-]{2,30}(?:\s+[a-zа-яё][a-zа-яё'-]{2,30})?)(?:\s+(?:at|with|с|по)?\s*(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*))?/gi, (m, n, rp, name, w, u) => {
     const ex = findEx(name); if (!ex) return m;
@@ -5014,9 +5015,18 @@ function localSets(text, date, out){
     const ex = findEx(name); if (!ex) return m;
     reps.split(/\s*(?:,|and|и|\/)\s*|\s+/).filter(Boolean).forEach(rp => out.push({ex: ex.id, w: kg(w, u), r: +rp}));
     return ' ';
-  }).replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d)\s*[x×х]\s*(\d{1,3})(?![\d.,])/gi, (m, name, n, rp) => {
-    const ex = findEx(name); if (!ex) return m;
-    for (let i = 0; i < +n; i++) out.push({ex: ex.id, w: 0, r: +rp});
+  }).replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*)\s+(\d{1,2}(?:(?:\s*(?:,|and|и|\/)\s*|\s+)\d{1,2}){1,9})(?![\d.,]|\s*[x×х])/gi, (m, name, w, u, reps) => {
+    const ex = findEx(name); if (!ex) return m; // "bench 60kg 8 8 6": the weight, then the reps of each set
+    reps.split(/\s*(?:,|and|и|\/)\s*|\s+/).filter(Boolean).forEach(rp => out.push({ex: ex.id, w: kg(w, u), r: +rp}));
+    return ' ';
+  }).replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(\d)\s*(?:sets?|подход(?:а|ов)?)\s*(?:of|по)\s*(\d{1,3})(?:\s*(?:reps?|раз))?(?:\s*(?:at|with|по|с)\s*(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*))?/gi, (m, name, n, rp, w, u) => {
+    const ex = findEx(name); if (!ex) return m; // "pull-ups 3 sets of 8": the name first
+    for (let i = 0; i < Math.min(+n, 10); i++) out.push({ex: ex.id, w: w ? kg(w, u) : 0, r: +rp});
+    return ' ';
+  }).replace(/([a-zа-яё][a-zа-яё' -]{1,40}?)\s+(?:(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*)\s+)?(\d)\s*[x×х]\s*(\d{1,3})(?![\d.,])(?:\s*(?:at|with|по|с)?\s*(\d+(?:[.,]\d+)?)\s*(kg|кг|lbs?|фунт[а-яё]*))?/gi, (m, name, w1, u1, n, rp, w2, u2) => {
+    const ex = findEx(name); if (!ex) return m; // "squats 3x10 at 50 kg", "deadlift 80kg 5x5"
+    const w = w1 ? kg(w1, u1) : w2 ? kg(w2, u2) : 0;
+    for (let i = 0; i < +n; i++) out.push({ex: ex.id, w, r: +rp});
     return ' ';
   });
 }

@@ -3964,3 +3964,15 @@ test('"woke up at 7, went to bed at midnight" is 7 hours of sleep, and "took the
   assert.equal(p('woke up at 7, will go to bed at 23').sleep_h, undefined, 'a bedtime to come is not last night');
   assert.deepEqual(p('took the bus 2.80').money.map(m => m.amount), [2.8]);
 });
+
+test('gym sets in more shapes: "bench 60kg 8 8 6", "squats 3x10 at 50 kg", "pull-ups 3 sets of 8", and "deadlift" is not "dead bug"', () => {
+  run(`globalThis.plS = clone(plan()); { const pl = clone(plan()); useProgram(pl, 'easy4'); save('app/plan', pl); }`);
+  try {
+    const s = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, addDays(todayISO(), 1)).r.sets || [])`)).map(x => [x.ex, x.w, x.r]);
+    assert.deepEqual(s('bench 60kg 8 8 6'), [['bench', 60, 8], ['bench', 60, 8], ['bench', 60, 6]]);
+    assert.ok(s('squats 3x10 at 50 kg').every(x => x[1] === 50 && x[2] === 10) && s('squats 3x10 at 50 kg').length === 3);
+    assert.deepEqual(s('pull-ups 3 sets of 8').map(x => x[0]), ['pullup', 'pullup', 'pullup'], 'not push-ups by the shared "ups"');
+    assert.ok(s('deadlift 80kg 5x5').every(x => x[0] !== 'deadbug' && x[1] === 80));
+    assert.equal(s('did 3 sets of 10 pushups')[0][0] !== 'pullup', true);
+  } finally { run(`save('app/plan', plS)`); }
+});

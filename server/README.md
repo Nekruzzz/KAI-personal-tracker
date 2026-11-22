@@ -73,9 +73,42 @@ Copy your project URL and **publishable** key into `kai/config.js`. Until then t
 
 Open the app, sign in with your email, tell KAI what you ate, and check it answers and the food is logged. Then open **More → Account** to see your usage.
 
+## Seeing AI usage
+
+In the Supabase dashboard, open **SQL Editor** and run any of these. They only read.
+
+Requests and tokens per day, across everyone:
+
+```sql
+select day, requests, input_tokens, output_tokens from public.ai_global order by day desc limit 14;
+```
+
+Who used how much today:
+
+```sql
+select u.email, a.requests, a.input_tokens, a.output_tokens from public.ai_usage a join auth.users u on u.id = a.user_id where a.day = current_date order by a.requests desc;
+```
+
+How many accounts there are:
+
+```sql
+select count(*) as people from auth.users;
+```
+
+The money spent is in the Anthropic console (Usage and Cost); token counts here help check it. The server's day starts at midnight UTC.
+
 ## Changing limits
 
-Edit the `tiers` table in the Supabase dashboard. No code change is needed.
+Edit the `tiers` table in the Supabase dashboard. No code change is needed. Or in the SQL Editor, for example:
+
+```sql
+update public.tiers set daily_requests = 30 where tier = 'free';
+```
+
+```sql
+update public.app_limits set global_daily_requests = 3000;
+```
+
 
 | Plan | AI requests a day | Photos | Better model for heavy tasks |
 |---|---|---|---|

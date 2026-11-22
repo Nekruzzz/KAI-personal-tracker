@@ -7835,7 +7835,7 @@ const obSyncText = () => signedIn() && syncState().first && !S.syncErr ? tr('И�
 function obSyncNote(){ const e = $('#obSync'); if (e) e.textContent = obSyncText(); }
 function signCard(){
   if (!cloudOn() || signedIn() || !meta().welcomed || meta().signOff || !(hasTold() || meta().firstTellOff)) return ''; // one first-week card at a time: Tell KAI, then this, then the timetable
-  return `<section class="card nudge signc"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')}</div></div><div class="acts"><button class="btn" data-act="accountSheet">${tr('Войти')}</button><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div></section>`;
+  return `<section class="card nudge signc"><span class="ic">${ic('spark')}</span><div class="mid"><div class="t">${tr('Включи ИИ')}</div><div class="s">${tr('Войди, и KAI поймёт любые сообщения и фото. Копия данных сохранится в облаке.')} ${trf('Бесплатно: {n} запросов к ИИ в день, простые сообщения не в счёт.', {n: PLANS.free.daily})}</div></div><div class="acts"><button class="btn" data-act="accountSheet">${tr('Войти')}</button><button class="link" data-act="signCardOff">${tr('Не сейчас')}</button></div></section>`;
 }
 A.signCardOff = () => { setMeta({signOff: true}); render(); };
 

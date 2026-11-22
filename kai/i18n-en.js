@@ -2606,4 +2606,5 @@ window.I18N_EN = {
 "Бюджет на месяц: {a}":"Monthly budget: {a}",
 "вместо {b}":"instead of {b}",
 "+ копилка: {t}, цель {a}":"+ savings goal: {t}, target {a}",
+"Бесплатно: {n} запросов к ИИ в день, простые сообщения не в счёт.":"Free: {n} AI requests a day; simple messages don't count.",
 };

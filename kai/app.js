@@ -5102,7 +5102,7 @@ const TELL_HELP = [
   [tr('Планы'), [tr('В пятницу в 10:00 экзамен по физике'), tr('Завтра в 18:30 позвонить маме'), tr('Надо купить зарядку'), tr('Эссе до пятницы'), tr('Выносить мусор по понедельникам')]],
   [tr('Цели'), [tr('Цель: 100 часов учёбы до 20 декабря'), tr('Цель: прочитать 12 книг до конца года')]],
   [tr('День'), [tr('Заболел'), tr('Оценка дня 4'), tr('Вчера гулял час'), tr('Опаздываю на 20 минут'), tr('Сажусь за учёбу'), tr('Завтра встану в 6')]],
-  [tr('Вопросы'), [tr('Что у меня завтра?'), tr('Когда следующая пара?'), tr('Сколько я потратил на этой неделе?'), tr('Сколько осталось денег?'), tr('Когда следующий экзамен?')]],
+  [tr('Вопросы'), [tr('Как у меня дела?'), tr('Что у меня завтра?'), tr('Когда следующая пара?'), tr('Сколько я потратил на этой неделе?'), tr('Сколько осталось денег?'), tr('Когда следующий экзамен?')]],
 ];
 const TELL_HELP_AI = [tr('Перенеси тренировку с пятницы на субботу'), tr('Стоматолога отменили'), tr('На обед суп и салат')];
 function tellHelpHTML(){
@@ -6971,6 +6971,7 @@ function localAnswer(text){
     const n = dayDiff(todayISO(), e.date);
     return trf('Ближайшее: «{t}», {d}{h} — {w}.', {t: e.title, d: fmtShort(e.date), h: e.from ? tr(' в ') + e.from : '', w: n === 0 ? tr('сегодня') : n === 1 ? tr('завтра') : trf('через {n} {u}', {n, u: plural(n, tr('день'), tr('дня'), tr('дней'))})});
   }
+  if (/^(?:how am i doing|how'?s it going|how'?s my (?:week|progress|day)|how is my (?:week|progress)|как (?:у меня )?дела|как мои дела|как мой прогресс|как прогресс|как неделя|как моя неделя)\s*\??$/i.test(t)) return progressAnswer();
   return scheduleAnswer(t); // "what do I have tomorrow?", "когда следующая пара?": after the other questions, so "what did I eat today?" stays a food question
 
 }
@@ -7663,6 +7664,15 @@ function localDayRating(c){
 }
 /* a finished daily list folds into one line, so the rest of the day is closer; tapping opens it again */
 const dailyFolded = d => d.tasks.length >= 2 && d.tasks.every(t => t.done) && !S.open.daily_all && S.dailyTouched !== d.date;
+/* ---- "how am I doing?": today, the streak, the week and the goals, in a few lines ---- */
+function progressAnswer(){
+  const d = getDay(todayISO()), done = d.tasks.filter(t => t.done).length, n = weekNumbers(), st = n.streak;
+  const lines = [trf('Сегодня: {a} из {b} задач', {a: done, b: d.tasks.length}) + (d.tasks.length && done >= Math.ceil(d.tasks.length * .7) ? ' · ' + tr('день засчитан') : '')];
+  lines.push(st ? trf('Серия: {n} {d} подряд', {n: st, d: plural(st, tr('день'), tr('дня'), tr('дней'))}) : tr('Серии пока нет: сегодняшний день может её начать.'));
+  lines.push(trf('За 7 дней: {t} на дела, активных дней {a} из 7', {t: hoursOf(n.cur.total), a: n.cur.active}) + (n.was.total ? ' · ' + (n.cur.total >= n.was.total ? tr('больше, чем неделей раньше') : tr('меньше, чем неделей раньше')) : ''));
+  goals().filter(g => !g.doneAt).slice(0, 2).forEach(g => lines.push(`${g.title}: ${num(goalValue(g), goalValue(g) % 1 ? 1 : 0)} / ${num(g.target)}${goalPace(g) ? ' · ' + goalPace(g) : ''}`));
+  return lines.join('\n');
+}
 /* ---- questions about the schedule, answered from it ---- */
 function scheduleAnswer(t){
   const today = todayISO(), label = k => k === today ? tr('Сегодня') : k === addDays(today, 1) ? tr('Завтра') : fmtDay(k);

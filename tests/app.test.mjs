@@ -4103,3 +4103,12 @@ test('class attendance by message: "went to all classes" ticks the day\'s study,
     assert.equal(p('в среду коллоквиум').events[0].kind, 'exam');
   } finally { run(`save('app/plan', plA); if (dayA) save('days/' + todayISO(), dayA); else remove('days/' + todayISO())`); }
 });
+
+test('"how am I doing?" / "как у меня дела?" sums up today, the streak, the week and goals on the phone', () => {
+  const a = run(`localAnswer('how am I doing?')`);
+  assert.match(a, /^Today: \d+ of \d+ tasks/);
+  assert.match(a, /Streak: \d+ days? in a row|No streak yet/);
+  assert.match(a, /Last 7 days: .* of 7 days active/);
+  assert.match(run(`localAnswer('как у меня дела?')`), /Today:/);
+  assert.equal(run(`localAnswer('how am I doing with money?')`) === run(`progressAnswer()`), false, 'a more specific question is not this one');
+});

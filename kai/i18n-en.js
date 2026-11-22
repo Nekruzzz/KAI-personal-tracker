@@ -2596,4 +2596,11 @@ window.I18N_EN = {
 "Опаздываю на 20 минут":"Running 20 minutes late",
 "Сажусь за учёбу":"Starting to study",
 "Завтра встану в 6":"I'll wake up at 6 tomorrow",
+"Сегодня: {a} из {b} задач":"Today: {a} of {b} tasks",
+"день засчитан":"the day counts",
+"Серии пока нет: сегодняшний день может её начать.":"No streak yet: today can start one.",
+"За 7 дней: {t} на дела, активных дней {a} из 7":"Last 7 days: {t} on things that matter, {a} of 7 days active",
+"больше, чем неделей раньше":"more than the week before",
+"меньше, чем неделей раньше":"less than the week before",
+"Как у меня дела?":"How am I doing?",
 };

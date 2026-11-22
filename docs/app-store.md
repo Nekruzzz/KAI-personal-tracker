@@ -31,10 +31,10 @@ See your effort add up: hours walked and studied, active days, streaks, levels a
 - Savings goals, a plan for the week on Sunday, and answers to questions like "how much did I spend this week?"
 - Apple Health for steps, sleep and workouts
 - English and Russian
-- Understands everyday messages on your phone, even without AI: sleep, steps, spending, workouts, food with an amount, to-dos and exams
+- Understands everyday messages on your phone, even without AI: sleep, steps, spending, workouts, food with an amount, to-dos, exams, classes and your goals
 - Works offline. AI is optional and only runs with your permission
 
-The free plan includes 10 AI messages a day. [Paid plan details and price.]
+The free plan includes 20 AI messages a day, photos included. [Paid plan details and price.]
 
 KAI gives general estimates and isn't medical advice.
 
@@ -71,10 +71,10 @@ KAI предупредит, если планы мешают друг другу
 - Цели накоплений, план недели в воскресенье и ответы на вопросы вроде «сколько я потратил на этой неделе?»
 - Здоровье iPhone: шаги, сон и тренировки
 - Русский и английский
-- Понимает обычные сообщения прямо на телефоне, даже без ИИ: сон, шаги, расходы, тренировки, еду с граммами, дела и экзамены
+- Понимает обычные сообщения прямо на телефоне, даже без ИИ: сон, шаги, расходы, тренировки, еду с граммами, дела, пары, цели и экзамены
 - Работает без интернета. ИИ необязателен и включается только с твоего разрешения
 
-В бесплатном плане 10 сообщений ИИ в день. [Условия и цена платного плана.]
+В бесплатном плане 20 сообщений ИИ в день, включая фото. [Условия и цена платного плана.]
 
 KAI даёт общие оценки и не заменяет врача.
 
@@ -92,7 +92,7 @@ Before submitting, run `node tools/check-release.js`: it lists the draft notices
 
 ## Review risks to decide on
 
-- **Your own AI key (guideline 3.1.1).** The AI settings send people to Anthropic's or OpenAI's site to get a paid API key, which a reviewer may read as buying digital features outside in-app purchase. Done: once the server is connected, the iPhone app hides this option and offers KAI's own AI instead; the web keeps it. To show it in the iPhone app anyway, set `ownKeys: true` in `kai/config.js`.
+- **Your own AI key (guideline 3.1.1).** The AI settings send people to Anthropic's or OpenAI's site to get a paid API key, which a reviewer may read as buying digital features outside in-app purchase. Done: KAI provides the AI, so neither the iPhone app nor the web offers "paste your own key" any more (a key saved earlier keeps working). To bring the option back, set `ownKeys: true` in `kai/config.js`.
 - **Apple Health data in the cloud (guideline 5.1.3).** Steps, sleep and workouts read from Apple Health end up in day entries, and those sync to the server when signed in. Apple allows this with clear consent but forbids storing Health data in iCloud. The privacy policy should say plainly that this data syncs to KAI's server. The app's Health permission step and Health setting now say so once a server is connected.
 - **Sign in with Apple and account deletion (guideline 5.1.1(v)).** Deleting an account must also revoke the person's Apple token. The server does this once its Apple key is set: see "Sign in with Apple: revoking on account deletion" in `server/README.md`. Set it before submitting.
 - **Permission texts (guideline 5.1.1 and a crash otherwise).** iOS ends an app that opens the camera, the photo library, Health, or saves to Photos without a sentence explaining why. `Info.plist` has all four; "Save Image" when sharing the weekly summary was missing one, and is fixed. `node tools/check-release.js` and a test check them. The Russian versions are in `native/ios/App/App/ru.lproj/InfoPlist.strings`; a new permission text needs a line there too (the release check notices).

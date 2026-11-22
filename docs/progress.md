@@ -372,6 +372,8 @@ Not verified: the Swift plugin hasn't been compiled yet (GitHub's `iphone-build`
 
 - **End to end against the local stand-in server (`server/tests/dev-backend.mjs`, real database rules and AI code, simulated Google and Claude):** Continue with Google on the first screen signs in and returns to a clean address with the name filled in; the AI permission screen comes before anything is sent; one AI request is made and shown for confirmation; "AI requests left today: 19 of 20" appears; "slept 7 hours" is read on the phone with no AI request; records sync; a second device signing in gets the profile back and the welcome closes by itself; a refused sign-in leaves a clean address.
 
+- **Fuzzing Tell KAI (22 Nov):** 3,000 random messages built from about 600 phrases used in the checks (both languages, joined by commas, "and", "then", "потом", new lines or nothing) went through the phone's reader, the preview, the clash check, the questions and the AI merge with no error; 726 of them were applied and then undone, and every Undo put the data back exactly as before.
+
 ## Not verified
 
 - **Live server, checked with the public key only (12 Nov):** Google sign-in is turned on in the Supabase project and its sign-in address redirects to Google correctly; the AI function is deployed and refuses requests without an account (401). No AI request was made. Not checked: a full Google sign-in in a browser, whether the site address is in Supabase's Redirect URLs, and a real AI answer.

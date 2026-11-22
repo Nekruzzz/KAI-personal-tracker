@@ -319,6 +319,8 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 
 - **The monthly budget by message:** "budget 500 this month", "бюджет 30к на месяц" set it, shown first next to the old one, with Undo.
 
+- **Runs without a time:** "ran 5 km", "пробежал 5 км", "ran 3 miles" count as training at about 6 minutes a kilometre (30 minutes for 5 km), like walks at 12; a time said wins ("за 28 минут"), and a plan ("will run 5 km tomorrow") doesn't count.
+
 ### Screens
 
 - **Day tab order:** the "now" card (what to do right now: sleep, next class, next task) moved from the middle of the page to right under the greeting.

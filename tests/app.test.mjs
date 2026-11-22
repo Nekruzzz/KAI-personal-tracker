@@ -4133,3 +4133,11 @@ test('"budget 500 this month" sets the monthly budget, shown first with the old 
     assert.equal(run(`S.docs['app/budget'].monthly`), 400);
   } finally { run(`closeSheetQuiet(); if (bdB) save('app/budget', bdB); else remove('app/budget'); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxB2.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"ran 5 km" with no time is about 30 minutes of training; with a time, the time wins', () => {
+  const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.time_log)`));
+  assert.deepEqual(p('ran 5 km'), [{kind: 'gym', min: 30}]);
+  assert.deepEqual(p('пробежал 5 км за 28 минут'), [{kind: 'gym', min: 28}]);
+  assert.deepEqual(p('ran 3 miles'), [{kind: 'gym', min: 29}]);
+  assert.deepEqual(p('will run 5 km tomorrow'), [], 'a plan is not a run');
+});

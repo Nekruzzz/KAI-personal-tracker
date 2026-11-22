@@ -2,7 +2,7 @@
 
 An AI-powered life tracker. Type or say anything: KAI logs it, updates your schedule and warns you about conflicts, and your effort becomes visible and fun to watch.
 
-Everyday messages (sleep, steps, walks, weight, spending, gym sets, food with an amount, to-dos, events and exams) are understood on the phone even without AI, in English and Russian. AI handles the rest, and nothing changes until you confirm.
+Everyday messages are understood on the phone even without AI, in English and Russian: sleep, steps, walks, runs, weight, spending, gym sets, food with an amount, to-dos and ticking them off, events, exams and deadlines, weekly classes and a class cancelled or moved for one day, a different wake-up or bedtime, "running late", starting a timer, goals, the monthly budget, and questions such as "what do I have tomorrow?". The AI handles the rest (photos, free text), with a daily allowance per account. Nothing changes until you confirm, and every change can be undone.
 
 Available in English and Russian. It runs as an installable web app or an iPhone app, and stores data on the device.
 

@@ -4090,3 +4090,16 @@ test('money shorthand: "1,5к", "2k", "зп 50к", "скинул маме 1000"'
   assert.deepEqual(p('мама скинула 2000').map(x => x[0]), ['in'], 'from mom is still money in');
   assert.equal(p('эссе к среде').length, 0, '"к" before a weekday is not a thousand');
 });
+
+test('class attendance by message: "went to all classes" ticks the day\'s study, "прогулял физику" unticks it; "коллоквиум" is an exam', () => {
+  run(`globalThis.plA = clone(plan()); globalThis.dayA = S.docs['days/' + todayISO()]; remove('days/' + todayISO()); { const pl = clone(plan()); pl.classes = [{day: dow(todayISO()), time: '09:00', end: '10:30', title: 'Physics'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r)`));
+    assert.deepEqual(p('went to all classes').tasks_done, ['study']);
+    assert.deepEqual(p('был на всех парах').tasks_done, ['study']);
+    assert.deepEqual(p('skipped physics today').tasks_undone, ['study']);
+    assert.deepEqual(p('прогулял пару').tasks_undone, ['study']);
+    assert.equal((p('skipped the gym').tasks_undone || []).includes('study'), false, 'the gym is not a class');
+    assert.equal(p('в среду коллоквиум').events[0].kind, 'exam');
+  } finally { run(`save('app/plan', plA); if (dayA) save('days/' + todayISO(), dayA); else remove('days/' + todayISO())`); }
+});

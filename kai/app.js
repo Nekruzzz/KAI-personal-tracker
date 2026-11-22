@@ -4929,7 +4929,7 @@ function localTellParse(text, date, opts = {}){
       // a to-do verb may come after the date: "завтра заплатить 2000 за зал"
       if (t && t.due){ if (hasDateWord(cq)) ctxDate = t.due; else if (ctxDate && t.time && !t.every) t.due = ctxDate; }
       if (t && t.due && !allEvents().some(e => e.title.toLowerCase() === t.title.toLowerCase())){
-        const exam = /экзамен|зач[её]т|контрольн|тест(?![а-яё])|exam|test\b|quiz|midterm|final/i.test(c), deadline = (!t.time && WORK_DUE_RE.test(c) && !TODO_RE.test(c)) || /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
+        const exam = /экзамен|зач[её]т|контрольн|коллоквиум|тест(?![а-яё])|exam|test\b|quiz|midterm|final|colloquium/i.test(c), deadline = (!t.time && WORK_DUE_RE.test(c) && !TODO_RE.test(c)) || /дедлайн|сдать|сдача|deadline|due\b|submit|(?:^|\s)(?:до|к)\s+конц[уа](?![а-яё])|\bby the end of\b/i.test(c) || (!TODO_RE.test(c) && /(?:^|\s)до\s+(?:понедельник|вторник|сред|четверг|пятниц|суббот|воскресень)|\bby\s+(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/i.test(c)); // "essay by Friday" is a deadline; "buy milk by Friday" stays a to-do
         const until = range && t.time ? (/midnight|полуночи/i.test(range[4]) ? '00:00' : (() => { const q = parseQuick('x at ' + range[4]); return q?.time || null; })()) : null;
         const night = !t.time && /всю ночь|до утра|all night|until morning|till morning/i.test(c); // so the late-night checks can see it
         const cl = !exam && !deadline ? localClass(c, t, sn, until) : null; // "Physics lecture every Wednesday 10:00-11:30" goes to the timetable
@@ -5010,6 +5010,13 @@ const SKIP_WORDS = new Set(['did', 'done', 'today', 'сегодня', 'сдел�
 const wordsOf = t => (String(t).match(/[a-zа-яё]{3,}/gi) || []).filter(w => !SKIP_WORDS.has(w.toLowerCase())).map(stem);
 /* "did my posture exercises", "gym done", "не успел сделать осанку": a task of that day, checked or unchecked */
 function localDone(c, date){
+  const tasks0 = getDay(date).tasks || [];
+  // classes: "went to all classes", "был на парах" tick the day's study; "skipped physics", "прогулял пару" untick it
+  if (tasks0.some(t => t.id === 'study')){
+    const cls = classesOn(date), named = cls.some(x => wordsOf(x.title).some(a => wordsOf(c).some(b => sameWord(a, b))));
+    if (/(?:^|\s)(?:skipped|missed|skip|прогулял[аи]?|пропустил[аи]?|не пош[её]л|не пошла|не был[аи]? на)(?![a-zа-яё])/i.test(c) && (named || CLASS_RE.test(c) || /(?:^|\s)(?:пар[ауы]?|занятия?|classes)(?![a-zа-яё])/i.test(c))) return {key: 'tasks_undone', id: 'study'};
+    if (/(?:went to|attended|was at|been to|был[аи]? на|сходил[аи]? на|отсидел[аи]?)\s+(?:all\s+(?:my\s+)?|the\s+|my\s+|всех\s+|все\s+)?(?:classes|lectures|class|lecture|уроках|урок|парах|пары|пару|лекциях|лекции|занятиях|занятия)(?![a-zа-яё])/i.test(c)) return {key: 'tasks_done', id: 'study'};
+  }
   const neg = /didn.?t|did not|не сделал|не успел|пропустил|skipped/i.test(c);
   if (!neg && !/(?:^|\s)(?:did|done|finished|completed|сделал[аи]?|выполнил[аи]?|сходил[аи]? в зал|был[аи]? в зале|worked out)(?![a-zа-яё])/i.test(c)) return null;
   const tasks = getDay(date).tasks || [];

@@ -2388,6 +2388,7 @@ function tellLines0(r, date){
   cleanTrack(r.track).forEach(x => lines.push(`${actOf(x.a).name}: ${fmtMin(x.min)}`));
   cleanGoalAdds(r.goal_add).forEach(x => lines.push(trf('Цель «{t}»: +{n}', {t: x.g.title, n: num(x.n) + (x.g.unit ? ' ' + x.g.unit : '')})));
   cleanTodoDone(r.todo_done).forEach(t => lines.push('✓ ' + t.title));
+  if (+r.budget > 0 && +r.budget <= 1e7) lines.push(trf('Бюджет на месяц: {a}', {a: money(+r.budget)}) + (S.docs['app/budget']?.monthly ? ' ' + trf('вместо {b}', {b: money(S.docs['app/budget'].monthly)}) : ''));
   if (r.timer?.start && allActs().includes(r.timer.start)) lines.push(trf('Таймер: {a}, с этой минуты', {a: actOf(r.timer.start).name}));
   if (r.timer?.stop && TRACK) lines.push(trf('Остановить таймер: {a}', {a: actOf(TRACK.a).name}));
   if (lateOK(r.late)) lines.push(trf('Расписание на сегодня сдвинется на {m} мин', {m: r.late}));
@@ -2415,6 +2416,7 @@ A.tellApply = el => {
   (r.money || []).forEach(m => { if (DATE_RE.test(m?.date || '')) touched.add('money/' + m.date.slice(0, 7)); }); // money on another day may be in another month
   cleanBed(r.bed).forEach(x => touched.add('days/' + x.date));
   touched.add('days/' + todayISO()); // a to-do ticked off can add study time to today
+  touched.add('app/budget');
   UNDO = [...touched].map(p => [p, S.docs[p] === undefined ? undefined : clone(S.docs[p])]);
   mutDay(date, d => {
     (r.tasks_done||[]).forEach(id => { const t = d.tasks.find(x=>x.id===id); if (t) t.done = true; });
@@ -2435,6 +2437,7 @@ A.tellApply = el => {
   cleanTodoDone(r.todo_done).forEach(t => { creditStudy(t); saveTasks(tasksDone(smartTasks(), t.id, todayISO())); }); // the same as ticking it: a repeating one gets its next date
   cleanClassOff(r.class_off).forEach(x => classOff(x.date, x.keys));
   if (lateOK(r.late)) lateApply(+r.late);
+  if (+r.budget > 0 && +r.budget <= 1e7) save('app/budget', {...(S.docs['app/budget'] || {}), monthly: Math.round(+r.budget * 100) / 100});
   if (r.timer?.stop && TRACK) setTimeout(trackStop, 400); // after the "done" toast, so its own toast with Undo is the one seen
   else if (r.timer?.start && allActs().includes(r.timer.start) && !FOCUS) setTimeout(() => trackStart(r.timer.start), 400);
   cleanBed(r.bed).forEach(x => mutDay(x.date, d => { d.shift = d.shift || {}; d.shift.sleep = x.at - x.base; if (!d.shift.sleep) delete d.shift.sleep; }));
@@ -4880,6 +4883,7 @@ function localTellParse(text, date, opts = {}){
     .reduce((a, x) => { if (a.length && WD_START.test(x) && REPEAT_CUE.test(a[a.length - 1])){ a[a.length - 1] += ' и ' + x; return a; } if (a.length && (/^(?:from\s+|с\s+)?\d{1,2}(?::\d\d)?\s*(?:am|pm)?\s*(?:to|till|until|-|–|до)\s*\d/i.test(x) || (/^\d+(?:[.,]\d+)?\s*(?:h|hrs?|hours?|ч|час[а-яё]*)$/i.test(x) && /спал|slept|sleep|сон/i.test(a[a.length - 1]) && !/\d/.test(a[a.length - 1])))) a[a.length - 1] += ' ' + x; else a.push(x); return a; }, []); // "9am to 11am" belongs to the clause before
   let ctxDate = null; // "tomorrow dentist at 10 and gym at 18": the gym is tomorrow too
   for (const c0 of parts){
+    { const bd = localBudget(c0); if (bd){ r.budget = bd; continue; } } // "budget 500 this month"
     { const tm = date === todayISO() && localTimer(c0); if (tm){ r.timer = tm; continue; } } // "starting to study now": the Study timer
     { const lt = date === todayISO() && localLate(c0); if (lt){ r.late = lt; continue; } } // "running 20 minutes late": the rest of today moves
     { const wk = localWake(c0, date); if (wk){ (r.wake = r.wake || []).push(wk); continue; } }
@@ -7386,6 +7390,13 @@ const WORK_DUE_RE = /(?:^|\s)(?:essay|coursework|assignment|project|thesis|repor
 const PLAN_CUE_RE = /(?:^|\s)(?:need to|have to|going to|plan to|want to|will|should|gonna|надо|нужно|хочу|планирую|буду|собираюсь|должен|должна)(?![a-zа-яё])|every day|каждый день/i;
 // a date said in words: today, tomorrow, a weekday, "20 December", "the 15th", "the weekend"
 const hasDateWord = x => /(?:^|\s)(?:today|tomorrow|tonight|yesterday|сегодня|завтра|послезавтра|вчера|позавчера)(?![a-zа-яё])/i.test(x) || WD_RU.some(([re]) => new RegExp('(?:^|\\s)' + re + '(?![a-zа-яё])', 'i').test(x)) || MONTH_DATE.test(' ' + x + ' ') || DOM_RE.test(' ' + x + ' ') || SOFT_DATE_RE.test(' ' + x + ' ') || /\d{4}-\d\d-\d\d/.test(x);
+/* ---- "budget 500 this month", "бюджет 30000 на месяц": the monthly budget ---- */
+function localBudget(c){
+  const x = c.replace(/(\d+(?:[.,]\d+)?)(?:k|к)(?![a-zа-яё])/gi, (m0, a) => String(Math.round(toN(a) * 1000)));
+  const m = x.match(new RegExp('^(?:(?:my|set|set my|мой|поставь|установи)\\s+)?(?:monthly\\s+)?(?:budget|бюджет)(?:\\s+(?:is|for the month|this month|per month|a month|на месяц|в месяц|на этот месяц))*\\s*[:—–-]?\\s*' + AMT + '(?:\\s+(?:this month|per month|a month|на месяц|в месяц))?\\s*$', 'i'));
+  if (!m) return null;
+  const a = amountOf(m[1], m[2]); return a > 0 ? a : null;
+}
 /* ---- "starting to study", "сажусь за учёбу": the timer starts; "done studying" stops one that runs ---- */
 function localTimer(c){
   if (/\d/.test(c)) return null; // with a time or a duration it's a log or a plan, read elsewhere

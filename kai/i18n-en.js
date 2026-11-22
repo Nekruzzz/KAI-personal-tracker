@@ -2603,4 +2603,6 @@ window.I18N_EN = {
 "больше, чем неделей раньше":"more than the week before",
 "меньше, чем неделей раньше":"less than the week before",
 "Как у меня дела?":"How am I doing?",
+"Бюджет на месяц: {a}":"Monthly budget: {a}",
+"вместо {b}":"instead of {b}",
 };

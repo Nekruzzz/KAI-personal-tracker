@@ -4118,3 +4118,18 @@ test('"next week" starts on the coming Monday, Sunday included (dow is 1-7)', ()
   assert.equal(run(`addDays('2026-11-22', 8 - dow('2026-11-22'))`), '2026-11-23');
   assert.equal(run(`addDays('2026-11-23', 8 - dow('2026-11-23'))`), '2026-11-30', 'on a Monday, the Monday after');
 });
+
+test('"budget 500 this month" sets the monthly budget, shown first with the old one, with Undo', () => {
+  run(`globalThis.bdB = clone(S.docs['app/budget'] || null); save('app/budget', {monthly: 400}); globalThis.inboxB2 = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('бюджет 30к на месяц', todayISO()).r.budget)`)), 30000);
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('budget meeting at 3', todayISO()).r.budget ?? null)`)), null);
+    run(`SH = {}; tellLocal('budget 500 this month', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).some(l => /^Monthly budget: .*500 instead of .*400/.test(l)));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`S.docs['app/budget'].monthly`), 500);
+    run(`A.undoApply()`);
+    assert.equal(run(`S.docs['app/budget'].monthly`), 400);
+  } finally { run(`closeSheetQuiet(); if (bdB) save('app/budget', bdB); else remove('app/budget'); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxB2.includes(k)).forEach(k => remove(k))`); }
+});

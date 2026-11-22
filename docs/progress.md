@@ -317,6 +317,8 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 - **Fix: push-ups on the home program.** "did 3 sets of 10 pushups" was logged as the gym's chest press even for someone on the home program; exercises from the program being followed now come first.
 - **"How am I doing?" / "как у меня дела?"** is answered on the phone: today's tasks (and whether the day counts), the streak, the last 7 days against the week before, and up to two goals with their pace.
 
+- **The monthly budget by message:** "budget 500 this month", "бюджет 30к на месяц" set it, shown first next to the old one, with Undo.
+
 ### Screens
 
 - **Day tab order:** the "now" card (what to do right now: sleep, next class, next task) moved from the middle of the page to right under the greeting.

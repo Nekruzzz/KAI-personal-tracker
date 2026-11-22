@@ -7684,7 +7684,7 @@ function scheduleAnswer(t){
   }
   if (!/(?:what|which|что|какие|какой|какая|anything|есть ли|plans?|план[а-яё]*|schedule|расписани[а-яё]*|have|у меня|classes|пар[аыу]?(?![а-яё])|дела)/i.test(t)) return null;
   if (/(?:this|next)\s+week|(?:на\s+)?(?:этой|следующей)\s+неделе|на неделю/i.test(t)){
-    const days = weekAheadDays(/next|следующ/i.test(t) ? addDays(today, 8 - dow(today)) : today).filter(d => d.items.length);
+    const days = weekAheadDays(/next|следующ/i.test(t) ? addDays(today, 8 - dow(today)) : today).filter(d => d.items.length); // dow: Monday 1 … Sunday 7, so this is next Monday (tomorrow on a Sunday)
     return days.length ? days.slice(0, 7).map(d => label(d.date) + ': ' + d.items.slice(0, 4).map(x => x.t).join(', ') + (d.items.length > 4 ? '…' : '')).join('\n') : tr('На неделю ничего не запланировано.');
   }
   const day = /(?:^|\s)(?:today|сегодня)(?![a-zа-яё])/i.test(t) ? today : hasDateWord(t) ? (parseQuick('x ' + t.replace(/\?/g, ''))?.due || null) : null;

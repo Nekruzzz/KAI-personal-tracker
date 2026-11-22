@@ -4112,3 +4112,9 @@ test('"how am I doing?" / "как у меня дела?" sums up today, the stre
   assert.match(run(`localAnswer('как у меня дела?')`), /Today:/);
   assert.equal(run(`localAnswer('how am I doing with money?')`) === run(`progressAnswer()`), false, 'a more specific question is not this one');
 });
+
+test('"next week" starts on the coming Monday, Sunday included (dow is 1-7)', () => {
+  assert.equal(run(`dow('2026-11-22')`), 7, 'a Sunday is 7');
+  assert.equal(run(`addDays('2026-11-22', 8 - dow('2026-11-22'))`), '2026-11-23');
+  assert.equal(run(`addDays('2026-11-23', 8 - dow('2026-11-23'))`), '2026-11-30', 'on a Monday, the Monday after');
+});

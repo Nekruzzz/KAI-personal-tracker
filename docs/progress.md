@@ -321,6 +321,8 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 
 - **Runs without a time:** "ran 5 km", "пробежал 5 км", "ran 3 miles" count as training at about 6 minutes a kilometre (30 minutes for 5 km), like walks at 12; a time said wins ("за 28 минут"), and a plan ("will run 5 km tomorrow") doesn't count.
 
+- **A savings goal by message:** "коплю на ноутбук 50000", "saving for a laptop 1.2k" start one (shown first, with Undo, not twice); money put in later ("отложил 1000 на ноутбук") goes to it as before.
+
 ### Screens
 
 - **Day tab order:** the "now" card (what to do right now: sleep, next class, next task) moved from the middle of the page to right under the greeting.

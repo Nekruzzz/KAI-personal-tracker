@@ -4141,3 +4141,22 @@ test('"ran 5 km" with no time is about 30 minutes of training; with a time, the 
   assert.deepEqual(p('ran 3 miles'), [{kind: 'gym', min: 29}]);
   assert.deepEqual(p('will run 5 km tomorrow'), [], 'a plan is not a run');
 });
+
+test('"коплю на ноутбук 50000" starts a savings goal, and money put in later goes to it', () => {
+  run(`globalThis.svD = clone(savingsDoc()); save('app/savings', {list: []}); globalThis.modS = meta().modules; setMeta({modules: {...(modS || {}), money: true}}); globalThis.inboxS = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    const p = t => JSON.parse(run(`JSON.stringify(localTellParse(${JSON.stringify(t)}, todayISO()).r.save_goals || null)`));
+    assert.deepEqual(p('коплю на ноутбук 50000'), [{title: 'Ноутбук', target: 50000}]);
+    assert.deepEqual(p('saving for a laptop 1.2k'), [{title: 'Laptop', target: 1200}]);
+    assert.equal(p('saved 100 for a laptop'), null, 'putting money in is not a new goal');
+    run(`SH = {}; tellLocal('saving for a laptop 1200', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).some(l => /^\+ savings goal: Laptop, target/.test(l)));
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(savings().map(g => [g.title, g.target, g.saved]))`)), [['Laptop', 1200, 0]]);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(localTellParse('saved 100 for the laptop', todayISO()).r.savings)`)).map(x => x.amount), [100], 'then money goes to it');
+    assert.equal(run(`cleanSaveGoals([{title: 'laptop', target: 500}]).length`), 0, 'not twice');
+    run(`A.undoApply()`);
+    assert.equal(run(`savings().length`), 0, 'Undo');
+  } finally { run(`closeSheetQuiet(); save('app/savings', svD); setMeta({modules: modS}); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxS.includes(k)).forEach(k => remove(k))`); }
+});

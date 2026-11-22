@@ -2605,4 +2605,5 @@ window.I18N_EN = {
 "Как у меня дела?":"How am I doing?",
 "Бюджет на месяц: {a}":"Monthly budget: {a}",
 "вместо {b}":"instead of {b}",
+"+ копилка: {t}, цель {a}":"+ savings goal: {t}, target {a}",
 };

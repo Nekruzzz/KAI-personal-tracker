@@ -325,6 +325,8 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 
 ### Screens
 
+- **Drop one line of a preview:** each line of a Tell KAI preview has a × that removes just that item (an expense read wrongly, a cancelled class that isn't), so the rest can still be applied. It works out which item each line comes from by trying without it, so it needs no per-feature code; a line that can't be told apart simply has no ×.
+
 - **Day tab order:** the "now" card (what to do right now: sleep, next class, next task) moved from the middle of the page to right under the greeting.
 - **Smaller tidy-ups:** the "Turn on AI" card has its button under the text, so the text is no longer squeezed; on Money, "Note a debt" and "Savings goal" share one row; in More, a signed-out account card no longer shows "Sending data to AI isn't allowed" or an empty usage button.
 - **Tell KAI sheet:** the text box now comes first, with voice and photo as two buttons side by side under it, then Analyze. Before, two full-width buttons and a note sat above the box and pushed it down.

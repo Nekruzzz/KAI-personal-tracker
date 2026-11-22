@@ -4175,3 +4175,22 @@ test('review fixes: one class back from a whole-day cancellation, "в 11 ноч�
     assert.equal(JSON.parse(run(`JSON.stringify(localDone('skipped the lab report', todayISO()))`))?.id === 'study', false);
   } finally { run(`delete globalThis.FORM; closeSheetQuiet(); save('app/plan', plR); if (dayR) save('days/' + tmR, dayR); else remove('days/' + tmR)`); }
 });
+
+test('one line of a Tell KAI preview can be dropped, and the rest is applied', () => {
+  run(`globalThis.inboxD = Object.keys(S.docs).filter(k => k.startsWith('inbox/')); globalThis.dayD = clone(S.docs['days/' + todayISO()] || null); globalThis.mD = clone(S.docs['money/' + todayISO().slice(0, 7)] || null); globalThis.modD = meta().modules; setMeta({modules: {...(modD || {}), money: true}})`);
+  try {
+    run(`SH = {}; tellLocal('slept 7 hours, spent 12 on lunch, walked 40 minutes', todayISO())`);
+    const id = run(`SH.jobId`), it = `S.docs['inbox/${id}']`;
+    const map = JSON.parse(run(`JSON.stringify(tellDropMap(${it}.result, todayISO(), tellLines(${it}.result, todayISO())))`));
+    const lines = JSON.parse(run(`JSON.stringify(tellLines(${it}.result, todayISO()))`));
+    assert.equal(map.filter(Boolean).length, lines.length, 'every line here can be dropped: ' + JSON.stringify([lines, map]));
+    assert.match(run(`jobView(${it})`), /data-act="tellDrop"/);
+    const k = lines.findIndex(l => /12/.test(l));
+    run(`A.tellDrop({dataset: {id: '${id}', f: '${map[k][0]}', i: '${map[k][1]}'}})`);
+    const after = JSON.parse(run(`JSON.stringify(tellLines(${it}.result, todayISO()))`));
+    assert.equal(after.length, lines.length - 1); assert.ok(!after.some(l => /12/.test(l)), 'the money line is gone');
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`getDay(todayISO()).sleep`), 7, 'the rest is applied');
+    assert.equal(run(`(S.docs['money/' + todayISO().slice(0, 7)]?.tx || []).some(t => t.date === todayISO() && t.amount === 12 && /lunch/.test(t.note))`), false, 'the dropped one is not');
+  } finally { run(`closeSheetQuiet(); if (dayD) save('days/' + todayISO(), dayD); if (mD) save('money/' + todayISO().slice(0, 7), mD); setMeta({modules: modD}); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxD.includes(k)).forEach(k => remove(k))`); }
+});

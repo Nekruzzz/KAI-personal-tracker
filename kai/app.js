@@ -2404,8 +2404,33 @@ function tellLines0(r, date){
 }
 function tellView(it){
   const r = it.result, lines = tellLines(r, it.meta.date), alerts = it.done ? [] : [...previewWarnings(r).map(w => w.text), ...(r.warnings||[]).filter(Boolean).map(String)];
-  return `<section class="card" style="background:var(--card);display:flex;flex-direction:column;gap:10px"><div class="ai-out">${esc(r.reply||'')}</div>${alerts.length?`<div class="banner" role="status">${ic('alert')}<div>${alerts.map(esc).join('<br>')}</div></div>`:''}${lines.length?`<ul class="ai-list">${lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:`<div class="hint">${tr("Не нашёл, что отметить. Опиши подробнее.")}</div>`}</section>${lines.length && !it.done?`<button class="btn block" data-act="tellApply" data-id="${it.id}">${ic('check')}${tr("Применить всё")}</button>`:''}`;
+  return `<section class="card" style="background:var(--card);display:flex;flex-direction:column;gap:10px"><div class="ai-out">${esc(r.reply||'')}</div>${alerts.length?`<div class="banner" role="status">${ic('alert')}<div>${alerts.map(esc).join('<br>')}</div></div>`:''}${lines.length?`<ul class="ai-list${it.done ? '' : ' tell-drop'}">${(() => { const drop = it.done ? [] : tellDropMap(r, it.meta.date, lines); return lines.map((l, i) => `<li>${esc(l)}${drop[i] ? `<button class="iconbtn" data-act="tellDrop" data-id="${it.id}" data-f="${esc(drop[i][0])}" data-i="${drop[i][1]}" aria-label="${tr('Убрать')}: ${esc(l)}">${ic('x')}</button>` : ''}</li>`).join(''); })()}</ul>`:`<div class="hint">${tr("Не нашёл, что отметить. Опиши подробнее.")}</div>`}</section>${lines.length && !it.done?`<button class="btn block" data-act="tellApply" data-id="${it.id}">${ic('check')}${tr("Применить всё")}</button>`:''}`;
 }
+/* ---- one wrong line in a preview can be dropped, without rejecting the rest ---- */
+// which item of the answer each line comes from: drop it, see which line goes. Lines that can't be told apart get no button.
+const TELL_KEEP = new Set(['reply', 'warnings', 'care']);
+function tellWithout(r, f, i){
+  const x = clone(r);
+  if (Array.isArray(x[f])) x[f].splice(i, 1); else delete x[f];
+  return x;
+}
+function tellDropMap(r, date, lines){
+  const out = [], count = ls => ls.reduce((m, l) => m.set(l, (m.get(l) || 0) + 1), new Map()), all = count(lines);
+  Object.keys(r).filter(f => !TELL_KEEP.has(f) && r[f] != null && r[f] !== '' && !(Array.isArray(r[f]) && !r[f].length)).forEach(f => {
+    (Array.isArray(r[f]) ? r[f].map((_, i) => i) : [-1]).forEach(i => {
+      let gone; try { const left = count(tellLines(tellWithout(r, f, i), date)); gone = [...all].filter(([l, n]) => (left.get(l) || 0) < n).map(([l]) => l); } catch { return; }
+      if (gone.length !== 1) return; // one item, one line; anything else stays as it is
+      const k = lines.findIndex((l, j) => l === gone[0] && !out[j]); if (k >= 0) out[k] = [f, i];
+    });
+  });
+  return out;
+}
+A.tellDrop = el => {
+  const it = S.docs['inbox/' + el.dataset.id]; if (!it || it.done) return;
+  save('inbox/' + it.id, {...it, result: tellWithout(it.result, el.dataset.f, +el.dataset.i)});
+  haptic('light');
+  const out = SH?.outId && $('#' + SH.outId); if (out && SH.jobId === it.id) out.innerHTML = jobView(S.docs['inbox/' + it.id]) + (it.provider === 'local' && aiStatus().ok ? `<button class="link" style="align-self:flex-start" data-act="tellAI" data-id="${it.id}">${ic('spark', 'link-ic')}${tr('Разобрать через ИИ')}</button>` : ''); else if (SH) drawSheet();
+};
 A.tellApply = el => {
   const it = S.docs['inbox/'+el.dataset.id]; if (!it || it.done) return; // a second tap before the screen redraws must not log it twice
   const r = it.result, date = it.meta.date, now = new Date();

@@ -4160,3 +4160,18 @@ test('"коплю на ноутбук 50000" starts a savings goal, and money pu
     assert.equal(run(`savings().length`), 0, 'Undo');
   } finally { run(`closeSheetQuiet(); save('app/savings', svD); setMeta({modules: modS}); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxS.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('review fixes: one class back from a whole-day cancellation, "в 11 ночи", renamed classes keep cancellations, "lab report" is not a class', () => {
+  run(`globalThis.plR = clone(plan()); globalThis.tmR = addDays(todayISO(), 1); globalThis.dayR = S.docs['days/' + tmR]; remove('days/' + tmR);
+    { const pl = clone(plan()); pl.classes = [{day: dow(tmR), time: '09:00', title: 'Maths'}, {day: dow(tmR), time: '11:00', title: 'Physics'}]; if (pl.routine) delete pl.routine.classesStart; save('app/plan', pl); }`);
+  try {
+    run(`classOff(tmR, ['*']); A.classBack({dataset: {d: tmR, k: '09:00|maths'}})`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(classesOn(tmR).map(c => c.title))`)), ['Maths'], 'only Maths comes back');
+    assert.equal(JSON.parse(run(`JSON.stringify(localBed('сегодня лягу в 11 ночи', todayISO()))`)).at, 23 * 60);
+    assert.equal(JSON.parse(run(`JSON.stringify(localBed('сегодня лягу в 2 ночи', todayISO()))`)).at, 26 * 60);
+    const i = run(`plan().classes.findIndex(c => c.title === 'Physics')`);
+    run(`A.clsEdit({dataset: {i: '${i}'}}); globalThis.FORM = {'#ceN': 'Physics, room 7', '#ceD': String(dow(tmR)), '#ceT': '11:00', '#ceE': ''}; A.clsSave({dataset: {i: '${i}'}}); delete globalThis.FORM`);
+    assert.deepEqual(JSON.parse(run(`JSON.stringify(classesOn(tmR, true).filter(c => c.off).map(c => c.title))`)), ['Physics, room 7'], 'still cancelled after the rename');
+    assert.equal(JSON.parse(run(`JSON.stringify(localDone('skipped the lab report', todayISO()))`))?.id === 'study', false);
+  } finally { run(`delete globalThis.FORM; closeSheetQuiet(); save('app/plan', plR); if (dayR) save('days/' + tmR, dayR); else remove('days/' + tmR)`); }
+});

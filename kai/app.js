@@ -5022,7 +5022,7 @@ function localDone(c, date){
   // classes: "went to all classes", "был на парах" tick the day's study; "skipped physics", "прогулял пару" untick it
   if (tasks0.some(t => t.id === 'study')){
     const cls = classesOn(date), named = cls.some(x => wordsOf(x.title).some(a => wordsOf(c).some(b => sameWord(a, b))));
-    if (/(?:^|\s)(?:skipped|missed|skip|прогулял[аи]?|пропустил[аи]?|не пош[её]л|не пошла|не был[аи]? на)(?![a-zа-яё])/i.test(c) && (named || CLASS_RE.test(c) || /(?:^|\s)(?:пар[ауы]?|занятия?|classes)(?![a-zа-яё])/i.test(c))) return {key: 'tasks_undone', id: 'study'};
+    if (/(?:^|\s)(?:skipped|missed|skip|прогулял[аи]?|пропустил[аи]?|не пош[её]л|не пошла|не был[аи]? на)(?![a-zа-яё])/i.test(c) && (named || /(?:^|\s)(?:class(?:es)?|lectures?|seminars?|лекци[юяи]|семинар|пар[ауы]?|занятия?|урок[иа]?)(?![a-zа-яё])/i.test(c)) && !/report|homework|отч[её]т|домашк/i.test(c)) return {key: 'tasks_undone', id: 'study'}; // "skipped the lab report" is a to-do, not a class
     if (/(?:went to|attended|was at|been to|был[аи]? на|сходил[аи]? на|отсидел[аи]?)\s+(?:all\s+(?:my\s+)?|the\s+|my\s+|всех\s+|все\s+)?(?:classes|lectures|class|lecture|уроках|урок|парах|пары|пару|лекциях|лекции|занятиях|занятия)(?![a-zа-яё])/i.test(c)) return {key: 'tasks_done', id: 'study'};
   }
   const neg = /didn.?t|did not|не сделал|не успел|пропустил|skipped/i.test(c);
@@ -7453,7 +7453,7 @@ function localBed(c, date){
   if (!BED_RE.test(c) || /(?:^|\s)(?:went|slept|fell asleep|лёг|лег|легла|уснул[аи]?|заснул[аи]?|спал[аи]?)(?![a-zа-яё])/i.test(c)) return null;
   const m = c.match(/(?:^|\s)(?:at|в|около|around)\s*(\d{1,2})(?:[:.](\d\d))?\s*(am|pm|ночи|вечера)?(?![\d:])/i); if (!m) return null;
   let h = +m[1]; const min = +(m[2] || 0), mk = (m[3] || '').toLowerCase(); if (min > 59) return null;
-  if (mk === 'pm' || mk === 'вечера'){ if (h < 12) h += 12; } else if (mk === 'am' || mk === 'ночи'){ if (h === 12) h = 0; h += 24; }
+  if (mk === 'pm' || mk === 'вечера'){ if (h < 12) h += 12; } else if (mk === 'ночи' && h >= 6){ h += 12; } else if (mk === 'am' || mk === 'ночи'){ if (h === 12) h = 0; h += 24; } // "в 11 ночи" is 23:00, "в 2 ночи" 26:00
   else if (h <= 5) h += 24; else if (h <= 11) h += 12; else if (h === 12) h = 24;
   if (!(h >= 18 && h <= 29)) return null; // an evening or a night, not "at 14"
   const q = parseQuick('x ' + c.replace(m[0], ' ')), day = q?.due && !q.time ? q.due : date;
@@ -7478,7 +7478,8 @@ function classOff(date, keys){
     if (st && !st.done){ if (left) st.title = tr('Учёба · ') + left + ' ' + plural(left, tr('пара'), tr('пары'), tr('пар')); else d.tasks = d.tasks.filter(t => t.id !== 'study'); } // a day without classes doesn't ask for them
   });
 }
-A.classBack = el => withUndo(['days/' + el.dataset.d], () => mutDay(el.dataset.d, d => { d.clsOff = (d.clsOff || []).filter(k => k !== el.dataset.k && k !== '*'); const n = classesOn(el.dataset.d, false, d.clsOff).length; if (n && !d.tasks.some(t => t.id === 'study')) d.tasks.unshift({id: 'study', title: tr('Учёба · ') + n + ' ' + plural(n, tr('пара'), tr('пары'), tr('пар')), cat: 'study', done: false}); }), tr('Пара вернулась в расписание'));
+// a whole-day cancellation turns into the other classes' keys, so only this one comes back
+A.classBack = el => withUndo(['days/' + el.dataset.d], () => mutDay(el.dataset.d, d => { const all = (d.clsOff || []).includes('*') ? classesOn(el.dataset.d, true, []).map(clsKey) : []; d.clsOff = [...new Set([...(d.clsOff || []).filter(k => k !== '*'), ...all])].filter(k => k !== el.dataset.k); const n = classesOn(el.dataset.d, false, d.clsOff).length; if (n && !d.tasks.some(t => t.id === 'study')) d.tasks.unshift({id: 'study', title: tr('Учёба · ') + n + ' ' + plural(n, tr('пара'), tr('пары'), tr('пар')), cat: 'study', done: false}); }), tr('Пара вернулась в расписание'));
 /* cancelled classes in the next two weeks, each with a way back */
 function classOffList(){
   const t = todayISO(), rows = [];
@@ -7814,7 +7815,9 @@ A.clsSave = el => {
   if (!title) return toast(tr('Впиши предмет'));
   if (!time) return toast(tr('Укажи время начала'));
   if (!plan().classes?.[i]) return closeSheet();
-  withUndo(['app/plan'], () => { const pl = clone(plan()), c = {...pl.classes[i], day: +val('ceD'), time, title}; if (end && end > time) c.end = end; else delete c.end; pl.classes[i] = c; save('app/plan', pl); }, tr('Пара изменена'));
+  const old = plan().classes[i], oldKey = clsKey(old), offDays = Object.keys(S.docs).filter(k => k.startsWith('days/') && k.slice(5) >= todayISO() && (S.docs[k].clsOff || []).includes(oldKey));
+  withUndo(['app/plan', ...offDays], () => { const pl = clone(plan()), c = {...pl.classes[i], day: +val('ceD'), time, title}; if (end && end > time) c.end = end; else delete c.end; pl.classes[i] = c; save('app/plan', pl);
+    if (+c.day === +old.day) offDays.forEach(k => mutDay(k.slice(5), d => { d.clsOff = d.clsOff.map(x => x === oldKey ? clsKey(c) : x); })); }, tr('Пара изменена')); // a cancellation for a coming day follows the renamed class
   closeSheet();
 };
 

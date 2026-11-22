@@ -4194,3 +4194,20 @@ test('one line of a Tell KAI preview can be dropped, and the rest is applied', (
     assert.equal(run(`(S.docs['money/' + todayISO().slice(0, 7)]?.tx || []).some(t => t.date === todayISO() && t.amount === 12 && /lunch/.test(t.note))`), false, 'the dropped one is not');
   } finally { run(`closeSheetQuiet(); if (dayD) save('days/' + todayISO(), dayD); if (mD) save('money/' + todayISO().slice(0, 7), mD); setMeta({modules: modD}); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxD.includes(k)).forEach(k => remove(k))`); }
 });
+
+test('"main task today: finish the essay" stars the matching to-do (or makes one), shown first, with Undo', () => {
+  run(`globalThis.tkM = clone(smartTasks()); saveTasks([{id: 'e1', title: 'Finish the history essay', due: addDays(todayISO(), 2), done: false, pri: 2}]); globalThis.inboxM2 = Object.keys(S.docs).filter(k => k.startsWith('inbox/'))`);
+  try {
+    assert.equal(JSON.parse(run(`JSON.stringify(localTellParse('главное это здоровье', todayISO()).r.mit ?? null)`)), null, 'a thought, not a task');
+    run(`SH = {}; tellLocal('main task today: finish the essay', todayISO())`);
+    const id = run(`SH.jobId`);
+    assert.ok(JSON.parse(run(`JSON.stringify(tellLines(S.docs['inbox/${id}'].result, todayISO()))`)).some(l => /^Today's main task: Finish the history essay/.test(l)), 'the existing to-do is named');
+    run(`A.tellApply({dataset: {id: '${id}'}})`);
+    assert.equal(run(`isMit(smartTasks().find(t => t.id === 'e1'))`), true);
+    assert.equal(run(`smartTasks().length`), 1, 'no new to-do');
+    run(`A.undoApply()`);
+    assert.equal(run(`isMit(smartTasks().find(t => t.id === 'e1'))`), false);
+    run(`SH = {}; tellLocal('главная задача на сегодня: позвонить в банк', todayISO()); A.tellApply({dataset: {id: SH.jobId}})`);
+    assert.ok(run(`smartTasks().some(t => t.title === 'Позвонить в банк' && isMit(t))`), 'no match: a new to-do for today, starred');
+  } finally { run(`closeSheetQuiet(); saveTasks(tkM); Object.keys(S.docs).filter(k => k.startsWith('inbox/') && !inboxM2.includes(k)).forEach(k => remove(k))`); }
+});

@@ -323,6 +323,8 @@ Not verified: reading a real photo with a real AI (the proposal handling is test
 
 - **A savings goal by message:** "коплю на ноутбук 50000", "saving for a laptop 1.2k" start one (shown first, with Undo, not twice); money put in later ("отложил 1000 на ноутбук") goes to it as before.
 
+- **Today's main task by message:** "main task today: finish the essay", "главное сегодня — дописать эссе" star the open to-do that fits (or make a new one for today), shown first with the extra XP, with Undo. A bare "главное — здоровье" without "today" stays a thought.
+
 ### Screens
 
 - **Drop one line of a preview:** each line of a Tell KAI preview has a × that removes just that item (an expense read wrongly, a cancelled class that isn't), so the rest can still be applied. It works out which item each line comes from by trying without it, so it needs no per-feature code; a line that can't be told apart simply has no ×.
